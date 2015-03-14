@@ -24,6 +24,10 @@ int builtin(char **argv)
         } else if(strcmp(argv[0], "pwd") == 0) {
                 printf("%s\n", getenv("PWD"));
                 return 1;
+        } else if(strcmp(argv[0], "setenv") == 0) {
+                if(argv[1] == NULL || argv[2] == NULL) return 1;
+                setenv(argv[1], argv[2], 1);
+                return 1;
         }
         return 0;
 }
