@@ -1,28 +1,16 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <string.h>
 #include <termios.h>
 #include <fcntl.h>
 
-#include "parseline.h"
-#include "def.h"
-#include "env.h"
-
-char *in_m;
 int idx;
 int length;
-char buf[INPUT_MAX_LEN];
+char buf[300];
 
 void prompt()
 {
-        printf("%d %s$ ", getpid(), getenv("PWD"));
-}
-
-void free_cmd()
-{
-        free (in_m);        
+        printf(" > ");
 }
 
 void buf_mv(char in)
@@ -124,11 +112,8 @@ void buffer_rm(int bksp)
         reprint();
 }
 
-
 void init()
 {
-        default_jpsh_env();
-
         struct termios config;
         int fd;
 
@@ -152,13 +137,12 @@ void init()
                 exit(1);
         }
         close(fd);
-
 }
 
 int interp(char in, int pre)
 {
         if (in == '\n') {
-                buffer('\n');
+                printf("\n");
                 return -1;
         } else if (pre == 3) { // after [3 (or perhaps later /[\d/)
                 if (in == '~') buffer_rm(0);
@@ -199,18 +183,6 @@ int interp(char in, int pre)
                                 return 0;
                         case '':
                                 return 1;
-                        case '':
-                                while (idx > 0) {
-                                        idx--;
-                                        printf("[D");
-                                }
-                                return 0;
-                        case '':
-                                while (idx < length) {
-                                        idx++;
-                                        printf("[C");
-                                }
-                                return 0;
                         default:
                                 buffer(in);
                                 return 0;
@@ -237,20 +209,16 @@ void line_loop()
         }
 }
 
-int main (void)
+int main()
 {
         init();
 
+        // input loop
         while (1) {
                 prompt();
                 line_loop();
-
-                // line parsing stuff
-                in_m = malloc(strlen(buf) * sizeof(char));
-                strcpy (in_m, buf);
-
-                eval (in_m);
-                free (in_m);
+                // line-processing things with buf goes here
         }
+        
         return 0;
 }
