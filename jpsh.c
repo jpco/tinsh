@@ -10,18 +10,35 @@
 #include "def.h"
 #include "env.h"
 
+static int fd;
+static struct termios config;
+static tcflag_t o_stty;
+static tcflag_t m_stty;
+
 char *in_m;
+
 int idx;
 int length;
 char buf[INPUT_MAX_LEN];
 
 void prompt()
 {
-        printf("%d %s$ ", getpid(), getenv("PWD"));
+        if (strcpy(getenv("USER"), "root") == 0) {
+                printf("\e[1m%s#\e[0m ", getenv("PWD"));
+        } else {
+                printf("\e[1m%s$\e[0m ", getenv("PWD"));
+        }
 }
 
+// TODO: add another term to return echo & such!
 void free_cmd()
 {
+        config.c_lflag = o_stty;
+        if (tcsetattr(fd, TCSAFLUSH, &config) < 0) {
+                printf("tcsetattr failed\n");
+        }
+
+        close (fd);
         free (in_m);        
 }
 
@@ -45,10 +62,12 @@ void hist_mv(char in)
         // move through history sometime later
 }
 
+// TODO: fix printing for long strings
 void reprint()
 {
         int i;
         for (i = 0; i < idx; i++) printf("[D");
+//      non-colored output
         for (i = 0; i < length; i++) printf("%c", buf[i]);
         printf(" ");
         for (i = length+1; i > idx; i--) printf("[D");
@@ -65,11 +84,8 @@ void buffer(char in)
         buf[idx++] = in;
         length++;
 
-        if (idx < length) {
-                printf("[C");
-                reprint();
-        }
-        else printf("%c", in);
+        printf("[C");
+        reprint();
 }
 
 void sbuffer(char *in)
@@ -87,11 +103,8 @@ void sbuffer(char *in)
         }
         length += inlen;
 
-        if (idx < length) {
-                for (i = 0; i < inlen; i++) printf("[C");
-                reprint();
-        }
-        else printf("%s", in);
+        for (i = 0; i < inlen; i++) printf("[C");
+        reprint();
 }
 
 void ibuffer(char in, int lind) {
@@ -129,9 +142,6 @@ void init()
 {
         default_jpsh_env();
 
-        struct termios config;
-        int fd;
-
         // set canonical mode off
         const char *device = "/dev/tty";
         fd = open(device, O_RDWR);
@@ -145,14 +155,14 @@ void init()
                 exit(1);
         }
 
+        o_stty = config.c_lflag;
         config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN);
+        m_stty = config.c_lflag;
 
         if (tcsetattr(fd, TCSAFLUSH, &config) < 0) {
                 printf("tcsetattr failed\n");
                 exit(1);
         }
-        close(fd);
-
 }
 
 int interp(char in, int pre)
@@ -237,6 +247,32 @@ void line_loop()
         }
 }
 
+int prep_eval()
+{
+        if ((in_m = malloc(1 + strlen(buf) * sizeof(char))) == NULL) {
+                printf("malloc failed\n");
+                return -1;
+        }
+        strcpy (in_m, buf);
+
+        config.c_lflag = o_stty;
+        if (tcsetattr(fd, TCSAFLUSH, &config) < 0) {
+                printf("tcsetattr failed\n");
+                return -1;
+        }
+
+        return 0;
+}
+void unprep_eval()
+{
+        config.c_lflag = m_stty;
+        if (tcsetattr(fd, TCSAFLUSH, &config) < 0) {
+                printf("tcsetattr failed\n");
+        }
+
+        free (in_m);
+}
+
 int main (void)
 {
         init();
@@ -245,12 +281,9 @@ int main (void)
                 prompt();
                 line_loop();
 
-                // line parsing stuff
-                in_m = malloc(strlen(buf) * sizeof(char));
-                strcpy (in_m, buf);
-
-                eval (in_m);
-                free (in_m);
+                if (!prep_eval())
+                        eval (in_m);
+                unprep_eval();
         }
         return 0;
 }
