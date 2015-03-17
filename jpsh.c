@@ -5,8 +5,10 @@
 #include <string.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 
 #include "parseline.h"
+#include "hist.h"
 #include "def.h"
 #include "env.h"
 
@@ -16,21 +18,23 @@ static tcflag_t o_stty;
 static tcflag_t m_stty;
 
 char *in_m;
-
+static int prompt_length;
 int idx;
 int length;
 char buf[INPUT_MAX_LEN];
 
 void prompt()
 {
+        char prompt[200];
         if (strcpy(getenv("USER"), "root") == 0) {
-                printf("\e[1m%s#\e[0m ", getenv("PWD"));
+                sprintf(prompt, "\e[1m%s#\e[0m ", getenv("PWD"));
         } else {
-                printf("\e[1m%s$\e[0m ", getenv("PWD"));
+                sprintf(prompt, "\e[1m%s$\e[0m ", getenv("PWD"));
         }
+        prompt_length = strlen(getenv("PWD")) + 1;
+        printf("%s", prompt);
 }
 
-// TODO: add another term to return echo & such!
 void free_cmd()
 {
         config.c_lflag = o_stty;
@@ -39,6 +43,7 @@ void free_cmd()
         }
 
         close (fd);
+        hist_free();
         free (in_m);        
 }
 
@@ -57,20 +62,19 @@ void buf_mv(char in)
         }
 }
 
-void hist_mv(char in)
-{
-        // move through history sometime later
-}
-
 // TODO: fix printing for long strings
 void reprint()
 {
+        struct winsize w;
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+
         int i;
         for (i = 0; i < idx; i++) printf("[D");
 //      non-colored output
         for (i = 0; i < length; i++) printf("%c", buf[i]);
-        printf(" ");
-        for (i = length+1; i > idx; i--) printf("[D");
+        int num_spaces = w.ws_col - (length + prompt_length);
+        for (i = 0; i < num_spaces-2; i++) printf(" ");
+        for (i = length+num_spaces-2; i > idx; i--) printf("[D");
 }
 
 void buffer(char in)
@@ -85,6 +89,19 @@ void buffer(char in)
         length++;
 
         printf("[C");
+        reprint();
+}
+
+void rebuffer(char *in)
+{
+        int inlen = strlen(in);
+
+        strcpy(buf, in);
+        length = inlen;
+        int i;
+        for (i = 0; i < idx; i++) printf("[D\n");
+        idx = 0;
+
         reprint();
 }
 
@@ -168,7 +185,7 @@ void init()
 int interp(char in, int pre)
 {
         if (in == '\n') {
-                buffer('\n');
+                printf("\n");
                 return -1;
         } else if (pre == 3) { // after [3 (or perhaps later /[\d/)
                 if (in == '~') buffer_rm(0);
@@ -182,7 +199,7 @@ int interp(char in, int pre)
                                 return 0;
                         case 'A':
                         case 'B':
-                                hist_mv(in);
+                                rebuffer(hist_mv(in));
                                 return 0;
                         case '3':
                                 return 3;
@@ -249,11 +266,15 @@ void line_loop()
 
 int prep_eval()
 {
-        if ((in_m = malloc(1 + strlen(buf) * sizeof(char))) == NULL) {
+        if ((in_m = calloc(2 + strlen(buf), sizeof(char))) == NULL) {
                 printf("malloc failed\n");
                 return -1;
         }
         strcpy (in_m, buf);
+
+        hist_add(in_m);
+
+        in_m[strlen(in_m)] = ' ';
 
         config.c_lflag = o_stty;
         if (tcsetattr(fd, TCSAFLUSH, &config) < 0) {
