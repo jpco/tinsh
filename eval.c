@@ -20,13 +20,13 @@ void eval (char *cmdline)
 
         if (DEBUG) printjob (bg, argv);
 
-        if (!builtin(argv)) {
+        if (!builtin(argv, 0)) {
                 pid = fork();
                 int success;
                 if (pid < 0) {
                         printf("Fork error\n");
                 } else if (pid == 0) {
-                        success = try_exec(argv);
+                        success = try_exec(argv, 0);
                 }
 
                 if (!bg || !success) {

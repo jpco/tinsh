@@ -1,12 +1,12 @@
-#include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
+
 #include "parseline.h"
 #include "def.h"
 #include "str.h"
 
 int parseline (char *cmdline, char **argv)
 {
-        int argc = split_str(cmdline, argv, ' ');
+        int argc = split_str(cmdline, argv, ' ', 1);
 
         if (argc == 0)
                 return 1;
