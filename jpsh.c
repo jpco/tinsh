@@ -44,6 +44,7 @@ void free_cmd()
 
         close (fd);
         hist_free();
+        free_env();
         free (in_m);        
 }
 
@@ -157,7 +158,7 @@ void buffer_rm(int bksp)
 
 void init()
 {
-        default_jpsh_env();
+        jpsh_env();
 
         // set canonical mode off
         const char *device = "/dev/tty";

@@ -3,7 +3,6 @@
 
 #define INPUT_MAX_LEN 100
 #define MAX_ARGS 100
-#define DEBUG 1
 
 extern char **path;
 extern int path_n;
