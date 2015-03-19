@@ -23,7 +23,7 @@ int try_exec(char **argv, int no_exec)
         fp = popen (path, "r");
 
         if (fp == NULL) {
-                if (!no_exec) printf("error finding path\n");
+                if (!no_exec) printf("error finding path (1)\n");
                 return -1;
         }
 
@@ -41,7 +41,7 @@ int try_exec(char **argv, int no_exec)
                 return -1;
         }
 
-        if (!no_exec) printpath(path);
+        if (!no_exec && debug()) printpath(path);
         if (no_exec || execve(path, argv, environ) >= 0) return 0;
         else return -1;
 }

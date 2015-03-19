@@ -1,6 +1,17 @@
-#include<stdio.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#include "env.h"
 #include "debug.h"
 #include "def.h"
+
+int debug()
+{
+        char *ep = unenvar("debug");
+        if (ep == NULL) return 0;
+        if (*ep == '0') return 0;
+        else return 1;
+}
 
 void printjob (int bg, char **argv)
 {
