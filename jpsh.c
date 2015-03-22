@@ -95,10 +95,15 @@ void buffer(char in)
 
 void rebuffer(char *in)
 {
-        int inlen = strlen(in);
+        if (*in == '\0') {
+                length = 0;
+                *buf = '\0';
+        } else {
+                int inlen = strlen(in);
+                strcpy(buf, in);
+                length = inlen;
+        }
 
-        strcpy(buf, in);
-        length = inlen;
         int i;
         for (i = 0; i < idx; i++) printf("[D\n");
         idx = 0;
@@ -268,7 +273,7 @@ void line_loop()
 int prep_eval()
 {
         if ((in_m = calloc(2 + strlen(buf), sizeof(char))) == NULL) {
-                printf("malloc failed\n");
+                printf("calloc failed\n");
                 return -1;
         }
         strcpy (in_m, buf);

@@ -21,7 +21,7 @@ void printjob (int bg, char **argv)
         if(bg) printf("(background) ");
         printf("[%s] ", argv[0]);
         for (i = 1; argv[i] != NULL; i++) {
-                printf("%s ", argv[i]);
+                printf("'%s' ", argv[i]);
         }
         printf("\e[0m\n");
 }

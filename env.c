@@ -6,6 +6,7 @@
 #include "def.h"
 #include "str.h"
 #include "env.h"
+#include "debug.h"
 
 static var_t *aliases[MAX_ALIASES];
 static var_t *vars[MAX_VARS];
@@ -26,8 +27,8 @@ char *trim_line (char *line)
         while (*line == ' ' || *line == '\t') line++;
         int i;
         if (strlen(line) == 0) return "";
-        for (i = strlen(line)-1; line[i] == '\n' || 
-                                 line[i] == ' '; i--)
+        for (i = strlen(line)-1; i >= 0 && (line[i] == '\n' || 
+                                 line[i] == ' '); i--)
                 line[i] = '\0';
 
         char *nline = malloc ((1 + strlen(line)) * sizeof(char));
@@ -82,6 +83,17 @@ void arr_in (char *key, char *value, var_t **arr, int *len)
         strcpy(l_value, value);
         strcpy(l_key, key);
 
+        if (has_var(l_key)) {
+                int i;
+                for (i = 0; i < *len; i++) {
+                        if(strcmp(arr[i]->key, l_key) == 0) {
+                                arr[i]->value = l_value;
+
+                                free(l_key);
+                                return;
+                        }
+                }
+        }
         if (*len < MAX_VARS) {
                 arr[*len] = malloc(sizeof(var_t));
                 arr[*len]->key = l_key;
@@ -122,6 +134,11 @@ int has_var (char *l_key)
         return has_elt (l_key, vars, &vars_len);
 }
 
+int has_envvar (char *l_key)
+{
+        return (getenv(l_key) != NULL);
+}
+
 void free_env()
 {
         int i;
@@ -148,7 +165,6 @@ void jpsh_env()
                 return;
         }
 
-        if (debug()) printf("\e[2;35m");
         size_t n = 2000;
         char *rline = malloc((1+n)*sizeof(char));
         char *line;
@@ -167,16 +183,12 @@ void jpsh_env()
                 // section line
                 if (*line == '[' && line[linelen-1] == ']') {
                         if (strcmp(line, "[env]") == 0) {
-                                if (debug()) printf ("section env\n");
                                 sect = ENV;
                         } else if (strcmp(line,"[vars]") == 0) {
-                                if (debug()) printf ("section vars\n");
                                 sect = VARS;
                         } else if (strcmp(line,"[alias]") == 0) {
-                                if (debug()) printf ("section alias\n");
                                 sect = ALIAS;
                         } else if (strcmp(line,"[startup]") == 0) {
-                                if (debug()) printf ("section startup\n");
                                 sect = STARTUP;
                         } else sect = NONE;
                         free (line);
@@ -190,8 +202,12 @@ void jpsh_env()
                 }
 
                 if (sect == STARTUP) {
-                        if (debug()) printf("exec '%s'\n", line);
+                        line[strlen(line)] = ' ';
+                        char *db = unenvar("debug");
+                        if (db) envar("debug", "0");
+                        eval (line);
                         free (line);
+                        if (db) envar("debug", db);
                         continue;
                 }
 
@@ -205,7 +221,7 @@ void jpsh_env()
                 }
                 *spline[1] = '\0';
                 spline[1]++;
-                if (debug()) printf("key '%s' and val '%s'\n", spline[0], spline[1]);
+
                 if (sect == ENV) {
                         setenv(spline[0], spline[1], 1);
                 } else if(sect == ALIAS) {
@@ -215,7 +231,6 @@ void jpsh_env()
                 }
                 free (line);
         }
-        if (debug()) printf("\e[0m");
         free (rline);
         fclose (fp);
 }
