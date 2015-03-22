@@ -15,12 +15,12 @@
 
 char *expand_vars(char *line)
 {
-        if (*line == '\0') return;
+        if (*line == '\0') return "";
 
         char *buf = line;
         int linelen = strlen(line);
 
-        while (buf && (buf - line) < linelen) {
+        while (buf != NULL && (buf - line) < linelen) {
                 char *nbuf = strchr(buf, ' ');
                 if (nbuf == NULL) break;
                 char *nwd = malloc((1 + nbuf - buf)*sizeof(char));
@@ -29,18 +29,61 @@ char *expand_vars(char *line)
                 *nbuf = ' ';
                 if (has_alias(nwd)) {
                         char *exline;
-                        nbuf = exline+insert_str(line, &exline, unalias(nwd),
+                        nbuf = line+insert_str(line, &exline, unalias(nwd),
                                         buf - line, nbuf - line);
-//                        free (line);
                         line = exline;
                 }
                 free (nwd);
                 buf = nbuf+1;
         }
+
+        linelen = strlen(line);
+        buf = strchr(line, '(');
+        while (buf != NULL && *(buf-1) == '\\') {
+
+                rm_first_char(buf-1);
+                linelen--;
+
+                if (buf - line < linelen) {
+                        buf = strchr(buf, '(');
+                } else buf = NULL;
+        }
+
+        while (buf != NULL && (buf - line) < linelen) {
+                char *nbuf = strchr(buf, ')');
+                if (nbuf == NULL) break;
+                while (*(nbuf-1) == '\\') {
+                        rm_first_char(nbuf-1);
+                        linelen--;
+
+                        if (nbuf - line < linelen) {
+                                nbuf = strchr(nbuf, ')');
+                        } else nbuf = NULL;
+                }
+
+                char *nwd = malloc((nbuf - buf)*sizeof(char));
+                *nbuf = '\0';
+                strcpy(nwd, buf+1);
+                *nbuf = ')';
+                char *val = NULL;
+                if (has_var(nwd)) {
+                        val = unenvar(nwd);
+                } else if (has_envvar(nwd)) {
+                        val = getenv(nwd);
+                }
+                if (val) {
+                        char *exline;
+                        nbuf = line+insert_str(line, &exline, val, buf - line, nbuf - line + 1);
+                        line = exline;
+                }
+                free (nwd);
+                buf = nbuf+1;
+        }
+
         return line;
 }
 
-void eval (char *cmdline)
+void eval (char *cmdline) // cmdline always initialized w calloc()
 {
         char *argv[MAX_ARGS];
 

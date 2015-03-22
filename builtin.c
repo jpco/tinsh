@@ -26,12 +26,6 @@ int builtin(char **argv, int skipexec)
                 } else {
                         return 1;
                 }
-        } else if(strcmp(argv[0], "environ") == 0) {
-                if (skipexec) return 1;
-                int i;
-                for (i = 0; environ[i] != NULL; i++)
-                        printf("%s\n", environ[i]);
-                return 1;
         } else if(strcmp(argv[0], "pwd") == 0) {
                 if (skipexec) return 1;
                 printf("%s\n", getenv("PWD"));
@@ -40,6 +34,12 @@ int builtin(char **argv, int skipexec)
                 if (skipexec) return 1;
                 if(argv[1] == NULL || argv[2] == NULL) return 1;
                 setenv(argv[1], argv[2], 1);
+                return 1;
+        } else if(strcmp(argv[0], "lsenv") == 0) {
+                if (skipexec) return 1;
+                int i;
+                for (i = 0; environ[i] != NULL; i++)
+                        printf("%s\n", environ[i]);
                 return 1;
         } else if(strcmp(argv[0], "lsalias") == 0) {
                 if (skipexec) return 1;

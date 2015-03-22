@@ -15,6 +15,7 @@ void default_jpsh_env();
 char *unenvar(char *in);
 void envar(char *key, char *value);
 int has_var(char *key);
+int has_envvar(char *key);
 void ls_vars();
 
 char *unalias(char *in);

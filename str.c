@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "str.h"
@@ -16,31 +15,37 @@ int insert_str(char *str, char **buf, char *ins, int idx1, int idx2)
         if (idx1 > len || idx2 > len) return -1;
         if (idx1 > idx2) return -1;
 
-        *buf = calloc(idx1+inslen+len-idx2+1, sizeof(char));
+        *buf = calloc(idx1+inslen+len-idx2, sizeof(char));
        
-//        printf("%d, %d, %d, %d\n", len, inslen, idx1, idx2);
         int i;
         for (i = 0; i < idx1; i++) {
                 (*buf)[i] = str[i];
-//                printf(".%c", nstr[i]);
         }
         for (i = idx1; i < idx1+inslen; i++) {
                 (*buf)[i] = ins[i-idx1];
-//                printf(",%c", nstr[i]);
         }
-        for (i = idx1+inslen; i < 1+idx1+inslen+len-idx2; i++) {
-                (*buf)[i] = str[idx2+i-inslen];
-//                printf("/%c", nstr[i+idx1+inslen]);
+        for (i = 0; i < len-idx2; i++) {
+                (*buf)[i+idx1+inslen] = str[i+idx2];
         }
 
-//        printf("'%s', '%s', '%s'\n", str, ins, *buf);
         return idx1+inslen;
+}
+
+void rm_first_char(char *str)
+{
+        int i;
+        for (i = 0; i < strlen(str); i++) {
+                str[i] = str[i+1];
+        }
 }
 
 int split_str(char *str, char **output, char delim, int rm_mul)
 {
+        // buf keeps track of start of current word
+        // tm_buf keeps track of current word after escaped spaces
         int strl = strlen(str);
         char *buf = str;
+        char *tm_buf = buf;
         char *del_loc;
         int ct;
 
@@ -51,7 +56,13 @@ int split_str(char *str, char **output, char delim, int rm_mul)
                         buf++;
 
         ct = 0;
-        while (*buf != '\0' && (del_loc = strchr(buf, delim))) {
+        tm_buf = buf;
+        while (*buf != '\0' && (del_loc = strchr(tm_buf, delim))) {
+                if (*(del_loc - 1) == '\\') {
+                        rm_first_char(del_loc-1);
+                        tm_buf = del_loc;
+                        continue;
+                }
                 output[ct++] = buf;
                 *del_loc = '\0';
                 buf = del_loc + 1;
@@ -60,6 +71,7 @@ int split_str(char *str, char **output, char delim, int rm_mul)
                                 buf++;
                         }
                 }
+                tm_buf = buf;
         }
         output[ct] = NULL;
 
