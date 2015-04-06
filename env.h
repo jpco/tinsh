@@ -8,6 +8,7 @@ typedef struct {
 
 // getters & setters
 void set_var (char *key, char *value);
+void unset_var (char *key);
 int has_var (char *key);
 char *get_var (char *key);
 void ls_vars ();
