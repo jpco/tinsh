@@ -8,6 +8,8 @@
 #include "cd.h"
 #include "defs.h"
 #include "eval.h"
+#include "str.h"
+#include "env.h"
 
 // self include
 #include "exec.h"
@@ -19,9 +21,7 @@ static int pid;
 int sigchild (int signo)
 {
         if (pid == 0) return 0;
-        else {
-                kill (pid, signo);
-        }
+        else kill (pid, signo);
 }
 
 /**
@@ -51,14 +51,56 @@ int builtin (int argc, char **argv)
                 }
                 if (cd (argv[1]) > 0) return 2;
                 else return 1;
-        } else if (strcmp (argv[0], "pwd") == 0) {
+        } else if (olstrcmp (argv[0], "pwd")) {
                 printf("%s\n", getenv ("PWD"));
                 return 1;
-        } else if (strcmp (argv[0], "lsvars") == 0) {
+        } else if (olstrcmp (argv[0], "lsvars")) {
                 ls_vars();
                 return 1;
-        } else if (strcmp (argv[0], "lsalias") == 0) {
+        } else if (olstrcmp (argv[0], "lsalias")) {
                 ls_alias();
+                return 1;
+        } else if (olstrcmp (argv[0], "set")) {
+                if (argc < 3) {
+                        printf ("Too few args.\n");
+                } else {
+                        set_var (argv[1], argv[2]);
+                }
+                return 1;
+        } else if (olstrcmp (argv[0], "setenv")) {
+                if (argc < 3) {
+                        printf ("Too few args.\n");
+                } else {
+                        setenv (argv[1], argv[2], 1);
+                }
+                return 1;
+        } else if (olstrcmp (argv[0], "unset")) {
+                if (argc < 2) {
+                        printf ("Too few args.\n");
+                } else {
+                        unset_var (argv[1]);
+                }
+                return 1;
+        } else if (olstrcmp (argv[0], "unenv")) {
+                if (argc < 2) {
+                        printf ("Too few args.\n");
+                } else {
+                        unsetenv (argv[1]);
+                }
+                return 1;
+        } else if (olstrcmp (argv[0], "alias")) {
+                if (argc < 3) {
+                        printf ("Too few args.\n");
+                } else {
+                        set_alias (argv[1], argv[2]);
+                }
+                return 1;
+        } else if (olstrcmp (argv[0], "unalias")) {
+                if (argc < 2) {
+                        printf ("Too few args.\n");
+                } else {
+                        unset_alias (argv[1]);
+                }
                 return 1;
         }
 
@@ -67,6 +109,9 @@ int builtin (int argc, char **argv)
 
 void printjob (int argc, char **argv, int bg)
 {
+        char *db = get_var ("debug");
+        if (db == NULL) return;
+        else free (db);
         printf ("\e[0;35m");
         if (bg) printf ("(background) ");
         printf ("[%s] ", argv[0]);
