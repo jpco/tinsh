@@ -96,6 +96,30 @@ void set_var (char *key, char *value)
         set_value (key, value, vars, &vars_len, MAX_VARS);
 }
 
+void unset_value (char *key, var_t **arr, int *arr_len)
+{
+        int i;
+        for (i = 0; i < *arr_len; i++) {
+                if (strcmp (arr[i]->key, key) == 0) {
+                        var_t *torm = arr[i];
+                        int j;
+                        for (j = i; j < *arr_len-1; j++) {
+                                arr[j] = arr[j+1];
+                        }
+                        arr[--(*arr_len)] = NULL;
+                        free (torm->key);
+                        free (torm->value);
+                        free (torm);
+                }
+        }
+}
+
+
+void unset_var (char *key)
+{
+        unset_value (key, vars, &vars_len);
+}
+
 void ls_vars (void)
 {
         printf ("Vars:\n");
@@ -107,6 +131,11 @@ void ls_vars (void)
 void set_alias (char *key, char *value)
 {
         set_value (key, value, aliases, &alias_len, MAX_ALIASES);
+}
+
+void unset_alias (char *key)
+{
+        unset_value (key, aliases, &alias_len);
 }
 
 int has_alias (char *key)

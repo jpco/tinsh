@@ -13,7 +13,7 @@
 static char **jobs;
 static char *job; static char **argv;
 
-// does very important things.
+// does, as a famous man once said, "the thing".
 void eval (char *cmdline)
 {
 /*
@@ -40,6 +40,7 @@ void eval (char *cmdline)
         int big_i;
         for (big_i=0; jobs[big_i] != NULL; big_i++) {
                 job = trim_str (jobs[big_i]);
+                if (*job == '\0') continue;
 
                 // STEP 2: expand aliases
                 char *jbuf;
@@ -63,32 +64,31 @@ void eval (char *cmdline)
                 }
 
                 // STEP 3: expand vars
-/*                jbuf = job;
-                while ((njbuf = strchr (jbuf, '(')) != NULL) {
-                        if (jbuf != job && *(jbuf-1) == '\\') {
+                jbuf = job;
+                char *cbuf = jbuf;
+                while ((jbuf = strchr (cbuf, '(')) != NULL) {
+                        if ((cbuf = strchr (jbuf, ')')) == NULL)
+                                break;
+                        if (jbuf > job && *(jbuf-1) == '\\') {
                                 rm_char (jbuf-1);
+                                cbuf = jbuf;
                                 continue;
                         }
+                        *cbuf = '\0';
+                        char *val;
+                        if ((val = get_var (jbuf+1)) == NULL)
+                                val = getenv (jbuf+1);
+                        if (val == NULL) val = "";
 
-                        njbuf = strchr (jbuf, ')');
-                        if (njbuf == NULL) break;
-                        if (njbuf = jbuf+1) {
-                                rm_char (jbuf);
-                                rm_char (jbuf);
-                                continue;
-                        }
-
-                        jbuf++;
-                        *njbuf = '\0';
-                        if (has_var (jbuf)) {
-                                char *val = get_var (jbuf);
-                                *(jbuf-1) = '\0';
-                                char *njob = vcombine_str('\0', 3,
-                                                job, val, njbuf+1);
-                                free (job);
-                                job = njob;
-                        }
-                } */
+                        *jbuf = '\0';
+                        char *njob = vcombine_str ('\0', 3,
+                                        job, val, cbuf+1);
+                        int jbdiff = jbuf - job;
+                        jbuf = njob + jbdiff;
+                        free (job);
+                        job = njob;
+                        cbuf = jbuf;
+                }
 
                 // STEP 4: separate args
                 // TODO: backslash-escaping works but "" doesn't
