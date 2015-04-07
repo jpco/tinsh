@@ -16,6 +16,7 @@
 #include "env.h"
 #include "str.h"
 #include "linebuffer.h"
+#include "hist.h"
 
 // don't need self-include for main
 
@@ -204,6 +205,7 @@ int main (int argc, char **argv)
 
         init_shell();
         atexit (pre_exit);
+        atexit (free_hist);
         if (signal (SIGINT, sigint_handler) == SIG_ERR) {
                 printf ("Can't catch SIGINT\n");
         }
