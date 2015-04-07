@@ -6,6 +6,7 @@
 #include "defs.h"
 #include "str.h"
 #include "env.h"
+#include "hist.h"
 
 // self-include
 #include "linebuffer.h"
@@ -59,9 +60,9 @@ void buffer (char cin)
 
 void rebuffer (char *sin)
 {
+        memset (buf, 0, MAX_LINE * sizeof(char));
         if (*sin == '\0') {
                 length = 0;
-                *buf = 0;
         } else {
                 strcpy (buf, sin);
                 length = strlen(sin);
@@ -151,14 +152,21 @@ int interp (char cin, int status)
                 }
                 return 3;
         } else if (status == 2) {
+                char *nline = NULL;
                 switch (cin) {
                         case 'D':
                         case 'C':
                                 buffer_mv (cin);
                                 return 0;
                         case 'A':
+                                nline = hist_up();
+                                rebuffer (nline);
+                                free (nline);
+                                return 0;
                         case 'B':
-                                // TODO: history
+                                nline = hist_down();
+                                rebuffer (nline);
+                                free (nline);
                                 return 0;
                         case '3':
                                 return 3;
@@ -221,5 +229,6 @@ char *line_loop (void)
 
         free (sprompt);
 
+        hist_add (buf);
         return buf;
 }
