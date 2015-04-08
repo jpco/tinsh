@@ -24,3 +24,4 @@ Worse than sh!
  - Broaden .jpshrc location support
  - Readline/config support
  - Generally less-brittle parsing
+ - Mom's Old-Fashioned Home-Made Syscall Safety

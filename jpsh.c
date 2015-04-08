@@ -2,12 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-
-// terminal attribute includes
-#include <termios.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
 #include <signal.h>
 
 // local includes
@@ -17,16 +11,12 @@
 #include "str.h"
 #include "linebuffer.h"
 #include "hist.h"
+#include "term.h"
 
 // don't need self-include for main
 
-// term config files
-static int fd;
-static struct termios config;
-static tcflag_t o_stty;
-static tcflag_t m_stty;
-
-
+// Very basic signal handler.
+// TODO: this should handle more signals
 void sigint_handler (int signo)
 {
         sigchild (signo);
@@ -98,87 +88,6 @@ int parse_args(int argc, char **argv, char **cmd)
 }
 
 /*
- * Pre-evaluation function for setting up environment before
- * parsing & executing a command. (Generally, for un-fscking
- * up things important for the shell which mess with normal
- * execution)
- * Argument:
- *  - line: the cmdline which is to be evaluated
- * Returns:
- *  - 0 on success, ready to evaluate & execute
- *  - non-zero otherwise.
- */
-int pre_eval (char *line)
-{
-        config.c_lflag = o_stty;
-        if (tcsetattr(fd, TCSAFLUSH, &config) < 0) {
-                printf("tcsetattr failed\n");
-                return -1;
-        }
-
-        return 0;
-}
-
-/*
- * Post-evaluation function for re-establishing shell environment.
- */
-void post_eval (char *line)
-{
-//        free (line);
-
-        config.c_lflag = m_stty;
-        if (tcsetattr(fd, TCSAFLUSH, &config) < 0) {
-                printf("tcsetattr failed\n");
-                exit (1);
-        }
-}
-
-/**
- * Prepares the shell for interaction
- */
-void init_shell (void)
-{
-        // turn off canonical mode
-        const char *device = "/dev/tty";
-        fd = open (device, O_RDWR);
-        int err = errno;
-        if (fd == -1) {
-                printf ("Failed to set shell attributes (1): %s\n",
-                                strerror(err));
-                exit(1);
-        }
-        int retcode = tcgetattr(fd, &config);
-        err = errno;
-        if (retcode < 0) {
-                printf ("Failed to set shell attributes (2): %s\n",
-                                strerror(err));
-                exit(1);
-        }
-
-        o_stty = config.c_lflag;
-        config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN);
-        m_stty = config.c_lflag;
-
-        retcode = tcsetattr(fd, TCSAFLUSH, &config);
-        err = errno;
-        if (retcode < 0) {
-                printf ("Failed to set shell attributes (3): %s\n",
-                                strerror(err));
-                exit (1);
-        }
-}
-
-void pre_exit (void)
-{
-        config.c_lflag = o_stty;
-        if (tcsetattr(fd, TCSAFLUSH, &config) < 0)
-                printf("tcsetattr failed\n");
-
-        close (fd);
-        free_env();
-}
-
-/*
  * The main method.
  * Arguments -- jpsh [options] [command | file]
  *  -c ./configfile: uses ./configfile as the config file
@@ -203,9 +112,10 @@ int main (int argc, char **argv)
         }
         if (!(argcode & 2)) return 0;
 
-        init_shell();
-        atexit (pre_exit);
+        term_init();
+        atexit (free_env);
         atexit (free_hist);
+        atexit (term_exit);
         if (signal (SIGINT, sigint_handler) == SIG_ERR) {
                 printf ("Can't catch SIGINT\n");
         }
@@ -214,10 +124,10 @@ int main (int argc, char **argv)
         while (1) {
                 char *line = line_loop();
 
-                if (*line != '\0' && !pre_eval (line)) {
+                if (*line != '\0' && !term_prep()) {
                         eval (line);
                 }
-                post_eval (line);
+                term_unprep();
         }
 
         return 0;
