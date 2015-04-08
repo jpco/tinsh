@@ -7,6 +7,7 @@
 #include "str.h"
 #include "env.h"
 #include "hist.h"
+#include "term.h"
 
 // self-include
 #include "linebuffer.h"
@@ -26,10 +27,14 @@ void prompt (void)
                 // TODO: parse prompt
                 sprompt = get_var ("prompt");
         } else {
-                sprompt = vcombine_str('\0', 2, getenv ("PWD"), "$ ");
+                sprompt = vcombine_str('\0', 3, "\e[1m..",
+                                strrchr (getenv ("PWD"), '/'), "$\e[0m ");
         }
-        prompt_length = strlen(sprompt)+1;
+
+        int row = 0;
         printf("%s", sprompt);
+        fflush(stdout);         // so cursor_pos works correctly
+        if (cursor_pos (&row, &prompt_length)) prompt_length = 25;
 }
 
 void reprint (void)

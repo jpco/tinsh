@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
@@ -15,6 +16,9 @@
 #include "exec.h"
 
 static int pid;
+static const char *builtins[12] = {"exit", "cd", "pwd",
+        "lsvars", "lsalias", "set", "setenv", "unset",
+        "unenv", "alias", "unalias", NULL};
 
 // returns 1 if child is/was running,
 // 0 otherwise
@@ -22,6 +26,62 @@ int sigchild (int signo)
 {
         if (pid == 0) return 0;
         else kill (pid, signo);
+}
+
+/**
+ * Checks if "cmd" can be executed, given the current
+ * PATH and builtins.
+ *
+ * Returns 2 for a builtin, 1 for an executable file,
+ * 0 for nothing executable.
+ *
+ * NOTE: Probably not 100% accurate.
+ *
+ * WARNING!! Don't use directly prior to executing!!
+ * Can lead to nasty vulnerabilities and bugs!!
+ */
+int chk_exec (char *cmd)
+{
+        int i;
+        for (i = 0; builtins[i] != NULL; i++) {
+                if (olstrcmp(cmd, builtins[i])) return 2;
+        }
+
+        if (strchr (cmd, '/')) { // absolute path
+                return (1 + access (cmd, X_OK));
+        }
+
+        // relative path
+
+/*        char *path = getenv ("PATH");
+        if (path == NULL)
+                path = ":/bin:/usr/bin";
+        int len = strlen (cmd);
+        int pathlen = strlen (path);
+        char *cpath = path;
+        char *buf = path;
+
+        while ((buf = strchr (cpath, ':'))) {
+                *buf = '\0';
+                char *curr_cmd;
+                if (buf == cpath) { // current directory
+                        curr_cmd = vcombine_str ('/', 2,
+                                        getenv ("PWD"), cmd);
+                } else if (*(buf-1) != '/') { // then need to add '/'
+                        curr_cmd = vcombine_str ('/', 2, cpath, cmd);
+                } else {
+                        curr_cmd = vcombine_str ('\0', 2, cpath, cmd);
+                }
+
+                if (access (curr_cmd, X_OK)) {
+                        free (curr_cmd);
+                        return 1;
+                }
+
+                cpath = buf + 1;
+        } */
+
+        return 0;
 }
 
 /**
@@ -41,10 +101,10 @@ int sigchild (int signo)
  */
 int builtin (int argc, char **argv)
 {
-        if (strcmp (argv[0], "exit") == 0) {
+        if (olstrcmp (argv[0], "exit")) {
                 atexit (free_ceval);
                 exit (0);
-        } else if (strcmp (argv[0], "cd") == 0) {
+        } else if (olstrcmp (argv[0], "cd")) {
                 if (argv[1] == NULL) { // going HOME
                         if (cd (getenv("HOME")) > 0) return 2;
                         else return 1;
