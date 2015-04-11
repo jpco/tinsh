@@ -7,29 +7,39 @@
 
 #include "cd.h"
 #include "defs.h"
+#include "debug.h"
 
-int cd(char *arg)
+int cd (const char *arg)
 {
+        if (arg == NULL || *arg == '\0') return 1;
         char *pwd = getenv("PWD");
 
         char newwd[100];
         if (*arg == '/') {
                 strcpy(newwd, arg);
         } else {
+                if (pwd == NULL) {
+                        print_err ("PWD undefined; could not cd.");
+                        return 1;
+                }
                 snprintf(newwd, 100, "%s/%s", pwd, arg);
         }
 
         char newwd_c[PATH_MAX];
-        realpath(newwd, newwd_c);
+        if (!realpath(newwd, newwd_c)) {
+                int err = errno;
+                print_err_wno ("Could not get realpath", err);
+                return 1;
+        }
 
         if (setenv("PWD", newwd_c, 1) != 0) {
                 int er = errno;
-                printf("Error! %s\n", strerror(er));
+                print_err_wno ("Could not set new PWD value", er);
                 return 1;
         }
         if (chdir(newwd_c) != 0) {
                 int er = errno;
-                printf("Error (2)! %s\n", strerror(er));
+                print_err_wno ("Could not internally change cwd", er);
                 setenv("PWD", pwd, 1);
                 return 1;
         }
