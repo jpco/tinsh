@@ -11,6 +11,8 @@
 #include "eval.h"
 #include "str.h"
 #include "env.h"
+#include "debug.h"
+#include "eval.h"
 
 // self include
 #include "exec.h"
@@ -20,12 +22,22 @@ static const char *builtins[12] = {"exit", "cd", "pwd",
         "lsvars", "lsalias", "set", "setenv", "unset",
         "unenv", "alias", "unalias", NULL};
 
-// returns 1 if child is/was running,
-// 0 otherwise
+/**
+ * Kills the child process.
+ *
+ * Returns 0 if the child was successfully killed, nonzero otherwise.
+ */
 int sigchild (int signo)
 {
-        if (pid == 0) return 0;
-        else kill (pid, signo);
+        if (pid == 0) return 1;
+        else {
+                if ((kill (pid, signo)) < 0) {
+                        print_err_wno ("Could not kill child", errno);
+                        return 2;
+                } else {
+                        return 0;
+                }
+        }
 }
 
 /**
@@ -40,7 +52,7 @@ int sigchild (int signo)
  * WARNING!! Don't use directly prior to executing!!
  * Can lead to nasty vulnerabilities and bugs!!
  */
-int chk_exec (char *cmd)
+int chk_exec (const char *cmd)
 {
         int i;
         for (i = 0; builtins[i] != NULL; i++) {
@@ -85,9 +97,6 @@ int chk_exec (char *cmd)
 }
 
 /**
- * NOTE:
- *  - won't mash args (I don't know why it would)
- *
  * Executes the builtin functions within jpsh.
  *
  * Arguments:
@@ -99,8 +108,10 @@ int chk_exec (char *cmd)
  *  - 1 if the builtin successfully executed
  *  - 2 if there was an error
  */
-int builtin (int argc, char **argv)
+int builtin (int argc, const char **argv)
 {
+        if (strchr(argv[0], '/')) return 0;
+
         if (olstrcmp (argv[0], "exit")) {
                 atexit (free_ceval);
                 exit (0);
@@ -122,42 +133,42 @@ int builtin (int argc, char **argv)
                 return 1;
         } else if (olstrcmp (argv[0], "set")) {
                 if (argc < 3) {
-                        printf ("Too few args.\n");
+                        print_err ("Too few args.\n");
                 } else {
                         set_var (argv[1], argv[2]);
                 }
                 return 1;
         } else if (olstrcmp (argv[0], "setenv")) {
                 if (argc < 3) {
-                        printf ("Too few args.\n");
+                        print_err ("Too few args.\n");
                 } else {
                         setenv (argv[1], argv[2], 1);
                 }
                 return 1;
         } else if (olstrcmp (argv[0], "unset")) {
                 if (argc < 2) {
-                        printf ("Too few args.\n");
+                        print_err ("Too few args.\n");
                 } else {
                         unset_var (argv[1]);
                 }
                 return 1;
         } else if (olstrcmp (argv[0], "unenv")) {
                 if (argc < 2) {
-                        printf ("Too few args.\n");
+                        print_err ("Too few args.\n");
                 } else {
                         unsetenv (argv[1]);
                 }
                 return 1;
         } else if (olstrcmp (argv[0], "alias")) {
                 if (argc < 3) {
-                        printf ("Too few args.\n");
+                        print_err ("Too few args.\n");
                 } else {
                         set_alias (argv[1], argv[2]);
                 }
                 return 1;
         } else if (olstrcmp (argv[0], "unalias")) {
                 if (argc < 2) {
-                        printf ("Too few args.\n");
+                        print_err ("Too few args.\n");
                 } else {
                         unset_alias (argv[1]);
                 }
@@ -167,7 +178,10 @@ int builtin (int argc, char **argv)
         return 0;
 }
 
-void printjob (int argc, char **argv, int bg)
+/**
+ * If "debug" is defined in the shell, prints the passed job.
+ */
+void printjob (int argc, const char **argv, int bg)
 {
         char *db = get_var ("debug");
         if (db == NULL) return;
@@ -182,7 +196,10 @@ void printjob (int argc, char **argv, int bg)
         printf("\e[0m\n");
 }
 
-void try_exec (int argc, char **argv, int bg)
+/**
+ * Attempts to execute the given job.
+ */
+void try_exec (int argc, const char **argv, int bg)
 {
         printjob (argc, argv, bg);
 
@@ -190,20 +207,28 @@ void try_exec (int argc, char **argv, int bg)
                 int success = 0;
                 int err = 0;
                 pid = fork();
-                if (pid < 0) printf ("Fork error\n");
+                if (pid < 0) print_err_wno ("Fork error.", errno);
                 else if (pid == 0) {
                         success = execvpe (argv[0], argv, environ);
                         err = errno;
-                        printf ("jpsh: ");
                         if (err == 2) {
-                                printf ("command '%s' not found.\n",
-                                                argv[0]);
+                                print_err ("Command not found.");
+                        } else {
+                                print_err_wno ("Execution error.", err);
                         }
+
+                        // clean up memory!
+                        free_ceval();
                 }
                 if (!bg || !success) {
                         int status = 0;
-                        if (waitpid (pid, &status, 0) < 0)
+                        if (waitpid (pid, &status, 0) < 0) {
+                                int err = errno;
+                                if (err != 10) {
+                                        dbg_print_err_wno ("Waitpid error.",errno);
+                                }
                                 exit (1);
+                        }
                 }
                 pid = 0;
         }

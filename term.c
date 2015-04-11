@@ -27,13 +27,6 @@ char rd (void)
         else return 0;
 }
 
-/**
- * Function to get the current cursor position.
- * Assumes we are currently during the linebuffer
- * period, not during evaluation/execution.
- *
- * Returns 0 on success, nonzero otherwise.
- */
 int cursor_pos (int *row, int *col)
 {
         int retval = write (fd, "[6n", 4);    // printf ("[6n"); 
@@ -45,46 +38,35 @@ int cursor_pos (int *row, int *col)
                 cbuf[idx++] = cval;
         }
 
-        int success = sscanf(cbuf+2, "%d;%dR", row, col);
-        return !success;
+        int l_row = 0;
+        int l_col = 0;
+        int success = sscanf(cbuf+2, "%d;%dR", &l_row, &l_col);
+        if (success) {
+                *row = l_row;
+                *col = l_col;
+                return 0;
+        } else return 1;
 }
 
-/*
- * Pre-evaluation function for setting up environment before
- * parsing & executing a command. (Generally, for un-fscking
- * up things important for the shell which mess with normal
- * execution)
- * Argument:
- *  - line: the cmdline which is to be evaluated
- * Returns:
- *  - 0 on success, ready to evaluate & execute
- *  - non-zero otherwise.
- */
 int term_prep (void)
 {
         config.c_lflag = o_stty;
         if (tcsetattr(fd, TCSAFLUSH, &config) < 0) {
-                printf ("tcsetattr failed\n");
+                print_err_wno ("tcsetattr failed.", errno);
                 return -1;
         }
 
         return 0;
 }
 
-/**
- * Re-establishes the shell environment for the linebuffer.
- */
 void term_unprep (void)
 {
         config.c_lflag = m_stty;
         if (tcsetattr(fd, TCSAFLUSH, &config) < 0) {
-                printf("tcsetattr failed\n");
+                print_err_wno("tcsetattr failed.", errno);
         }
 }
 
-/**
- * Initializes the terminal
- */
 void term_init (void)
 {
         // turn off canonical mode
@@ -92,15 +74,15 @@ void term_init (void)
         fd = open (device, O_RDWR);
         int err = errno;
         if (fd == -1) {
-                printf ("Failed to set shell attributes (1): %s\n",
-                                strerror(err));
+                print_err_wno ("Failed to set shell attributes (1).",
+                                err);
                 exit(1);
         }
         int retcode = tcgetattr(fd, &config);
         err = errno;
         if (retcode < 0) {
-                printf ("Failed to set shell attributes (2): %s\n",
-                                strerror(err));
+                print_err_wno ("Failed to set shell attributes (2).",
+                                err);
                 exit(1);
         }
 
@@ -111,8 +93,8 @@ void term_init (void)
         retcode = tcsetattr(fd, TCSAFLUSH, &config);
         err = errno;
         if (retcode < 0) {
-                printf ("Failed to set shell attributes (3): %s\n",
-                                strerror(err));
+                print_err_wno ("Failed to set shell attributes (3).",
+                                err);
                 exit (1);
         }
 }
@@ -121,7 +103,9 @@ void term_exit (void)
 {
         config.c_lflag = o_stty;
         if (tcsetattr(fd, TCSAFLUSH, &config) < 0)
-                printf("tcsetattr failed\n");
+                print_err_wno("tcsetattr failed.", errno);
 
-        close (fd);
+        do {
+                close (fd);
+        } while (errno == EINTR);
 }

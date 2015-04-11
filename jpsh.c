@@ -12,6 +12,7 @@
 #include "linebuffer.h"
 #include "hist.h"
 #include "term.h"
+#include "debug.h"
 
 // don't need self-include for main
 
@@ -35,12 +36,16 @@ void parse_file (char *fstr)
         FILE *fp = fopen (fstr, "r");
         int err = errno;
         if (fp == NULL) {
-                printf ("jpsh: Error interpreting file: %s\n", strerror(err));
+                print_err_wno ("Error interpreting file.", err);
                 return;
         }
 
         size_t n = MAX_LINE;
         char *rline = malloc ((1+n)*sizeof(char));
+        if (rline == NULL && errno == ENOMEM) {
+                print_err ("Could not allocate memory to parse file.");
+                return;
+        }
         char *line;
         int read = getline (&rline, &n, fp);
         for (; read >= 0; read = getline (&rline, &n, fp)) {
@@ -69,7 +74,6 @@ int parse_args(int argc, char **argv, char **cmd)
         int i;
         for (i = 1; i < argc; i++) {
                 char *carg = argv[i];
-                printf(" - arg %s\n", carg);
                 if (strcmp(carg, "-e") == 0) {
                         // maybe pre_eval?
                         if (i < argc - 1)
@@ -106,8 +110,7 @@ int main (int argc, char **argv)
         if (argcode & 1) {
                 init_env();
         }
-        if (exec != NULL) { // exec!
-                // pre_eval?????!!!!
+        if (exec != NULL) {
                 eval (exec);
         }
         if (!(argcode & 2)) return 0;
@@ -117,7 +120,7 @@ int main (int argc, char **argv)
         atexit (free_hist);
         atexit (term_exit);
         if (signal (SIGINT, sigint_handler) == SIG_ERR) {
-                printf ("Can't catch SIGINT\n");
+                print_err ("Cannot catch SIGINT.");
         }
 
         // interactivity

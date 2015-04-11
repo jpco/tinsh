@@ -1,9 +1,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 
 // local includes
 #include "defs.h"
+#include "str.h"
+#include "debug.h"
 
 // self-include
 #include "hist.h"
@@ -18,10 +21,17 @@ static unsigned int base_pos;
 // if pos = len, we are below history
 static unsigned int pos;
 
-void hist_add (char *line)
+void hist_add (const char *line)
 {
-        if (line == "") return;
+        if (*line == '\0') return;
+
+        if (len > 0 && olstrcmp(hist[base_pos], line)) return;
+
         char *hline = malloc ((strlen(line)+1) * sizeof(char));
+        if (hline == NULL && errno == ENOMEM) {
+                print_err ("Could not malloc new history entry.");
+                return;
+        }
         strcpy (hline, line);
 
         if (len == LEN_HIST) {  // full history
@@ -40,12 +50,6 @@ void hist_add (char *line)
         }
 }
 
-/**
- * NOTE:
- *  - returned char* is newly allocated on the heap!
- *
- * Cannot hurt hist (I think)...
- */
 char *hist_up (void)
 {
         char *retval = NULL;
@@ -73,12 +77,6 @@ char *hist_up (void)
         return ret;
 }
 
-/**
- * NOTE:
- *  - returned char* is newly allocated on the heap!
- *
- * Cannot hurt hist (I think)...
- */
 char *hist_down (void)
 {
         char *retval = NULL;
@@ -96,7 +94,11 @@ char *hist_down (void)
                 if (pos == len) retval = "";
                 else retval = hist[pos];
         }
-char *ret = malloc ((strlen(retval)+1) * sizeof(char));
+        char *ret = malloc ((strlen(retval)+1) * sizeof(char));
+        if (ret == NULL && errno == ENOMEM) {
+                print_err ("Could not malloc string to return.");
+                return;
+        }
         strcpy (ret, retval);
 
         return ret;
