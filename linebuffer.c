@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 // local includes
 #include "defs.h"
@@ -8,6 +9,7 @@
 #include "env.h"
 #include "hist.h"
 #include "term.h"
+#include "debug.h"
 
 // self-include
 #include "linebuffer.h"
@@ -209,25 +211,27 @@ int interp (char cin, int status)
         }
 }
 
-/**
- * NOTE:
- *  - returned char* is allocated in the heap!
- *
- * The main line-buffer loop. This is what is in charge in between each
- * line eval.
- */
 char *line_loop (void)
 {
         char cin[2];
         idx = 0;
         length = 0;
+        errno = 0;
         buf = calloc (MAX_LINE, sizeof(char));
+        if (errno == ENOMEM) {
+                print_err ("Line loop calloc failed.");
+                return NULL;
+        }
 
         prompt();
 
         int status = 0;
         while (1) {
                 fgets(cin, 2, stdin);
+                if (cin == NULL) {
+                        print_err_wno ("Error during linebuffer.", errno);
+                        continue;
+                }
                 status = interp(*cin, status);
                 if (status == -1) break;
         }

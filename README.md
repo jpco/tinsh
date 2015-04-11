@@ -17,11 +17,12 @@ Worse than sh!
  - History
 
 ### Todo (in no particular order)
- - Line coloration! (I have already tried and failed to implement this twice)
+FINISH chk\_exec!!!!
+ - Line coloration! (I have already tried and failed to implement this twice) (including settings to toggle on/off)
  - Piping/redirection (have to set up the stdin/stdout alteration)
  - Tab autocompletion
  - Quotes, both the " and ' kind
  - Broaden .jpshrc location support
- - Readline/config support
+ - Readline/config support?
  - Generally less-brittle parsing
  - Mom's Old-Fashioned Home-Made Syscall Safety

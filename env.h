@@ -6,23 +6,35 @@ typedef struct {
         char *value;
 } var_t;
 
-// getters & setters
-void set_var (char *key, char *value);
-void unset_var (char *key);
-int has_var (char *key);
-char *get_var (char *key);
+/**
+ * Defines or overwrites the variable; if there is an
+ * error, does not affect the array.
+ */
+void set_var (const char *key, const char *value);
+// Undefines the variable.
+void unset_var (const char *key);
+// Returns 1 if the variable is defined, 0 otherwise.
+int has_var (const char *key);
+// Returns the value of the variable.
+char *get_var (const char *key);
+// Lists all of the variables.
 void ls_vars ();
 
-void set_alias (char *key, char *value);
-int has_alias (char *key);
-char *get_alias (char *key);
+// Same as the above functions but with aliases.
+void set_alias (const char *key, const char *value);
+int has_alias (const char *key);
+char *get_alias (const char *key);
 void ls_alias ();
 
-// environment destruction
+// Frees the environment.
 void free_env ();
 
-// environment initialization
+// Initializes the environment with the default
+// configuration paths.
 void init_env ();
-void init_envp (char *path);
+
+// Initializes the environment with the passed
+// path.
+void init_envp (const char *path);
 
 #endif
