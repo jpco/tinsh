@@ -96,18 +96,26 @@ char *combine_str(const char **strs, int arrlen, char delim)
                 len += strlen(strs[i]);
         }
 
-        char *comb;
-        if (delim == '\0') comb = calloc (len+1, sizeof(char));
-        else comb = malloc (arrlen+len * sizeof(char));
+        char *comb = calloc (len+1, sizeof(char));
+        if (delim != '\0') {
+                free (comb);
+                comb = calloc ((arrlen+len+1), sizeof(char));
+        }
         if (errno == ENOMEM) {
                 print_err ("Could not malloc to combine str");
                 return NULL;
         }
 
+        int ctotal = 0;
         for (i = 0; i < arrlen; i++) {
-                strcat (comb, strs[i]);
-                if (delim != '\0')
-                        strcat (comb, &delim);
+                int j;
+                for (j = 0; strs[i][j] != '\0'; j++) {
+                        comb[ctotal+j] = strs[i][j];
+                }
+                ctotal += j;
+                if (delim != '\0' && i < arrlen-1) {
+                        comb[ctotal++] = delim;
+                }
         }
         return comb;
 }

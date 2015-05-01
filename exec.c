@@ -13,20 +13,16 @@
 #include "env.h"
 #include "debug.h"
 #include "eval.h"
+#include "color.h"
 
 // self include
 #include "exec.h"
 
 static int pid;
-static const char *builtins[12] = {"exit", "cd", "pwd",
+static const char *builtins[13] = {"exit", "cd", "pwd",
         "lsvars", "lsalias", "set", "setenv", "unset",
-        "unenv", "alias", "unalias", NULL};
+        "unenv", "alias", "unalias", "color", NULL};
 
-/**
- * Kills the child process.
- *
- * Returns 0 if the child was successfully killed, nonzero otherwise.
- */
 int sigchild (int signo)
 {
         if (pid == 0) return 1;
@@ -40,20 +36,9 @@ int sigchild (int signo)
         }
 }
 
-/**
- * Checks if "cmd" can be executed, given the current
- * PATH and builtins.
- *
- * Returns 2 for a builtin, 1 for an executable file,
- * 0 for nothing executable.
- *
- * NOTE: Probably not 100% accurate.
- *
- * WARNING!! Don't use directly prior to executing!!
- * Can lead to nasty vulnerabilities and bugs!!
- */
 int chk_exec (const char *cmd)
 {
+        if (*cmd == '\0') return 0;
         int i;
         for (i = 0; builtins[i] != NULL; i++) {
                 if (olstrcmp(cmd, builtins[i])) return 2;
@@ -64,10 +49,9 @@ int chk_exec (const char *cmd)
         }
 
         // relative path
-
-/*        char *path = getenv ("PATH");
+        char *path = getenv ("PATH");
         if (path == NULL)
-                path = ":/bin:/usr/bin";
+                path = "/bin:/usr/bin";
         int len = strlen (cmd);
         int pathlen = strlen (path);
         char *cpath = path;
@@ -76,7 +60,7 @@ int chk_exec (const char *cmd)
         while ((buf = strchr (cpath, ':'))) {
                 *buf = '\0';
                 char *curr_cmd;
-                if (buf == cpath) { // current directory
+                if (buf == cpath) { // initial :, so current dir
                         curr_cmd = vcombine_str ('/', 2,
                                         getenv ("PWD"), cmd);
                 } else if (*(buf-1) != '/') { // then need to add '/'
@@ -85,29 +69,20 @@ int chk_exec (const char *cmd)
                         curr_cmd = vcombine_str ('\0', 2, cpath, cmd);
                 }
 
-                if (access (curr_cmd, X_OK)) {
+                if (!access (curr_cmd, X_OK)) {
                         free (curr_cmd);
+                        *buf = ':';
                         return 1;
                 }
 
+                free (curr_cmd);
+                *buf = ':';
                 cpath = buf + 1;
-        } */
+        }
 
         return 0;
 }
 
-/**
- * Executes the builtin functions within jpsh.
- *
- * Arguments:
- *  - argc: the number of args
- *  - argv: the arguments
- *
- * Returns:
- *  - 0 if there is no builtin with this name
- *  - 1 if the builtin successfully executed
- *  - 2 if there was an error
- */
 int builtin (int argc, const char **argv)
 {
         if (strchr(argv[0], '/')) return 0;
@@ -118,69 +93,63 @@ int builtin (int argc, const char **argv)
         } else if (olstrcmp (argv[0], "cd")) {
                 if (argv[1] == NULL) { // going HOME
                         if (cd (getenv("HOME")) > 0) return 2;
-                        else return 1;
                 }
                 if (cd (argv[1]) > 0) return 2;
-                else return 1;
         } else if (olstrcmp (argv[0], "pwd")) {
                 printf("%s\n", getenv ("PWD"));
-                return 1;
         } else if (olstrcmp (argv[0], "lsvars")) {
                 ls_vars();
-                return 1;
         } else if (olstrcmp (argv[0], "lsalias")) {
                 ls_alias();
-                return 1;
         } else if (olstrcmp (argv[0], "set")) {
                 if (argc < 3) {
                         print_err ("Too few args.\n");
                 } else {
                         set_var (argv[1], argv[2]);
                 }
-                return 1;
         } else if (olstrcmp (argv[0], "setenv")) {
                 if (argc < 3) {
                         print_err ("Too few args.\n");
                 } else {
                         setenv (argv[1], argv[2], 1);
                 }
-                return 1;
         } else if (olstrcmp (argv[0], "unset")) {
                 if (argc < 2) {
                         print_err ("Too few args.\n");
                 } else {
                         unset_var (argv[1]);
                 }
-                return 1;
         } else if (olstrcmp (argv[0], "unenv")) {
                 if (argc < 2) {
                         print_err ("Too few args.\n");
                 } else {
                         unsetenv (argv[1]);
                 }
-                return 1;
         } else if (olstrcmp (argv[0], "alias")) {
                 if (argc < 3) {
                         print_err ("Too few args.\n");
                 } else {
                         set_alias (argv[1], argv[2]);
                 }
-                return 1;
         } else if (olstrcmp (argv[0], "unalias")) {
                 if (argc < 2) {
                         print_err ("Too few args.\n");
                 } else {
                         unset_alias (argv[1]);
                 }
-                return 1;
+        } else if (olstrcmp (argv[0], "color")) {
+                if (argc < 2) {
+                        print_err ("Too few args.\n");
+                } else {
+                        color_line (argc-1, argv+1);
+                }
+        } else {
+                return 0;
         }
 
-        return 0;
+        return 1;
 }
 
-/**
- * If "debug" is defined in the shell, prints the passed job.
- */
 void printjob (int argc, const char **argv, int bg)
 {
         char *db = get_var ("debug");
@@ -196,9 +165,6 @@ void printjob (int argc, const char **argv, int bg)
         printf("\e[0m\n");
 }
 
-/**
- * Attempts to execute the given job.
- */
 void try_exec (int argc, const char **argv, int bg)
 {
         printjob (argc, argv, bg);
