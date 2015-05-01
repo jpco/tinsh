@@ -11,6 +11,8 @@
 #include "term.h"
 #include "debug.h"
 
+#include "color.h"
+
 // self-include
 #include "linebuffer.h"
 
@@ -50,6 +52,11 @@ void reprint (void)
 
         printf("[%dG%s[K[%dG", prompt_length, buf,
                         prompt_length + idx);
+}
+
+char *color_buf (char *oin)
+{
+        
 }
 
 void buffer (char cin)
