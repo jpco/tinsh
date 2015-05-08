@@ -18,11 +18,11 @@ Worse than sh!
  - History
 
 ### Todo (in no particular order)
- - Line coloration! (exists as command 'color', not in-buffer)
+AUTOCOMPLETION
+ - Line coloration (exists as command 'color', upon enter, not in-buffer)
  - Piping/redirection (have to set up the stdin/stdout alteration)
- - Tab autocompletion
+ - Tab autocompletion / bash autocomplete support
  - Quotes, both the " and ' kind
  - Broaden .jpshrc location support
  - Readline/config support?
  - Generally less-brittle parsing
- - Mom's Old-Fashioned Home-Made Syscall Safety

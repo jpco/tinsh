@@ -10,8 +10,8 @@
 #include "hist.h"
 #include "term.h"
 #include "debug.h"
-
 #include "color.h"
+#include "compl.h"
 
 // self-include
 #include "linebuffer.h"
@@ -19,8 +19,11 @@
 static int idx;
 static int length;
 static int prompt_length;
+
 static char *buf;
 static char *sprompt;
+static char *wds[MAX_LINE];
+static int nwds;
 
 /**
  * Decides the prompt & prints it
@@ -54,9 +57,42 @@ void reprint (void)
                         prompt_length + idx);
 }
 
-char *color_buf (char *oin)
+void rewd (void)
 {
-        
+        nwds = 0;
+        int i;
+//        printf("\n");
+        for (i = 0; i < length; i++) {
+                if (is_separator(buf[i])) {
+//                        printf("sep\n");
+                        wds[nwds++] = buf+i;
+                } else if (i == 0 || is_separator(buf[i-1])) {
+//                        printf("lsep\n");
+                        wds[nwds++] = buf+i;
+                }
+        }
+        for (i = nwds; i < MAX_LINE; i++) {
+                wds[i] = NULL;
+        }
+}
+
+void rmwd (int index)
+{
+        char *loc = buf + index;
+        int i;
+        for (i = 0; loc > wds[i]; i++);
+        int j;
+        for (j = i; j < nwds; j++) {
+                wds[j] = wds[j+1];
+        }
+        nwds--;
+}
+void thiswd (char **start, char **end)
+{
+        int i;
+        for (i = nwds-1; i >= 0 && wds[i] > buf+idx; i--);
+        *start = wds[i];
+        *end = wds[i+1];
 }
 
 void buffer (char cin)
@@ -67,8 +103,11 @@ void buffer (char cin)
                         buf[i] = buf[i-1];
         }
 
+        int i;
         buf[idx++] = cin;
         length++;
+
+        rewd();
         reprint();
 }
 
@@ -82,7 +121,7 @@ void rebuffer (char *sin)
                 length = strlen(sin);
         }
 
-        idx = length;
+        rewd();
         reprint();
 }
 
@@ -100,6 +139,7 @@ void sbuffer (char *sin)
         }
         length += inlen;
 
+        rewd();
         reprint();
 }
 
@@ -113,6 +153,13 @@ void buffer_rm (int bksp)
         int i;
         for (i = idx; i < length; i++)
                 buf[i] = buf[i+1];
+
+        for (i = 0; i < nwds; i++) {
+                if (wds[i] == buf+idx) {
+                        rmwd(idx);
+                        break;
+                }
+        }
 
         if (idx == length) idx--;
         length--;
@@ -129,6 +176,21 @@ void buffer_mv (char dir)
         }
 
         reprint();
+}
+
+void buffer_cpl (void)
+{
+        int cidx = idx;
+        int clen = length;
+        char *cplst, *cplend;
+        thiswd (&cplst, &cplend);
+        cplend = buf + idx;
+        char *nbuf = l_compl (buf, cplst, cplend);
+        idx = cidx + (strlen(nbuf) - clen);
+        if (nbuf != NULL) {
+                rebuffer(nbuf);
+        }
+        free (nbuf);
 }
 
 /**
@@ -153,7 +215,6 @@ void buffer_mv (char dir)
 int interp (char cin, int status)
 {
         if (cin == '\n') {
-                printf("\n");
                 return -1;
         }
         if (status == 3) {
@@ -199,7 +260,7 @@ int interp (char cin, int status)
                                 buffer_rm(1);
                                 return 0;
                         case '\t':
-                                sbuffer("TAB");
+                                buffer_cpl();
                                 return 0;
                         case '':
                                 return 1;
@@ -242,7 +303,8 @@ char *line_loop (void)
                 status = interp(*cin, status);
                 if (status == -1) break;
         }
-
+        printf("[%dG", prompt_length);
+        color_line_s(buf);
         free (sprompt);
 
         hist_add (buf);

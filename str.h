@@ -86,4 +86,10 @@ char *vcombine_str(char delim, int ct, ...);
  */
 void rm_char (char *line);
 
+/**
+ * Returns the furthest-right instance of the character delim
+ * in the string str left of pos.
+ */
+// char *rstrchr(const char *str, const char *pos, char delim);
+
 #endif

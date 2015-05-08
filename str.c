@@ -132,3 +132,8 @@ char *vcombine_str (char delim, int ct, ...)
 
         return combine_str (strarr, ct, delim);
 }
+
+char *rstrchr(const char *str, char delim)
+{
+
+}

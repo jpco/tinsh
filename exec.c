@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 // local includes
 #include "cd.h"
@@ -45,7 +47,11 @@ int chk_exec (const char *cmd)
         }
 
         if (strchr (cmd, '/')) { // absolute path
-                return (1 + access (cmd, X_OK));
+                if (opendir(cmd) == NULL) {
+                        return (1 + access (cmd, X_OK));
+                } else {
+                        return 0;
+                }
         }
 
         // relative path

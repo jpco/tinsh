@@ -1,28 +1,53 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // local includes
 #include "exec.h"
+#include "defs.h"
+#include "str.h"
 
 // self-include
 #include "color.h"
+
+void color_wd (const char *wd, int first) {
+        if (first) {
+                int ex = chk_exec(wd);
+                if (ex > 0) {
+                        printf("\e[1;32m%s\e[0m ", wd);
+                        return;
+                }
+        }
+        if (!access(wd, F_OK)) {
+                printf("\e[0;35m%s\e[0m ", wd);
+        } else {
+                printf("%s ", wd);
+        }
+}
 
 void color_line (int argc, const char **argv)
 {
         int i;
         if (argc == 0) return;
 
-        int ex = chk_exec(argv[0]);
         for (i = 0; i < argc; i++) {
-                if (i == 0 && ex == 2) {
-                        printf("\e[1;32m%s\e[0m ", argv[i]);
-                } else if (i == 0 && ex == 1) {
-                        printf("\e[0;32m%s\e[0m ", argv[i]);
-                } else if (!access(argv[i], F_OK)) {
-                        printf("\e[0;35m%s\e[0m ", argv[i]);
-                } else {
-                        printf("%s ", argv[i]);
-                }
+                color_wd (argv[i], (i == 0 ? 1 : 0));
         }
         printf("\n");
+}
+
+void color_line_s (const char *line)
+{
+        char *nline = malloc((strlen(line)+1) * sizeof(char));
+        strcpy(nline, line);
+
+        char **spl_line = split_str (nline, ' ');
+        int len;
+        for (len = 0; spl_line[len] != NULL; len++);
+        color_line (len, (const char **)spl_line);
+
+        free (spl_line[0]);
+        free (spl_line);
+        free (nline);
 }
