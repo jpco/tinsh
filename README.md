@@ -15,13 +15,19 @@ Worse than sh!
  - Aliasing
  - (Basic) config
  - Variable parsing, setting, unsetting
+ - Tab completion (partial)
+    - files/dirs, no commands
  - History
 
 ### Todo (in no particular order)
-AUTOCOMPLETION
- - Line coloration (exists as command 'color', upon enter, not in-buffer)
+ - Tab completion (more)
+    - command autocomplete
+    - var/alias autocomplete
+    - bash autocomplete files
+ - Line coloration (exists as builtin `color` & upon enter, not in-buffer)
+    - enable/disable with a var
  - Piping/redirection (have to set up the stdin/stdout alteration)
- - Tab autocompletion / bash autocomplete support
+    - better support for multiple commands on one line (both `;` and `|`)
  - Quotes, both the " and ' kind
  - Broaden .jpshrc location support
  - Readline/config support?

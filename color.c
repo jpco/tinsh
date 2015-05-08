@@ -41,8 +41,12 @@ void color_line_s (const char *line)
 {
         char *nline = malloc((strlen(line)+1) * sizeof(char));
         strcpy(nline, line);
+        char *nnline = trim_str(nline);
+        free (nline);
+        nline = nnline;
 
         char **spl_line = split_str (nline, ' ');
+
         int len;
         for (len = 0; spl_line[len] != NULL; len++);
         color_line (len, (const char **)spl_line);

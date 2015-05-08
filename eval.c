@@ -44,7 +44,9 @@ void eval (char *cmdline)
         for (big_i=0; jobs[big_i] != NULL; big_i++) {
                 job = trim_str (jobs[big_i]);
                 if (job == NULL) return;
-                if (*job == '\0') continue;
+                if (*job == '\0') {
+                        continue;
+                }
 
                 // STEP 2: expand aliases
                 char *jbuf;
@@ -76,8 +78,35 @@ void eval (char *cmdline)
                 }
 
                 // STEP 3: expand vars
+                // prologue: ~
                 jbuf = job;
                 char *cbuf = jbuf;
+                char *tilde = get_var ("__jpsh_~home");
+                if (tilde != NULL) {
+                        while ((jbuf = strchr (cbuf, '~')) != NULL) {
+                                if (jbuf > job && *(jbuf-1) == '\\') {
+                                        rm_char (jbuf-1);
+                                        cbuf = jbuf;
+                                        continue;
+                                }
+                                cbuf = jbuf+1;
+                                *jbuf = '\0';
+                                char *njob = vcombine_str (0, 3, job,
+                                                tilde, cbuf+1);
+                                if (njob == NULL && errno == ENOMEM) {
+                                        print_err ("malloc failure");
+                                        return;
+                                }
+                                jbuf = njob + (jbuf - job);
+                                free (job);
+                                job = njob;
+                                cbuf = jbuf;
+                        }
+                }
+
+                // main part.
+                jbuf = job;
+                cbuf = jbuf;
                 while ((jbuf = strchr (cbuf, '(')) != NULL) {
                         if ((cbuf = strchr (jbuf, ')')) == NULL)
                                 break;

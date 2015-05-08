@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
+#include <errno.h>
 
 #include <stdio.h>
 
@@ -16,6 +17,7 @@
 
 char *l_compl (char *line, char *start, char *end)
 {
+        errno = 0;
         if (line == NULL) return NULL;
         if (start == NULL) return NULL;
         if (end == NULL) end = line + strlen(line);
@@ -41,6 +43,7 @@ char *l_compl (char *line, char *start, char *end)
 
 char *w_compl (char *wd, int first)
 {
+        errno = 0;
         // TODO: bash autocompletion 
         if (first) {
                 return NULL;
@@ -62,35 +65,48 @@ char *w_compl (char *wd, int first)
                 // other variables
                 int baselen = strlen(base);
                 DIR *dir = opendir(dirpath);
+                if (dir == NULL) {
+                        return NULL;
+                }
 
                 // max len of dir element name (based on man readdir)
                 char *file = calloc(256, sizeof(char));
 
-                struct dirent *elt = readdir(dir);
-                do {
-                        if (strncmp(base, elt->d_name, baselen) == 0) {
-                                if (*file != '\0') {
-                                        // TODO: handle this better
-                                        int i;
-                                        int flen = strlen(file);
-                                        int elen = strlen(elt->d_name);
-                                        for (i = 0; i < flen || i < elen; i++) {
-                                                if (file[i] != elt->d_name[i]) {
-                                                        file[i] = '\0';
-                                                }
-                                        }
-                                } else {
-                                        strcpy(file, elt->d_name);
-                                        if (elt->d_type == DT_DIR) {
-                                                char *nfile = vcombine_str(0, 2, file, "/");
-                                                free (file);
-                                                file = nfile;
+                struct dirent *elt;
+                while ((elt = readdir(dir))) {
+                        if (strncmp(base, elt->d_name, baselen) != 0) {
+                                continue;
+                        }
+                        if (*file != '\0') {
+                                int i;
+                                int flen = strlen(file);
+                                int elen = strlen(elt->d_name);
+                                for (i = 0; i < flen || i < elen; i++) {
+                                        if (file[i] != elt->d_name[i]) {
+                                                file[i] = '\0';
                                         }
                                 }
+                        } else {
+                                strcpy(file, elt->d_name);
+                                if (elt->d_type == DT_DIR) {
+                                        char *nfile = vcombine_str(0, 2, file, "/");
+                                        free (file);
+                                        file = nfile;
+                                }
                         }
-                } while ((elt = readdir(dir)) != NULL);
+                }
 
                 closedir(dir);
-                return vcombine_str('/', 2, dirpath, file);
+                if (strcmp(dirpath, ".") != 0) {
+                        char *nfile;
+                        if (strcmp(dirpath, "/") == 0) {
+                                nfile = vcombine_str(0, 2, dirpath, file);
+                        } else {
+                                nfile = vcombine_str('/',2, dirpath, file);
+                        }
+                        free (file);
+                        file = nfile;
+                }
+                return file;
         }
 }

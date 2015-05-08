@@ -24,7 +24,7 @@ void dbg_print_err (const char *errmsg)
 
 void print_err_wno (const char *errmsg, int err)
 {
-        fprintf (stderr, "%s\n", errmsg);
+        if (errmsg != NULL) fprintf (stderr, "%s\n", errmsg);
         fprintf (stderr, "%d: %s\n", err, strerror(err));
 }
 

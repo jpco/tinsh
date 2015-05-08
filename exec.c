@@ -158,7 +158,7 @@ int builtin (int argc, const char **argv)
 
 void printjob (int argc, const char **argv, int bg)
 {
-        char *db = get_var ("debug");
+        char *db = get_var ("__jpsh_debug");
         if (db == NULL) return;
         else free (db);
         printf ("\e[0;35m");

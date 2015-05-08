@@ -61,13 +61,10 @@ void rewd (void)
 {
         nwds = 0;
         int i;
-//        printf("\n");
         for (i = 0; i < length; i++) {
                 if (is_separator(buf[i])) {
-//                        printf("sep\n");
                         wds[nwds++] = buf+i;
                 } else if (i == 0 || is_separator(buf[i-1])) {
-//                        printf("lsep\n");
                         wds[nwds++] = buf+i;
                 }
         }
@@ -113,6 +110,8 @@ void buffer (char cin)
 
 void rebuffer (char *sin)
 {
+        int cidx = idx;
+        int clen = length;
         memset (buf, 0, MAX_LINE * sizeof(char));
         if (*sin == '\0') {
                 length = 0;
@@ -120,7 +119,7 @@ void rebuffer (char *sin)
                 strcpy (buf, sin);
                 length = strlen(sin);
         }
-
+        idx = length;
         rewd();
         reprint();
 }
@@ -186,7 +185,10 @@ void buffer_cpl (void)
         thiswd (&cplst, &cplend);
         cplend = buf + idx;
         char *nbuf = l_compl (buf, cplst, cplend);
-        idx = cidx + (strlen(nbuf) - clen);
+        if (errno) {
+                print_err_wno ("\n", errno);
+                prompt();
+        }
         if (nbuf != NULL) {
                 rebuffer(nbuf);
         }
@@ -303,7 +305,7 @@ char *line_loop (void)
                 status = interp(*cin, status);
                 if (status == -1) break;
         }
-        printf("[%dG", prompt_length);
+        printf("[%dG[K", prompt_length);
         color_line_s(buf);
         free (sprompt);
 

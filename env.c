@@ -292,11 +292,11 @@ void init_env_wfp (FILE *fp)
                 // case: startup line
                 if (sect == STARTUP) {
                         line[linelen] = '\0';
-                        char *cdbg = get_var ("debug");
+                        char *cdbg = get_var ("__jpsh_debug");
                         unset_var ("debug");
                         eval (line);
                         if (cdbg != NULL) {
-                                set_var ("debug", cdbg);
+                                set_var ("__jpsh_debug", cdbg);
                                 free (cdbg);
                         }
                         continue;

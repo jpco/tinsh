@@ -1,7 +1,8 @@
 [vars]
-debug=1
+~home=/home/jpco
 home=/home/jpco
-prompt=TESTPROMPT$ 
+__jpsh_debug=1
+__jpsh_color=1
 
 [env]
 HOME=/home/jpco
@@ -11,7 +12,9 @@ LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd
 [alias]
 ls=ls --color=auto
 rm=/usr/bin/rmpp
-jpconger.com=ssh jpconger.com -t tmux a
+jpco.io=ssh jpco.io -t tmux a
+uzbl=uzbl-tabbed
+kb=sudo keybr
 
 [startup]
-forp! forp! forp!
+echo Hello\ (SHELL)!
