@@ -13,7 +13,8 @@ Worse than sh!
 
 ### Done
  - Aliasing
- - (Basic) config
+ - config
+    - special options `__jpsh_debug` and `__jpsh_color` affect internal behavior! :)
  - Variable parsing, setting, unsetting
  - Tab completion (partial)
     - files/dirs, no commands
@@ -28,6 +29,7 @@ Worse than sh!
     - enable/disable with a var
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - better support for multiple commands on one line (both `;` and `|`)
+ - [^n]
  - Quotes, both the " and ' kind
  - Broaden .jpshrc location support
  - Readline/config support?

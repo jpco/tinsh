@@ -305,8 +305,12 @@ char *line_loop (void)
                 status = interp(*cin, status);
                 if (status == -1) break;
         }
-        printf("[%dG[K", prompt_length);
-        color_line_s(buf);
+        if (get_var ("__jpsh_color") != NULL) {
+                printf("[%dG[K", prompt_length);
+                color_line_s(buf);
+        } else {
+                printf("\n");
+        }
         free (sprompt);
 
         hist_add (buf);
