@@ -24,7 +24,8 @@ Worse than sh!
  - Tab completion (more)
     - command autocomplete
     - var/alias autocomplete
-    - bash autocomplete files
+    - preserving leading ./ (important for commands like "valgrind ./foo")
+    - bash-autocomplete files
  - Line coloration (exists as builtin `color` & upon enter, not in-buffer)
     - enable/disable with a var
  - Piping/redirection (have to set up the stdin/stdout alteration)
