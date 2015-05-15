@@ -6,14 +6,23 @@
 #include <stdio.h>
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <dirent.h>
 
 // local includes
 #include "debug.h"
 #include "str.h"
+#include "exec.h"
 
 // self-include
 #include "compl.h"
+
+// Completes a command from PATH.
+char *path_compl (char *wd);
+
+// Completes a file. If exec = 0, any file works, if exec = 1,
+// must be an executable file.
+char *f_compl (char *wd, int exec);
 
 char *l_compl (char *line, char *start, char *end)
 {
@@ -43,70 +52,135 @@ char *l_compl (char *line, char *start, char *end)
 
 char *w_compl (char *wd, int first)
 {
-        errno = 0;
         // TODO: bash autocompletion 
         if (first) {
-                return NULL;
-        } else {
-                // malloc madness just to get dirname & basename
-                char *wdcpy = malloc((strlen(wd)+1)*sizeof(char));
-                strcpy(wdcpy, wd);
-
-                // get dirname & make a copy we own
-                char *dirpath_ = dirname(wdcpy);
-                char *dirpath = malloc((strlen(dirpath_)+1)*sizeof(char));
-                strcpy(dirpath, dirpath_);
-                // get basename & make a copy we own
-                strcpy(wdcpy, wd);
-                char *base_ = basename(wdcpy);
-                char *base = malloc((strlen(base_)+1)*sizeof(char));
-                strcpy(base, base_);
-
-                // other variables
-                int baselen = strlen(base);
-                DIR *dir = opendir(dirpath);
-                if (dir == NULL) {
-                        return NULL;
+                if (strchr(wd, '/') == NULL) {
+                        char *pathpl = path_compl(wd);
+                        if (!pathpl) {
+                                return f_compl(wd, 3);
+                        }
+                } else {
+                        return f_compl(wd, 1);
                 }
+        } else {
+                return f_compl(wd, 0);
+        }
+}
 
-                // max len of dir element name (based on man readdir)
-                char *file = calloc(256, sizeof(char));
+char *path_compl (char *wd)
+{
+        // 1. builtins
+        int i;
+        char *nwd = malloc(40*sizeof(char));
+        for (i = 0; i < NUM_BUILTINS-1; i++) {
+                if (strncmp(wd, builtins[i], strlen(wd)) == 0) {
+                        strcpy(nwd, builtins[i]);
+                        nwd[strlen(nwd)] = ' ';
+                        return nwd;
+                }
+        }
 
-                struct dirent *elt;
-                while ((elt = readdir(dir))) {
-                        if (strncmp(base, elt->d_name, baselen) != 0) {
+        free (nwd);
+        return NULL;
+        // 2. path
+}
+
+char *f_compl (char *wd, int exec)
+{
+        errno = 0;
+
+        // malloc madness just to get dirname & basename
+        char *wdcpy = malloc((strlen(wd)+1)*sizeof(char));
+        strcpy(wdcpy, wd);
+
+        // get dirname & make a copy we own
+        char *dirpath_ = dirname(wdcpy);
+        char *dirpath = malloc((strlen(dirpath_)+1)*sizeof(char));
+        strcpy(dirpath, dirpath_);
+        // get basename & make a copy we own
+        strcpy(wdcpy, wd);
+        char *base_ = basename(wdcpy);
+        char *base = malloc((strlen(base_)+1)*sizeof(char));
+        strcpy(base, base_);
+
+        // other variables
+        int baselen = strlen(base);
+        DIR *dir = opendir(dirpath);
+        if (dir == NULL) {
+                return NULL;
+        }
+
+        // max len of dir element name (based on man readdir)
+        char *file = calloc(256, sizeof(char));
+
+        // states:
+        // 0 = none so far
+        // 1 = one non-dir found
+        // 2 = one dir found
+        // 3 = more than one thing found
+        int state = 0;
+        
+        struct dirent *elt;
+        while ((elt = readdir(dir))) {
+                if (strncmp(base, elt->d_name, baselen) != 0) continue;
+                if (exec & 2) {
+                        if (elt->d_type != DT_DIR)
+                                continue;
+                }
+                if (exec & 1) {
+                        char *pwd = getenv("PWD");
+                        char *fi = vcombine_str('/', 3, pwd,
+                                        dirpath, elt->d_name);
+                        struct stat fistat;
+                        if (stat (fi, &fistat) < 0 ||
+                                        !(fistat.st_mode & S_IXUSR)) {
+                                free (fi);
                                 continue;
                         }
-                        if (*file != '\0') {
-                                int i;
-                                int flen = strlen(file);
-                                int elen = strlen(elt->d_name);
-                                for (i = 0; i < flen || i < elen; i++) {
-                                        if (file[i] != elt->d_name[i]) {
-                                                file[i] = '\0';
-                                        }
-                                }
-                        } else {
-                                strcpy(file, elt->d_name);
-                                if (elt->d_type == DT_DIR) {
-                                        char *nfile = vcombine_str(0, 2, file, "/");
-                                        free (file);
-                                        file = nfile;
-                                }
-                        }
+                        free (fi);
                 }
 
-                closedir(dir);
-                if (strcmp(dirpath, ".") != 0) {
-                        char *nfile;
-                        if (strcmp(dirpath, "/") == 0) {
-                                nfile = vcombine_str(0, 2, dirpath, file);
-                        } else {
-                                nfile = vcombine_str('/',2, dirpath, file);
+                if (*file != '\0') {
+                        int i;
+                        int flen = strlen(file);
+                        int elen = strlen(elt->d_name);
+                        for (i = 0; i < flen || i < elen; i++) {
+                                if (file[i] != elt->d_name[i]) {
+                                        file[i] = '\0';
+                                }
                         }
-                        free (file);
-                        file = nfile;
+                        state = 3;
+                } else {
+                        strcpy(file, elt->d_name);
+
+                        if (elt->d_type == DT_DIR) {
+                                state = 2;
+                        } else {
+                                state = 1;
+                        }
                 }
-                return file;
         }
+        closedir(dir);
+
+        if (state == 0) {
+                return NULL;
+        } else if (state == 1) {
+                file[strlen(file)] = ' ';
+        } else if (state == 2) {
+                file[strlen(file)] = '/';
+        }
+
+        if (strcmp(dirpath, ".") != 0 ||
+            strncmp(wd, "./", 2) == 0) {
+                if (strcmp(dirpath, ".") == 0 && strcmp(file, ".") == 0) return NULL;
+                char *nfile;
+                if (strcmp(dirpath, "/") == 0) {
+                        nfile = vcombine_str(0, 2, dirpath, file);
+                } else {
+                        nfile = vcombine_str('/',2, dirpath, file);
+                }
+                free (file);
+                file = nfile;
+        }
+        return file;
 }

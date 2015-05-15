@@ -21,7 +21,7 @@
 #include "exec.h"
 
 static int pid;
-static const char *builtins[13] = {"exit", "cd", "pwd",
+const char *builtins[NUM_BUILTINS] = {"exit", "cd", "pwd",
         "lsvars", "lsalias", "set", "setenv", "unset",
         "unenv", "alias", "unalias", "color", NULL};
 
@@ -53,7 +53,7 @@ int chk_exec (const char *cmd)
                         return 0;
                 }
         }
-
+        
         // relative path
         char *path = getenv ("PATH");
         if (path == NULL)

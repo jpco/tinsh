@@ -1,5 +1,8 @@
 #ifndef JPSH_EXEC_H
 #define JPSH_EXEC_H
+#define NUM_BUILTINS 13
+
+const char *builtins[NUM_BUILTINS];
 
 /**
  * Kills the child process.
@@ -23,7 +26,7 @@ void try_exec (int argc, const char **argv, int bg);
 
 /**
  * Checks if "cmd" can be executed, given the current
- * PATH and builtins.
+ * PATH and builtins. 
  *
  * Returns 2 for a builtin, 1 for an executable file,
  * 0 for nothing executable.

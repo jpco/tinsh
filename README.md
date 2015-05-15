@@ -14,7 +14,7 @@ Worse than sh!
 ### Done
  - Aliasing
  - config
-    - special options `__jpsh_debug` and `__jpsh_color` affect internal behavior! :)
+    - special options `__jpsh_debug`, `__jpsh_~home` and `__jpsh_color` affect internal behavior! :)
  - Variable parsing, setting, unsetting
  - Tab completion (partial)
     - files/dirs, no commands
@@ -25,11 +25,12 @@ Worse than sh!
     - command autocomplete
     - var/alias autocomplete
     - bash autocomplete files
+ - `~` is buggy. fix....
  - Line coloration (exists as builtin `color` & upon enter, not in-buffer)
     - enable/disable with a var
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - better support for multiple commands on one line (both `;` and `|`)
- - [^n]
+ - `^` / `^^n`
  - Quotes, both the " and ' kind
  - Broaden .jpshrc location support
  - Readline/config support?
