@@ -16,13 +16,13 @@ Worse than sh!
  - config
     - special options `__jpsh_debug`, `__jpsh_~home` and `__jpsh_color` affect internal behavior! :)
  - Variable parsing, setting, unsetting
- - Tab completion (partial)
-    - files/dirs, no commands
+ - Tab completion (mostly)
+    - files/dirs
+    - commands
  - History
 
 ### Todo (in no particular order)
  - Tab completion (more)
-    - command autocomplete
     - var/alias autocomplete
     - bash autocomplete files
  - `~` is buggy. fix....

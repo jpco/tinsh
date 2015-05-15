@@ -18,7 +18,7 @@
 #include "compl.h"
 
 // Completes a command from PATH.
-char *path_compl (char *wd);
+char *path_compl (const char *wd);
 
 // Completes a file. If exec = 0, any file works, if exec = 1,
 // must be an executable file.
@@ -67,22 +67,88 @@ char *w_compl (char *wd, int first)
         }
 }
 
-char *path_compl (char *wd)
+char *path_compl (const char *wd)
 {
         // 1. builtins
         int i;
-        char *nwd = malloc(40*sizeof(char));
+        int uniqfound = 0;
+        char *nwd = calloc(100, sizeof(char));
         for (i = 0; i < NUM_BUILTINS-1; i++) {
                 if (strncmp(wd, builtins[i], strlen(wd)) == 0) {
-                        strcpy(nwd, builtins[i]);
-                        nwd[strlen(nwd)] = ' ';
-                        return nwd;
+                        if (*nwd != '\0') {
+                                int j;
+                                int wlen = strlen(nwd);
+                                int blen = strlen(builtins[i]);
+                                for (j = 0; j < wlen || j < blen; j++) {
+                                        if (j > blen || nwd[j] != builtins[i][j]) {
+                                                nwd[j] = '\0';
+                                        }
+                                }
+                                uniqfound = 0;
+                        } else {
+                                strcpy(nwd, builtins[i]);
+                                uniqfound = 1;
+                        }
                 }
         }
 
-        free (nwd);
-        return NULL;
         // 2. path
+        char *path = getenv ("PATH");
+        if (path == NULL)
+                path = "/bin:/usr/bin";
+        char *cpath = path;
+        char *buf = path;
+        while ((buf = strchr (cpath, ':'))) {
+                *buf = '\0';
+
+                // TODO: sloppy. should malloc outside of the loop.
+                char *dirpath = realpath(cpath, NULL);
+                if (dirpath == NULL) continue;
+
+                DIR *dir = opendir(dirpath);
+                if (dir == NULL) {
+                        free (dirpath);
+                        continue;
+                }
+
+                struct dirent *elt;
+                while ((elt = readdir(dir))) {
+                        if (strncmp(wd, elt->d_name, strlen(wd)) != 0)
+                                continue;
+
+                        if (*nwd != '\0') {
+                                int j;
+                                int wlen = strlen(nwd);
+                                int elen = strlen(elt->d_name);
+                                for (j = 0; j < wlen || j < elen; j++) {
+                                        if (j > elen ||
+                                            nwd[j] != elt->d_name[j]) {
+                                                nwd[j] = '\0';
+                                        }
+                                }
+                                uniqfound = 0;
+                        } else {
+                                strcpy(nwd, elt->d_name);
+                                uniqfound = 1;
+                        }
+                }
+                closedir (dir);
+
+                free (dirpath);
+                *buf = ':';
+                cpath = buf + 1;
+        }
+
+        if (uniqfound) {
+                nwd[strlen(nwd)] = ' ';
+        }
+
+        if (*nwd == '\0') {
+                free (nwd);
+                return NULL;
+        }
+
+        return nwd;
 }
 
 char *f_compl (char *wd, int exec)
