@@ -32,10 +32,17 @@ void prompt (void)
 {
         if (has_var ("prompt")) {
                 // TODO: parse prompt
-                sprompt = get_var ("prompt");
+                sprompt = get_var ("__jpsh_prompt");
         } else {
-                sprompt = vcombine_str('\0', 3, "\e[1m..",
+                char *co = get_var ("__jpsh_color");
+                if (co) {
+                        sprompt = vcombine_str('\0', 3, "\e[1m..",
                                 strrchr (getenv ("PWD"), '/'), "$\e[0m ");
+                } else {
+                        sprompt = vcombine_str('\0', 3, "..",
+                                strrchr (getenv ("PWD"), '/'), "$ ");
+                }
+                free (co);
         }
 
         int row = 0;
@@ -185,10 +192,6 @@ void buffer_cpl (void)
         thiswd (&cplst, &cplend);
         cplend = buf + idx;
         char *nbuf = l_compl (buf, cplst, cplend);
-        if (errno) {
-                print_err_wno ("\n", errno);
-                prompt();
-        }
         if (nbuf != NULL) {
                 rebuffer(nbuf);
         }
@@ -305,12 +308,14 @@ char *line_loop (void)
                 status = interp(*cin, status);
                 if (status == -1) break;
         }
-        if (get_var ("__jpsh_color") != NULL) {
+        char *color = get_var("__jpsh_color");
+        if (color != NULL) {
                 printf("[%dG[K", prompt_length);
                 color_line_s(buf);
         } else {
                 printf("\n");
         }
+        free (color);
         free (sprompt);
 
         hist_add (buf);

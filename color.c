@@ -53,5 +53,5 @@ void color_line_s (const char *line)
 
         free (spl_line[0]);
         free (spl_line);
-        free (nline);
+        if (nline != NULL) free (nline);
 }

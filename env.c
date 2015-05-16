@@ -70,16 +70,8 @@ char *get_value (const char *key, var_t **arr, int arr_len)
 void set_value (const char *key, const char *value,
                 var_t **arr, int *arr_len, int max)
 {
-        char *l_key = malloc ((strlen(key)+1)*sizeof(char));
-        char *l_value = malloc ((strlen(value)+1)*sizeof(char));
-        if (l_key == NULL || l_value == NULL && errno == ENOMEM) {
-                print_err ("Could not malloc var key/value pair.");
-                if (l_key != NULL) free (l_key);
-                if (l_value != NULL) free (l_value);
-                return;
-        }
-        strcpy(l_key, key);
-        strcpy(l_value, value);
+        char *l_key = trim_str (key);
+        char *l_value = trim_str (value);
 
         int i;
         for (i = 0; i < *arr_len; i++) {

@@ -67,6 +67,7 @@ void eval (char *cmdline)
                                         print_err ("malloc failure");
                                         return;
                                 }
+                                free (ncmd);
                         } else {
                                 njob = ncmd;
                         }
@@ -92,7 +93,7 @@ void eval (char *cmdline)
                                 cbuf = jbuf+1;
                                 *jbuf = '\0';
                                 char *njob = vcombine_str (0, 3, job,
-                                                tilde, cbuf+1);
+                                                tilde, cbuf);
                                 if (njob == NULL && errno == ENOMEM) {
                                         print_err ("malloc failure");
                                         return;
@@ -103,6 +104,7 @@ void eval (char *cmdline)
                                 cbuf = jbuf;
                         }
                 }
+                free (tilde);
 
                 // main part.
                 jbuf = job;

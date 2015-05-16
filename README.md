@@ -23,14 +23,18 @@ Worse than sh!
 
 ### Todo (in no particular order)
  - Tab completion (more)
-    - var/alias autocomplete
+    - var/alias autocomplete?
     - bash autocomplete files
- - `~` is buggy. fix....
+    - suggestion on conflict
+    - refactor... lots of repeated code
+ - `~` is buggy. fix
  - Line coloration (exists as builtin `color` & upon enter, not in-buffer)
     - enable/disable with a var
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - better support for multiple commands on one line (both `;` and `|`)
  - `^` / `^^n`
+ - `set` syntax from `set <key> <val>` to `set <key> = <val>`
+ - `__jpsh_prompt`
  - Quotes, both the " and ' kind
  - Broaden .jpshrc location support
  - Readline/config support?
