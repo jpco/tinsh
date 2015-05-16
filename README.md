@@ -14,11 +14,14 @@ Worse than sh!
 ### Done
  - Aliasing
  - config
-    - special options `__jpsh_debug`, `__jpsh_~home` and `__jpsh_color` affect internal behavior! :)
+    - `__jpsh_debug` toggles displaying the evaluated command
+    - `__jpsh_~home` decides what `~` refers to
  - Variable parsing, setting, unsetting
  - Tab completion (mostly)
     - files/dirs
     - commands
+ - Early coloration (though not in-buffer!)
+    - can be toggled with `__jpsh_color` var
  - History
 
 ### Todo (in no particular order)
@@ -27,13 +30,11 @@ Worse than sh!
     - bash autocomplete files
     - suggestion on conflict
     - refactor... lots of repeated code
- - `~` is buggy. fix
  - Line coloration (exists as builtin `color` & upon enter, not in-buffer)
-    - enable/disable with a var
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - better support for multiple commands on one line (both `;` and `|`)
  - `^` / `^^n`
- - `set` syntax from `set <key> <val>` to `set <key> = <val>`
+ - change `set` syntax from `set <key> <val>` to `set <key> = <val>`
  - `__jpsh_prompt`
  - Quotes, both the " and ' kind
  - Broaden .jpshrc location support

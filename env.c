@@ -71,13 +71,18 @@ void set_value (const char *key, const char *value,
                 var_t **arr, int *arr_len, int max)
 {
         char *l_key = trim_str (key);
-        char *l_value = trim_str (value);
+        char *l_value;
+        if (value) {
+                l_value = trim_str (value);
+        } else {
+                l_value = trim_str ("");
+        }
 
         int i;
         for (i = 0; i < *arr_len; i++) {
                 if (olstrcmp(key, arr[i]->key)) {
                         free (l_key);
-                        free (arr[i]->value);
+                        if (arr[i]->value != NULL) free (arr[i]->value);
                         arr[i]->value = l_value;
                         return;
                 }
@@ -142,8 +147,13 @@ void ls_vars (void)
 {
         printf ("Vars:\n");
         int i;
-        for (i = 0; i < vars_len; i++)
-                printf("%s = %s\n", vars[i]->key, vars[i]->value);
+        for (i = 0; i < vars_len; i++) {
+                if (strcmp(vars[i]->value, "") != 0) {
+                        printf("%s = %s\n", vars[i]->key, vars[i]->value);
+                } else {
+                        printf("%s set\n", vars[i]->key);
+                }
+        }
 }
 
 void set_alias (const char *key, const char *value)
@@ -298,12 +308,10 @@ void init_env_wfp (FILE *fp)
                 char *spline[2];
                 spline[0] = line;
                 spline[1] = strchr(line, '=');
-                if (spline[1] == NULL) {
-                        free (line);
-                        continue;
+                if (spline[1]) {
+                        *spline[1] = '\0';
+                        spline[1]++;
                 }
-                *spline[1] = '\0';
-                spline[1]++;
 
                 if (sect == ENV) {
                         setenv (spline[0], spline[1], 1);

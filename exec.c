@@ -114,16 +114,28 @@ int builtin (int argc, const char **argv)
         } else if (olstrcmp (argv[0], "lsalias")) {
                 ls_alias();
         } else if (olstrcmp (argv[0], "set")) {
-                if (argc < 3) {
+                if (argc == 1) {
                         print_err ("Too few args.\n");
                 } else {
-                        set_var (argv[1], argv[2]);
+                        char *keynval = combine_str(argv+1, argc-1, '\0');
+                        if (strchr(keynval, '=') == NULL) {
+                                set_var (keynval, NULL);
+                        } else {
+                                char **key_val = split_str (keynval, '=');
+                                set_var (key_val[0], key_val[1]);
+                        }
                 }
         } else if (olstrcmp (argv[0], "setenv")) {
-                if (argc < 3) {
+                if (argc == 1) {
                         print_err ("Too few args.\n");
                 } else {
-                        setenv (argv[1], argv[2], 1);
+                        char *keynval = combine_str(argv+1, argc-1, '\0');
+                        if (strchr(keynval, '=') == NULL) {
+                                print_err ("Malformed \"setenv\".");
+                        } else {
+                                char **key_val = split_str (keynval, '=');
+                                setenv (key_val[0], key_val[1], 1);
+                        }
                 }
         } else if (olstrcmp (argv[0], "unset")) {
                 if (argc < 2) {

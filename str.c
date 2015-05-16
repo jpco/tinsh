@@ -76,7 +76,10 @@ char *trim_str (const char *line)
         const char *oline = line;
         while (*line == ' ' || *line == '\t') line++;
 
-        if (*line == '\0') return "";
+        if (*line == '\0') {
+                char *nline = calloc(1, sizeof(char));
+                return nline;
+        }
         char *nline = malloc ((1 + strlen(line)) * sizeof(char));
         strcpy(nline, line);
 
