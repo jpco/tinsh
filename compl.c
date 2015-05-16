@@ -3,8 +3,7 @@
 #include <libgen.h>
 #include <errno.h>
 
-#include <stdio.h>
-
+// for readdir et al.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -98,8 +97,8 @@ char *path_compl (const char *wd)
                 path = "/bin:/usr/bin";
         char *cpath = path;
         char *buf = path;
-        while ((buf = strchr (cpath, ':'))) {
-                *buf = '\0';
+        while ((buf = strchr (cpath, ':')) || 1) {
+                if (buf) *buf = '\0';
 
                 // TODO: sloppy. should malloc outside of the loop.
                 char *dirpath = realpath(cpath, NULL);
@@ -135,8 +134,12 @@ char *path_compl (const char *wd)
                 closedir (dir);
 
                 free (dirpath);
-                *buf = ':';
-                cpath = buf + 1;
+                if (buf) *buf = ':';
+                if (buf) {
+                        cpath = buf + 1;
+                } else {
+                        break;
+                }
         }
 
         if (uniqfound) {

@@ -63,13 +63,15 @@ int chk_exec (const char *cmd)
         char *cpath = path;
         char *buf = path;
 
-        while ((buf = strchr (cpath, ':'))) {
-                *buf = '\0';
+        while ((buf = strchr (cpath, ':')) || 1) {
+                if (buf) *buf = '\0';
                 char *curr_cmd;
                 if (buf == cpath) { // initial :, so current dir
                         curr_cmd = vcombine_str ('/', 2,
                                         getenv ("PWD"), cmd);
-                } else if (*(buf-1) != '/') { // then need to add '/'
+                } else if ((buf && *(buf-1) != '/') ||
+                           (cpath[strlen(cpath)-1] != '/')) {
+                        // then need to add '/'
                         curr_cmd = vcombine_str ('/', 2, cpath, cmd);
                 } else {
                         curr_cmd = vcombine_str ('\0', 2, cpath, cmd);
@@ -77,13 +79,17 @@ int chk_exec (const char *cmd)
 
                 if (!access (curr_cmd, X_OK)) {
                         free (curr_cmd);
-                        *buf = ':';
+                        if (buf) *buf = ':';
                         return 1;
                 }
 
                 free (curr_cmd);
-                *buf = ':';
-                cpath = buf + 1;
+                if (buf) *buf = ':';
+                if (buf) {
+                        cpath = buf + 1;
+                } else {
+                        break;
+                }
         }
 
         return 0;

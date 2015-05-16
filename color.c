@@ -20,7 +20,7 @@ void color_wd (const char *wd, int first) {
                 }
         }
         if (!access(wd, F_OK)) {
-                printf("\e[0;35m%s\e[0m ", wd);
+                printf("\e[0;36m%s\e[0m ", wd);
         } else {
                 printf("%s ", wd);
         }
