@@ -3,7 +3,7 @@
 #include <string.h>
 #include <errno.h>
 
-// local includes #include "defs.h" #include "str.h"
+// local includes
 #include "env.h"
 #include "str.h"
 #include "defs.h"
@@ -11,23 +11,6 @@
 
 // self-include
 #include "eval.h"
-
-/*
- * Parsing:
- * 0) execute subshells
- *    "cat `dir.sh` | ll" => "cat (mydir)/foo | ll"
- * 1) split jobs
- *    "cat (mydir)/foo | ll" => "cat (mydir)/foo" | "ll"
- * 2) expand aliases
- *    "cat (mydir)/foo" | "ll" => "cat (mydir)/foo" | "ls -l"
- * 3) evaluate vars
- *    "cat (mydir)/foo" | "ls -l" => "cat /bin/foo" | "ls -l"
- * 4) pull apart args
- *    "cat /bin/foo" | "ls -l" => "cat" "/bin/foo" | "ls" "-l"
- * 5) execute (w/ piping/redirection)
- *
- * TODO: ADD SUBJOB SUPPORT
- */
 
 char *make_pass (char *cmdline, char start, char end,
                 char *(*parse_wd)(char *));
@@ -40,8 +23,9 @@ char *subsh (char *cmd);
 char *dquotes (char *cmd);
 char *parsevar (char *cmd);
 
-// char passes
+// misc passes
 char *home_pass (char *cmd);
+char *alias_pass (char *cmd);
 
 // eval sections
 char *eval1 (char *cmdline);
@@ -84,6 +68,9 @@ void eval2 (char *cmdline)
 {
         if (cmdline == NULL) return;
 
+        // try aliases
+        cmdline = alias_pass (cmdline);
+        
         // parse ~!
         if (get_var ("__jpsh_~home"))
                 cmdline = home_pass (cmdline);
@@ -98,7 +85,7 @@ void eval2 (char *cmdline)
         cmdline = ncmdline;
 
         // set up exec stuff
-        // TODO: background &... also piping and such
+        // TODO: background &... also piping and redirection and such
         char **argv = split_str (cmdline, ' ');
         int argc;
         for (argc = 0; argv[argc] != NULL; argc++);
@@ -256,7 +243,23 @@ char *home_pass (char *cmd)
         return cmd;
 }
 
+char *alias_pass (char *cmd) {
+        char *buf = cmd;
+        char *alias = NULL;
+        for (; *buf != '\0'; buf++) {
+                if (is_separator (*buf)) break;
+        }
+
+        char delim = *buf;
+        *buf = '\0';
+        alias = get_alias (cmd);
+        *buf = delim;
+        
+        if (alias) return vcombine_str (0, 2, alias, buf);
+        else return vcombine_str (0, 1, cmd);
+}
+
 void free_ceval (void)
 {
-        // I DONUT KNOW
+        // I DONUT KNOW YET
 }

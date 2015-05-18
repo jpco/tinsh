@@ -20,7 +20,7 @@ Worse than sh!
  - Tab completion (mostly)
     - files/dirs
     - commands
- - Early coloration (though not in-buffer!)
+ - Kind-of coloration (though not in-buffer!)
     - can be toggled with `__jpsh_color` var
  - multiple lines in one line
  - History
