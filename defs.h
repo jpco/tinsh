@@ -7,7 +7,7 @@
 #define MAX_JOBS        20
 #define MAX_SPLIT       100
 #define LEN_HIST        400
-#define NUM_SEPARATORS  7
+#define NUM_SEPARATORS  10
 
 extern char **environ;
 const char separators[NUM_SEPARATORS];

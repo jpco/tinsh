@@ -314,7 +314,15 @@ void init_env_wfp (FILE *fp)
                 }
 
                 if (sect == ENV) {
-                        setenv (spline[0], spline[1], 1);
+                        if (!spline[1]) {
+                                free (line);
+                                continue;
+                        }
+                        char *tr_spline0 = trim_str(spline[0]);
+                        char *tr_spline1 = trim_str(spline[1]);
+                        setenv (tr_spline0, tr_spline1, 1);
+                        free (tr_spline0);
+                        free (tr_spline1);
                 } else if (sect == ALIAS) {
                         set_alias (spline[0], spline[1]);
                 } else if (sect == VARS) {

@@ -11,6 +11,12 @@ const char *builtins[NUM_BUILTINS];
 int sigchild (int signo);
 
 /**
+ * Runs a subshell and returns the stdout output of the
+ * subshell.
+ */
+char *subshell (char *cmd);
+
+/**
  * Executes the builtin functions within jpsh.
  *
  * Arguments:

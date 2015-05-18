@@ -12,15 +12,10 @@
 // self-include
 #include "eval.h"
 
-static char **jobs;
-static char *job;
-static char **argv;
-
-void eval (char *cmdline)
-{
 /*
  * Parsing:
- * 0) [execute subjobs]
+ * 0) execute subshells
+ *    "cat `dir.sh` | ll" => "cat (mydir)/foo | ll"
  * 1) split jobs
  *    "cat (mydir)/foo | ll" => "cat (mydir)/foo" | "ll"
  * 2) expand aliases
@@ -34,138 +29,234 @@ void eval (char *cmdline)
  * TODO: ADD SUBJOB SUPPORT
  */
 
-        if (*cmdline == '\0') return;
+char *make_pass (char *cmdline, char start, char end,
+                char *(*parse_wd)(char *));
 
-        // STEP 1: Split jobs
-        jobs = split_str (cmdline, '|');
-        free (cmdline);
-        if (jobs == NULL) return;
-        int big_i;
-        for (big_i=0; jobs[big_i] != NULL; big_i++) {
-                job = trim_str (jobs[big_i]);
-                if (job == NULL) return;
-                if (*job == '\0') {
+char **split_line (char *cmdline);
+
+// word-parses
+char *squotes (char *cmd);
+char *subsh (char *cmd);
+char *dquotes (char *cmd);
+char *parsevar (char *cmd);
+
+// char passes
+char *home_pass (char *cmd);
+
+// eval sections
+char *eval1 (char *cmdline);
+void eval2 (char *cmdline);
+
+void eval (char *cmdline)
+{
+        // pre-splitting parsing
+        cmdline = eval1 (cmdline);
+      
+        // split!
+        char **lines = split_str (cmdline, ';');
+        int len;
+        for (len = 0; lines[len] != NULL; len++);
+        int i;
+        for (i = 0; i < len-1; i++) {
+                char *line = malloc((strlen(lines[i])+1)*sizeof(char));
+                strcpy(line, lines[i]);
+                eval2 (line);
+        }
+
+
+        // post-splitting parsing
+        eval2 (lines[i]);
+}
+
+char *eval1 (char *cmdline)
+{
+        // single quotes trump all
+        cmdline = make_pass (cmdline, '\'', '\'', &squotes);
+
+        // since nested commands often contain special chars...
+        cmdline = make_pass (cmdline, '`', '`', &subsh);
+
+        return cmdline;
+}
+
+        
+void eval2 (char *cmdline)
+{
+        if (cmdline == NULL) return;
+
+        // parse ~!
+        if (get_var ("__jpsh_~home"))
+                cmdline = home_pass (cmdline);
+
+        // vars-parsing time!
+        cmdline = make_pass (cmdline, '(', ')', &parsevar);
+
+        // single-quotes go last.
+        cmdline = make_pass (cmdline, '"', '"', &dquotes);
+
+        char *ncmdline = trim_str(cmdline);
+        cmdline = ncmdline;
+
+        // set up exec stuff
+        // TODO: background &... also piping and such
+        char **argv = split_str (cmdline, ' ');
+        int argc;
+        for (argc = 0; argv[argc] != NULL; argc++);
+
+        try_exec (argc, argv, 0);
+}
+
+// returns new cmdline
+char *make_pass (char *cmdline, char start, char end,
+                char *(*parse_wd)(char *))
+{
+        if (cmdline == NULL) return NULL;
+
+        char *word = NULL;
+        char *buf = cmdline;
+        int len = strlen(cmdline);
+        for (; buf <= cmdline+len && *buf != '\0'; buf++) {
+                if (*buf != start && *buf != end)  // don't care!
+                        continue;
+
+                if (buf > cmdline && *(buf-1) == '\\') {
+                        // they escaped! vroom!
+                        rm_char (--buf);
                         continue;
                 }
 
-                // STEP 2: expand aliases
-                char *jbuf;
-                if ((jbuf = strchr (job, ' ')) != NULL)
-                        *jbuf = '\0';
-
-                if (has_alias (job)) {
-                        char *ncmd = get_alias (job);
-                        if (ncmd == NULL && errno == ENOMEM) {
-                                print_err ("malloc failure");
-                                return;
-                        }
-                        char *njob = "";
-                        if (jbuf != NULL) {
-                                *jbuf = ' ';
-                                njob = vcombine_str ('\0', 2, ncmd, jbuf);
-                                if (njob == NULL && errno == ENOMEM) {
-                                        print_err ("malloc failure");
-                                        return;
-                                }
-                                free (ncmd);
-                        } else {
-                                njob = ncmd;
-                        }
-                        free (job);
-                        job = njob;
-                } else {
-                        if (jbuf != NULL)
-                                *jbuf = ' ';
-                }
-
-                // STEP 3: expand vars
-                // prologue: ~
-                jbuf = job;
-                char *cbuf = jbuf;
-                char *tilde = get_var ("__jpsh_~home");
-                if (tilde != NULL) {
-                        while ((jbuf = strchr (cbuf, '~')) != NULL) {
-                                if (jbuf > job && *(jbuf-1) == '\\') {
-                                        rm_char (jbuf-1);
-                                        cbuf = jbuf;
-                                        continue;
-                                }
-                                cbuf = jbuf+1;
-                                *jbuf = '\0';
-                                char *njob = vcombine_str (0, 3, job,
-                                                tilde, cbuf);
-                                if (njob == NULL && errno == ENOMEM) {
-                                        print_err ("malloc failure");
-                                        return;
-                                }
-                                jbuf = njob + (jbuf - job);
-                                free (job);
-                                job = njob;
-                                cbuf = jbuf;
+                if (*buf == start && !word) {      // start of word
+                        *buf = '\0';
+                        word = buf+1;
+                } else if (*buf == end && word) {  // end of word
+                        if (word == buf) {        // trivial word
+                                rm_char (buf-1);
+                                rm_char (buf-1);
+                                word = NULL;
+                                len = strlen(cmdline);
+                                buf--;
+                        } else {                  // the hard part
+                                *buf = '\0';
+                                char *nword = parse_wd(word);
+                                char *ncmdline = NULL;
+                                ncmdline = vcombine_str ('\0', 3,
+                                                cmdline, nword, buf+1);
+                                free (nword);
+                                free (cmdline);
+                                buf = (word-1-cmdline)+ncmdline;
+                                cmdline = ncmdline;
+                                len = strlen(cmdline);
+                                word = NULL;
                         }
                 }
-                free (tilde);
-
-                // main part.
-                jbuf = job;
-                cbuf = jbuf;
-                while ((jbuf = strchr (cbuf, '(')) != NULL) {
-                        if ((cbuf = strchr (jbuf, ')')) == NULL)
-                                break;
-                        if (jbuf > job && *(jbuf-1) == '\\') {
-                                rm_char (jbuf-1);
-                                cbuf = jbuf;
-                                continue;
-                        }
-                        *cbuf = '\0';
-                        char *val;
-                        if ((val = get_var (jbuf+1)) == NULL)
-                                val = getenv (jbuf+1);
-                        if (val == NULL) val = "";
-
-                        *jbuf = '\0';
-                        char *njob = vcombine_str ('\0', 3,
-                                        job, val, cbuf+1);
-                        if (njob == NULL && errno == ENOMEM) {
-                                print_err ("malloc failure");
-                                return;
-                        }
-                        int jbdiff = jbuf - job;
-                        jbuf = njob + jbdiff;
-                        free (job);
-                        job = njob;
-                        cbuf = jbuf;
-                }
-
-                // STEP 4: separate args
-                // TODO: backslash-escaping works but "" doesn't
-                argv = split_str (job, ' ');
-                if (argv == NULL && errno == ENOMEM) {
-                        print_err ("malloc failure");
-                        return;
-                }
-
-                // STEP 5: execute (w/ piping/redirection)
-                int argl;
-                for (argl = 0; argv[argl] != NULL; argl++);
-                if (olstrcmp(argv[argl-1], "&")) {
-                        free (argv[argl-1]);
-                        argv[--argl] = NULL;
-                        try_exec (argl, argv, 1);
-                } else  try_exec (argl, argv, 0);
-                free (argv[0]);
-                free (argv);
-                free (job);
         }
-        free (jobs[0]);
-        free (jobs);
+
+        if (word) {
+                print_err ("Malformed input... continuing.");
+        }
+        return cmdline;
 }
 
-void free_ceval ()
+// NOTE TO SELF:
+// PLEASE DO NOT FREE cmd
+
+char *squotes (char *cmd)
 {
-        free (jobs[0]);
-        free (jobs);
-        free (job);
-        free (argv[0]);
-        free (argv);
+        // escape EVERYTHING!
+        char *ncmd = calloc(strlen(cmd)+1, sizeof(char));
+        strcpy(ncmd, cmd);
+        char *buf = ncmd;
+        for (; *buf != '\0'; buf++) {
+                if (is_separator (*buf)) {
+                        char *thrchr = calloc(3, sizeof(char));
+                        thrchr[0] = '\\';
+                        thrchr[1] = *buf;
+                        *buf = '\0';
+                        char *nncmd = vcombine_str(0, 3, ncmd, thrchr,
+                                        buf+1);
+                        free (ncmd);
+                        free (thrchr);
+                        buf = buf+1-ncmd+nncmd;
+                        ncmd = nncmd;
+                }
+        }
+
+        return ncmd;
+}
+
+char *subsh (char *cmd)
+{
+        // AAA HAHAHAH HHAHHAAAAHHHHH
+        char *ncmd = calloc(strlen(cmd)+1, sizeof(char));
+        strcpy(ncmd, cmd);
+        return ncmd;
+}
+
+char *dquotes (char *cmd)
+{
+        // escape all spaces!
+        char *ncmd = calloc(strlen(cmd)+1, sizeof(char));
+        strcpy(ncmd, cmd);
+        char *buf = ncmd;
+        for (; *buf != '\0'; buf++) {
+                if (*buf == ' ') {
+                        *buf = '\0';
+                        char *nncmd = vcombine_str(0, 3, ncmd, "\\ ",
+                                        buf+1);
+                        free (ncmd);
+                        buf = buf+1-ncmd+nncmd;
+                        ncmd = nncmd;
+                }
+        }
+
+        return ncmd;
+}
+
+char *parsevar (char *cmd)
+{
+        // get values! (var, env)
+        char *varval = get_var (cmd);
+        if (varval == NULL) {
+                char *envval = getenv (cmd);
+                if (envval == NULL) {
+                        return calloc(1, sizeof(char));
+                } else {
+                        // we have to malloc after getenv
+                        char *menvval = malloc((strlen(envval)+1)*sizeof(char));
+                        strcpy(menvval, envval);
+                        return menvval;
+                }
+        } else {
+                return varval;
+        }
+}
+
+char *home_pass (char *cmd)
+{
+        char *home = get_var ("__jpsh_~home");
+        char *ncmd = malloc((strlen(cmd)+1)*sizeof(char));
+        strcpy(ncmd, cmd);
+        cmd = ncmd;
+        char *buf = cmd;
+        for (; *buf != '\0'; buf++) {
+                if (*buf != '~') continue;
+                if (buf > cmd && *(buf-1) == '\\') {
+                        rm_char (--buf);
+                        continue;
+                }
+                *buf = '\0';
+                ncmd = vcombine_str (0, 3, cmd,
+                                home,
+                                buf+1);
+                buf = buf-cmd+ncmd;
+                free (cmd);
+                cmd = ncmd;
+        }
+
+        return cmd;
+}
+
+void free_ceval (void)
+{
+        // I DONUT KNOW
 }

@@ -27,13 +27,14 @@ Worse than sh!
 
 ### Todo (in no particular order)
  - Tab completion (more/better)
-    - var/alias autocomplete? Esp. \_\_jpsh\_~home
+    - var/alias autocomplete? Esp. `__jpsh_~home`
     - deal with spaces
     - bash autocomplete files
     - suggestion on conflict
     - refactor... the code is pretty messy
- - Line coloration (exists as builtin `color` & upon enter, not in-buffer)
+ - Redo line coloration... that didn't last long
  - Globs
+ - Long-buffer support
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - better support for multiple commands on one line (both `;` and `|`)
  - `^` / `^^n`

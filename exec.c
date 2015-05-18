@@ -189,6 +189,12 @@ void printjob (int argc, const char **argv, int bg)
         printf("\e[0m\n");
 }
 
+char *subshell (char *cmd)
+{
+        // run subshell
+        return cmd;
+}
+
 void try_exec (int argc, const char **argv, int bg)
 {
         printjob (argc, argv, bg);

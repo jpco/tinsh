@@ -1,7 +1,7 @@
 // self-include
 #include "defs.h"
 
-const char separators[NUM_SEPARATORS] = {' ', '|', '&', '>', '<', ';', '\0'};
+const char separators[NUM_SEPARATORS] = {' ', '|', '&', '>', '<', ';', '`','(', '~', '\0'};
 
 int is_separator (char c)
 {

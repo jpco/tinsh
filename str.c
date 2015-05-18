@@ -96,6 +96,7 @@ char *combine_str(const char **strs, int arrlen, char delim)
         int len = 0;
         int i;
         for (i = 0; i < arrlen; i++) {
+                if (strs[i] == NULL || *strs[i] == '\0') continue;
                 len += strlen(strs[i]);
         }
 
@@ -111,6 +112,7 @@ char *combine_str(const char **strs, int arrlen, char delim)
 
         int ctotal = 0;
         for (i = 0; i < arrlen; i++) {
+                if (strs[i] == NULL) continue;
                 int j;
                 for (j = 0; strs[i][j] != '\0'; j++) {
                         comb[ctotal+j] = strs[i][j];
