@@ -22,21 +22,24 @@ Worse than sh!
     - commands
  - Early coloration (though not in-buffer!)
     - can be toggled with `__jpsh_color` var
+ - multiple lines in one line
  - History
 
 ### Todo (in no particular order)
- - Tab completion (more)
-    - var/alias autocomplete?
+ - Tab completion (more/better)
+    - var/alias autocomplete? Esp. \_\_jpsh\_~home
+    - deal with spaces
     - bash autocomplete files
     - suggestion on conflict
-    - refactor... lots of repeated code
+    - refactor... the code is pretty messy
  - Line coloration (exists as builtin `color` & upon enter, not in-buffer)
+ - Globs
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - better support for multiple commands on one line (both `;` and `|`)
  - `^` / `^^n`
- - change `set` syntax from `set <key> <val>` to `set <key> = <val>`
  - `__jpsh_prompt`
  - Quotes, both the " and ' kind
+    - related, escaping quotes on trim\_str?
  - Broaden .jpshrc location support
  - Readline/config support?
  - Generally less-brittle parsing
