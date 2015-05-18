@@ -33,14 +33,11 @@ Worse than sh!
     - suggestion on conflict
     - refactor... the code is pretty messy
  - Redo line coloration... that didn't last long
- - Globs
+ - Globbies
  - Long-buffer support
  - Piping/redirection (have to set up the stdin/stdout alteration)
-    - better support for multiple commands on one line (both `;` and `|`)
  - `^` / `^^n`
  - `__jpsh_prompt`
- - Quotes, both the " and ' kind
-    - related, escaping quotes on trim\_str?
  - Broaden .jpshrc location support
- - Readline/config support?
- - Generally less-brittle parsing
+ - Readline/config support? (long-term goal)
+ - Generally less-brittle parsing (things are improving!)
