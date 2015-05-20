@@ -26,18 +26,20 @@ Worse than sh!
  - History
 
 ### Todo (in no particular order)
+DON'T FORGET MEMORY LEAKS CAUSED BY REFACTORED EVAL
  - Tab completion (more/better)
     - var/alias autocomplete? Esp. `__jpsh_~home`
-    - deal with spaces
+    - deal with s/dquotes
     - bash autocomplete files
-    - suggestion on conflict
+    - suggestion on conflict >>>> PREVIEW FUNCTION
     - refactor... the code is pretty messy
  - Redo line coloration... that didn't last long
- - Globbies
+ - Globs! >>>> PREVIEW FUNCTION
  - Long-buffer support
  - Piping/redirection (have to set up the stdin/stdout alteration)
- - `^` / `^^n`
+ - `^` / `^^n` >>>> PREVIEW FUNCTION
  - `__jpsh_prompt`
  - Broaden .jpshrc location support
+ - Proper ANSI code interpretation
  - Readline/config support? (long-term goal)
  - Generally less-brittle parsing (things are improving!)

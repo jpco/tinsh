@@ -69,9 +69,12 @@ void rewd (void)
         nwds = 0;
         int i;
         for (i = 0; i < length; i++) {
-                if (is_separator(buf[i])) {
-                        wds[nwds++] = buf+i;
-                } else if (i == 0 || is_separator(buf[i-1])) {
+                int isi = (i == 0 ? 1 : is_separator(buf[i]));
+                int ibsi1 = (i < 1 || buf[i-1] != '\\' ? 0 : 1);
+                int isi1 = (i < 1 ? 0 : is_separator(buf[i-1]));
+                int ibsi2 = (i < 2 || buf[i-2] != '\\' ? 0 : 1);
+
+                if ((isi && !ibsi1) || (isi1 && !ibsi2)) {
                         wds[nwds++] = buf+i;
                 }
         }

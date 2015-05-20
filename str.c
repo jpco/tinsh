@@ -85,8 +85,10 @@ char *trim_str (const char *line)
 
         int i;
         for (i = strlen(line)-1; i >= 0 && (nline[i] == '\n' || 
-                                 nline[i] == ' '); i--)
+                                 nline[i] == ' '); i--) {
+                if (i >= 1 && nline[i-1] == '\\') break;
                 nline[i] = '\0';
+        }
 
         return nline;
 }

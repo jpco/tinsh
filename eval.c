@@ -12,10 +12,14 @@
 // self-include
 #include "eval.h"
 
-char *make_pass (char *cmdline, char start, char end,
+static char *cmdline;
+static char **lines;
+static char **argv;
+
+char *make_pass (char *cmd, char start, char end,
                 char *(*parse_wd)(char *));
 
-char **split_line (char *cmdline);
+char **split_line (char *cmd);
 
 // word-parses
 char *squotes (char *cmd);
@@ -28,85 +32,96 @@ char *home_pass (char *cmd);
 char *alias_pass (char *cmd);
 
 // eval sections
-char *eval1 (char *cmdline);
-void eval2 (char *cmdline);
+char *eval1 (char *cmd);
+void eval2 (char **cmd);
 
-void eval (char *cmdline)
+void eval (char *cmd)
 {
+        cmdline = cmd;
+
         // pre-splitting parsing
         cmdline = eval1 (cmdline);
       
         // split!
-        char **lines = split_str (cmdline, ';');
+        lines = split_str (cmd, ';');
         int len;
         for (len = 0; lines[len] != NULL; len++);
         int i;
         for (i = 0; i < len-1; i++) {
                 char *line = malloc((strlen(lines[i])+1)*sizeof(char));
+                char **lineptr = &line;
                 strcpy(line, lines[i]);
-                eval2 (line);
+                eval2 (lineptr);
+                free (line);
         }
 
 
         // post-splitting parsing
-        eval2 (lines[i]);
+        eval2 (lines+i);
+
+        free (lines[0]);
+        free (lines);
+        free (cmdline);
 }
 
-char *eval1 (char *cmdline)
+char *eval1 (char *cmd)
 {
         // single quotes trump all
-        cmdline = make_pass (cmdline, '\'', '\'', &squotes);
+        cmd = make_pass (cmd, '\'', '\'', &squotes);
 
         // since nested commands often contain special chars...
-        cmdline = make_pass (cmdline, '`', '`', &subsh);
+        cmd = make_pass (cmd, '`', '`', &subsh);
 
-        return cmdline;
+        return cmd;
 }
 
         
-void eval2 (char *cmdline)
+void eval2 (char **cmd)
 {
-        if (cmdline == NULL) return;
+        if (*cmd == NULL) return;
 
         // try aliases
-        cmdline = alias_pass (cmdline);
+        *cmd = alias_pass (*cmd);
         
         // parse ~!
-        if (get_var ("__jpsh_~home"))
-                cmdline = home_pass (cmdline);
+        *cmd = home_pass (*cmd);
 
         // vars-parsing time!
-        cmdline = make_pass (cmdline, '(', ')', &parsevar);
+        *cmd = make_pass (*cmd, '(', ')', &parsevar);
 
         // single-quotes go last.
-        cmdline = make_pass (cmdline, '"', '"', &dquotes);
+        *cmd = make_pass (*cmd, '"', '"', &dquotes);
 
-        char *ncmdline = trim_str(cmdline);
-        cmdline = ncmdline;
+        char *ncmd = trim_str(*cmd);
+        free (*cmd);
+        *cmd = ncmd;
 
         // set up exec stuff
         // TODO: background &... also piping and redirection and such
-        char **argv = split_str (cmdline, ' ');
+        argv = split_str (*cmd, ' ');
         int argc;
         for (argc = 0; argv[argc] != NULL; argc++);
 
         try_exec (argc, argv, 0);
+
+        free (argv[0]);
+        free (argv);
 }
 
-// returns new cmdline
-char *make_pass (char *cmdline, char start, char end,
+// returns new cmd
+char *make_pass (char *cmd, char start, char end,
                 char *(*parse_wd)(char *))
 {
-        if (cmdline == NULL) return NULL;
+        if (cmd == NULL) return NULL;
 
         char *word = NULL;
-        char *buf = cmdline;
-        int len = strlen(cmdline);
-        for (; buf <= cmdline+len && *buf != '\0'; buf++) {
+        char *buf = cmd;
+        int len = strlen(cmd);
+        for (; buf <= cmd+len && *buf != '\0'; buf++) {
                 if (*buf != start && *buf != end)  // don't care!
                         continue;
 
-                if (buf > cmdline && *(buf-1) == '\\') {
+                if (buf > cmd && *(buf-1) == '\\') {
                         // they escaped! vroom!
                         rm_char (--buf);
                         continue;
@@ -120,19 +135,19 @@ char *make_pass (char *cmdline, char start, char end,
                                 rm_char (buf-1);
                                 rm_char (buf-1);
                                 word = NULL;
-                                len = strlen(cmdline);
+                                len = strlen(cmd);
                                 buf--;
                         } else {                  // the hard part
                                 *buf = '\0';
                                 char *nword = parse_wd(word);
-                                char *ncmdline = NULL;
-                                ncmdline = vcombine_str ('\0', 3,
-                                                cmdline, nword, buf+1);
+                                char *ncmd = NULL;
+                                ncmd = vcombine_str ('\0', 3,
+                                                cmd, nword, buf+1);
                                 free (nword);
-                                free (cmdline);
-                                buf = (word-1-cmdline)+ncmdline;
-                                cmdline = ncmdline;
-                                len = strlen(cmdline);
+                                free (cmd);
+                                buf = (word-1-cmd)+ncmd;
+                                cmd = ncmd;
+                                len = strlen(cmd);
                                 word = NULL;
                         }
                 }
@@ -141,7 +156,7 @@ char *make_pass (char *cmdline, char start, char end,
         if (word) {
                 print_err ("Malformed input... continuing.");
         }
-        return cmdline;
+        return cmd;
 }
 
 // NOTE TO SELF:
@@ -221,9 +236,14 @@ char *parsevar (char *cmd)
 char *home_pass (char *cmd)
 {
         char *home = get_var ("__jpsh_~home");
+
         char *ncmd = malloc((strlen(cmd)+1)*sizeof(char));
         strcpy(ncmd, cmd);
+        free (cmd);
         cmd = ncmd;
+
+        if (!home) return cmd;
+
         char *buf = cmd;
         for (; *buf != '\0'; buf++) {
                 if (*buf != '~') continue;
@@ -240,6 +260,7 @@ char *home_pass (char *cmd)
                 cmd = ncmd;
         }
 
+        free (home);
         return cmd;
 }
 
@@ -254,12 +275,23 @@ char *alias_pass (char *cmd) {
         *buf = '\0';
         alias = get_alias (cmd);
         *buf = delim;
-        
-        if (alias) return vcombine_str (0, 2, alias, buf);
-        else return vcombine_str (0, 1, cmd);
+
+        char *ncmd = NULL;
+        if (alias) {
+                ncmd = vcombine_str (0, 2, alias, buf);
+        } else {
+                ncmd = vcombine_str (0, 1, cmd);
+        }
+//        free (cmd);
+        return ncmd;
 }
 
 void free_ceval (void)
 {
-        // I DONUT KNOW YET
+        free (lines[0]);
+        free (lines);
+        free (argv[0]);
+        free (argv);
+
+        free (cmdline);
 }

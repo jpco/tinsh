@@ -3,6 +3,8 @@
 #include <libgen.h>
 #include <errno.h>
 
+// #include <stdio.h>
+
 // for readdir et al.
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -27,7 +29,7 @@ char *l_compl (char *line, char *start, char *end)
 {
         errno = 0;
         if (line == NULL) return NULL;
-        if (start == NULL) return NULL;
+        if (start == NULL) start = line;
         if (end == NULL) end = line + strlen(line);
         int linelen = strlen(line);
         char lchr = '\0';
@@ -49,21 +51,54 @@ char *l_compl (char *line, char *start, char *end)
         return compl_line;
 }
 
-char *w_compl (char *wd, int first)
+char *w_compl (char *owd, int first)
 {
         // TODO: bash autocompletion 
+//        char *complwd = f_compl(owd, 0);
+        char *wd = vcombine_str (0, 1, owd);
+
+        // Cut out backslashes from word
+        char *buf = wd;
+        for (; *buf != '\0' && *(buf+1) != '\0'; buf++) {
+                if (*buf == '\\' && is_separator(*(buf+1))) {
+                        rm_char (buf--);
+                }
+        }
+
+        char *complwd = f_compl(wd, 0);
+
         if (first) {
+                free (complwd);
+
                 if (strchr(wd, '/') == NULL) {
                         char *pathpl = path_compl(wd);
                         if (!pathpl) {
-                                return f_compl(wd, 3);
+                                complwd = f_compl(wd, 3);
+                        } else {
+                                complwd = pathpl;
                         }
                 } else {
-                        return f_compl(wd, 1);
+                        complwd = f_compl(wd, 1);
+                }
+        }
+
+        if (complwd != NULL) {
+                buf = complwd;
+                for (; *buf != '\0' && *(buf+1) != '\0'; buf++) {
+                        if (*buf == ' ') {
+                                *buf = '\0';
+                                char *ncomplwd = vcombine_str(0, 3,
+                                                complwd, "\\ ",
+                                                buf+1);
+                                free (complwd);
+                                buf = buf+1-complwd+ncomplwd;
+                                complwd = ncomplwd;
+                        }
                 }
         } else {
-                return f_compl(wd, 0);
+                complwd = vcombine_str(0, 1, owd);
         }
+        return complwd;
 }
 
 char *path_compl (const char *wd)

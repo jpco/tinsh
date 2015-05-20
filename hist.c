@@ -25,7 +25,10 @@ void hist_add (const char *line)
 {
         if (*line == '\0') return;
 
-        if (len > 0 && olstrcmp(hist[base_pos], line)) return;
+        if (len > 0 && olstrcmp(hist[base_pos], line)) {
+                pos = len;
+                return;
+        }
 
         char *hline = malloc ((strlen(line)+1) * sizeof(char));
         if (hline == NULL && errno == ENOMEM) {
@@ -45,8 +48,8 @@ void hist_add (const char *line)
         } else {                // non-full history
                 if (len != 0) base_pos++;
                 len++;
-                pos = len;
                 hist[base_pos] = hline;
+                pos = len;
         }
 }
 
