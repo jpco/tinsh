@@ -8,6 +8,7 @@
 #include "defs.h"
 #include "str.h"
 #include "debug.h"
+#include "eval.h"
 
 // self-include
 #include "env.h"

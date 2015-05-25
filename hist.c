@@ -100,7 +100,7 @@ char *hist_down (void)
         char *ret = malloc ((strlen(retval)+1) * sizeof(char));
         if (ret == NULL && errno == ENOMEM) {
                 print_err ("Could not malloc string to return.");
-                return;
+                return "";
         }
         strcpy (ret, retval);
 

@@ -7,6 +7,7 @@
 // local includes
 #include "defs.h"
 #include "eval.h"
+#include "exec.h"
 #include "env.h"
 #include "str.h"
 #include "linebuffer.h"

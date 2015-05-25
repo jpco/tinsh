@@ -8,6 +8,7 @@
 #include "str.h"
 #include "defs.h"
 #include "debug.h"
+#include "exec.h"
 
 // self-include
 #include "eval.h"
@@ -102,7 +103,7 @@ void eval2 (char **cmd)
         int argc;
         for (argc = 0; argv[argc] != NULL; argc++);
 
-        try_exec (argc, argv, 0);
+        try_exec (argc, (const char **)argv, 0);
 
         free (argv[0]);
         free (argv);

@@ -14,6 +14,7 @@
 #include "debug.h"
 #include "str.h"
 #include "exec.h"
+#include "defs.h"
 
 // self-include
 #include "compl.h"

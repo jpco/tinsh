@@ -38,6 +38,7 @@ DON'T FORGET MEMORY LEAKS CAUSED BY REFACTORED EVAL
  - Long-buffer support
  - Piping/redirection (have to set up the stdin/stdout alteration)
  - `^` / `^^n` >>>> PREVIEW FUNCTION
+ - improve `with` (i.e., `with foo=bar echo (foo)`)
  - `__jpsh_prompt`
  - Broaden .jpshrc location support
  - Proper ANSI code interpretation

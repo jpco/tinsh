@@ -22,6 +22,7 @@ void ls_vars ();
 
 // Same as the above functions but with aliases.
 void set_alias (const char *key, const char *value);
+void unset_alias (const char *key);
 int has_alias (const char *key);
 char *get_alias (const char *key);
 void ls_alias ();
