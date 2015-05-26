@@ -3,7 +3,7 @@
 #include <libgen.h>
 #include <errno.h>
 
-// #include <stdio.h>
+#include <stdio.h>
 
 // for readdir et al.
 #include <sys/types.h>

@@ -220,71 +220,128 @@ void buffer_cpl (void)
  *  TODO: make this actually properly interpret ANSI escape codes, as per
  *  http://en.wikipedia.org/wiki/ANSI_escape_code
  */
+int escape (char cin);
+int ansi (char cin, int status);
+
 int interp (char cin, int status)
 {
+//        printf ("\n%d, s: %d\n", cin, status);
+
         if (cin == '\n') {
                 return -1;
         }
-        if (status == 3) {
-                if (cin == '~') {
-                        buffer_rm(0);
-                        return 0;
-                } else if (64 <= cin && cin <= 126) {
+
+        if (status != 0) {
+                return ansi (cin, status);
+        }
+
+        if (cin < 32 || cin == 127) {
+                return escape (cin);
+        }
+
+        buffer (cin);
+
+        return 0;
+}
+
+int escape (char cin)
+{
+        // ctrl-A = 1
+        // ctrl-B = 2
+        // ctrl-E = 5
+        // ctrl-W = 23
+
+//        printf ("escape.\n");
+        if (cin == 1) {  // ctrl-A
+                idx = 0;
+                reprint();
+        } else if (cin == 5) {  // ctrl-E
+                idx = length;
+                reprint();
+        } else if (cin == 2) {  // ctrl-B
+
+        } else if (cin == 23) {  // ctrl-W
+
+        } else if (cin == '\t') {
+                buffer_cpl();
+        } else if (cin == '') {
+                buffer_rm(1);
+        } else if (cin == '') {
+                return 1;
+        }
+
+        return 0;
+}
+
+static char ansi_chars[20];
+
+void clear_ansi_chars (void) {
+        int i;
+        for (i = 0; i < 20; i++) {
+                ansi_chars[i] = 0;
+        }
+}
+
+void append_ansi_char (char c) {
+        int i;
+        for (i = 0; ansi_chars[i] != 0; i++);
+        ansi_chars[i] = c;
+}
+
+int ansi (char cin, int status)
+{
+        int retval = 0;
+//        printf ("ANSI. ansi_chars: [%s]\n", ansi_chars);
+        // [C, [D:  buffer_mv
+        // [A:        nline = hist_up(), rebuffer(nline), free(nline)
+        // [B:        nline = hist_down(), rebuffer(nline), free(nline)
+        // [3~:       buffer_rm(0)
+        //
+        if (status == 1) {      // 2-char seq potentially
+                if (64 <= cin && cin <= 95 && cin != '[') {
+//                        printf ("end-of-ANSI word (1)\n");
+                        buffer ('');
                         buffer (cin);
-                        return 0;
+                        retval = 0;
+                } else if (cin == '[') {
+                        retval = 2;
+                } else {
+                        buffer ('?');
+                        retval = 0;
                 }
-                return 3;
-        } else if (status == 2) {
-                char *nline = NULL;
-                switch (cin) {
-                        case 'D':
-                        case 'C':
-                                buffer_mv (cin);
-                                return 0;
-                        case 'A':
-                                nline = hist_up();
+        } else if (status == 2) {       // CSI has been typed
+                append_ansi_char (cin);
+
+                if (64 <= cin && cin <= 126) {  // end of seq, parse!
+//                        printf ("end-of-ANSI word (2)\n");
+                        if (olstrcmp(ansi_chars, "A")) {
+//                                printf ("HIST UP\n");
+                                char *nline = hist_up();
                                 rebuffer (nline);
                                 free (nline);
-                                return 0;
-                        case 'B':
-                                nline = hist_down();
+                        } else if (olstrcmp(ansi_chars, "B")) {
+//                                printf ("HIST DOWN\n");
+                                char *nline = hist_down();
                                 rebuffer (nline);
                                 free (nline);
-                                return 0;
-                        case '3':
-                                return 3;
-                        default:
-                                return 0;
-                }
-        } else if (status == 1) {
-                if (cin == '[') return 2;
-                else {
-                        buffer (cin);
-                        return 0;
-                }
-        } else {
-                switch (cin) {
-                        case '':
-                                buffer_rm(1);
-                                return 0;
-                        case '\t':
-                                buffer_cpl();
-                                return 0;
-                        case '':
-                                return 1;
-                        case '':
-                                printf("[%dD", idx);
-                                idx = 0;
-                                return 0;
-                        case '':
-                                printf("[%dC", length - idx);
-                                idx = length;
-                                return 0;
-                        default:
-                                buffer (cin);
-                                return 0;
+                        } else if (olstrcmp(ansi_chars, "C") ||
+                                        olstrcmp(ansi_chars, "D")) {
+//                                printf ("MOV\n");
+                                buffer_mv(cin);
+                        } else if (olstrcmp(ansi_chars, "3~")) {
+//                                printf ("DEL\n");
+                                buffer_rm(0);
+                        } else {
+                                sbuffer ("[");
+                                sbuffer (ansi_chars);
+                        }
+                        clear_ansi_chars();
+                        retval = 0;
+                } else {
+                        retval = 2;
                 }
         }
+        return retval;
 }
 
 char *line_loop (void)

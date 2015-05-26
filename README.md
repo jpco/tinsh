@@ -27,6 +27,8 @@ Worse than sh!
 
 ### Todo (in no particular order)
 DON'T FORGET MEMORY LEAKS CAUSED BY REFACTORED EVAL
+
+##### Interactive
  - Tab completion (more/better)
     - var/alias autocomplete? Esp. `__jpsh_~home`
     - deal with s/dquotes
@@ -34,13 +36,18 @@ DON'T FORGET MEMORY LEAKS CAUSED BY REFACTORED EVAL
     - suggestion on conflict >>>> PREVIEW FUNCTION
     - refactor... the code is pretty messy
  - Redo line coloration... that didn't last long
- - Globs! >>>> PREVIEW FUNCTION
+ - Preview functionality!
  - Long-buffer support
  - Piping/redirection (have to set up the stdin/stdout alteration)
- - `^` / `^^n` >>>> PREVIEW FUNCTION
+ - `^` / `^^n`
  - improve `with` (i.e., `with foo=bar echo (foo)`)
+    - `with foo=bar, action` seems to get into `if foo==bar, action`
  - `__jpsh_prompt`
  - Broaden .jpshrc location support
- - Proper ANSI code interpretation
  - Readline/config support? (long-term goal)
  - Generally less-brittle parsing (things are improving!)
+
+##### Non-interactive
+ - `:` / `{ }` support, then we can get
+ - `int` and `path` vars
+ - Globs! >>>> PREVIEW FUNCTION

@@ -24,7 +24,7 @@
 static int pid;
 const char *builtins[NUM_BUILTINS] = {"exit", "cd", "pwd",
         "lsvars", "lsalias", "set", "setenv", "unset",
-        "unenv", "alias", "unalias", "color", "with", NULL};
+        "unenv", "alias", "unalias", "color", NULL};
 
 int sigchild (int signo)
 {
@@ -167,24 +167,6 @@ int builtin (int argc, const char **argv, int bg)
                         print_err ("Too few args.\n");
                 } else {
                         color_line (argc-1, argv+1);
-                }
-        } else if (olstrcmp (argv[0], "with")) {
-                if (argc < 3) {
-                        print_err ("Too few args.\n");
-                } else {
-                        char *keynval = vcombine_str(0, 1, argv[1]);
-                        char **key_val = &keynval;
-                        if (strchr(keynval, '=') == NULL) {
-                                set_var (keynval, NULL);
-                        } else {
-                                key_val = split_str (keynval, '=');
-                                set_var (key_val[0], key_val[1]);
-                        }
-
-                        try_exec (argc-2, argv+2, bg);
-
-                        unset_var (*key_val);
-                        free (keynval);
                 }
         } else {
                 return 0;
