@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 
 // local includes
 #include "defs.h"
@@ -19,6 +20,7 @@
 static int idx;
 static int length;
 static int prompt_length;
+static int rowlen;
 
 static char *buf;
 static char *sprompt;
@@ -60,8 +62,14 @@ void reprint (void)
         printf("[%dG", prompt_length + idx);  // move back to idx
         */
 
-        printf("[%dG%s[K[%dG", prompt_length, buf,
-                        prompt_length + idx);
+        int width = term_width();
+        width++;
+        if (width == 0) width = INT_MAX;
+        int nlines = (prompt_length + length) / width;
+        int horiz = nlines + (prompt_length + idx) % width;
+
+        printf("[%dA[%dG%s[K[%dG", nlines, prompt_length, buf,
+                        horiz);
 }
 
 void rewd (void)
@@ -176,14 +184,14 @@ void buffer_rm (int bksp)
         reprint();
 }
 
-void buffer_mv (char dir)
+void buffer_mv_left (void)
 {
-        if (dir == 'D') {// left
-                if (idx > 0) idx--;
-        } else if (dir == 'C') {// right
-                if (idx < length) idx++;
-        }
-
+        if (idx > 0) idx--;
+        reprint();
+}
+void buffer_mv_right (void)
+{
+        if (idx < length) idx++;
         reprint();
 }
 
@@ -306,7 +314,7 @@ int ansi (char cin, int status)
                 } else if (cin == '[') {
                         retval = 2;
                 } else {
-                        buffer ('?');
+                        buffer (cin);
                         retval = 0;
                 }
         } else if (status == 2) {       // CSI has been typed
@@ -324,10 +332,10 @@ int ansi (char cin, int status)
                                 char *nline = hist_down();
                                 rebuffer (nline);
                                 free (nline);
-                        } else if (olstrcmp(ansi_chars, "C") ||
-                                        olstrcmp(ansi_chars, "D")) {
-//                                printf ("MOV\n");
-                                buffer_mv(cin);
+                        } else if (olstrcmp(ansi_chars, "C")) {
+                                buffer_mv_right();
+                        } else if (olstrcmp(ansi_chars, "D")) {
+                                buffer_mv_left();
                         } else if (olstrcmp(ansi_chars, "3~")) {
 //                                printf ("DEL\n");
                                 buffer_rm(0);

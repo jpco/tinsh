@@ -13,15 +13,52 @@
 // self-include
 #include "env.h"
 
+typedef struct scope_st {
+        var_t *vars[MAX_VARS];
+        int vars_len;
+        struct scope_st *parent;
+} scope_t;
+
 // environment variables are stored
-// more deeply, using setenv() and getenv() calls
+// more deeply in the system, using setenv() and getenv() calls
 static var_t *aliases[MAX_ALIASES];
-static var_t *vars[MAX_VARS];
 static int alias_len;
-static int vars_len;
+
+// Current scope & global scope
+static scope_t *gscope;
+static scope_t *cscope;
 
 // enum to differentiate sections of the config file
 typedef enum {NONE, ENV, VARS, ALIAS, STARTUP} config_section_t;
+
+//
+// SECTION: SCOPE MODIFIERS
+//
+void new_scope() {
+        scope_t *nscope = malloc(sizeof(scope_t));
+        nscope->parent = cscope;
+        nscope->vars_len = 0;
+        cscope = nscope;
+}
+
+void leave_scope() {
+        if (cscope->parent == NULL) {
+                print_err ("Cannot leave to NULL scope");
+                return;
+        }
+
+        scope_t *rmscope = cscope;
+        cscope = cscope->parent;
+
+        int i;
+        for (i = 0; i < rmscope->vars_len; i++) {
+                free (rmscope->vars[i]->key);
+                free (rmscope->vars[i]->value);
+                free (rmscope->vars[i]);
+        }
+
+        free (rmscope);
+}
 
 //
 // SECTION: GETTERS & SETTERS
@@ -103,17 +140,32 @@ void set_value (const char *key, const char *value,
 
 int has_var (const char *key)
 {
-        return has_value (key, vars, vars_len);
+        scope_t *lscope = cscope;
+        for (; lscope != NULL; lscope = lscope->parent) {
+                if (has_value (key, lscope->vars, lscope->vars_len))
+                        return 1;
+        }
+
+        return 0;
 }
 
 char *get_var (const char *key)
 {
-        return get_value (key, vars, vars_len);
+        scope_t *lscope = cscope;
+        for (; lscope != NULL; lscope = lscope->parent) {
+                if (has_value (key, lscope->vars, lscope->vars_len))
+                        return get_value (key,
+                                          lscope->vars,
+                                          lscope->vars_len);
+        }
+
+        return 0;
 }
 
 void set_var (const char *key, const char *value)
 {
-        set_value (key, value, vars, &vars_len, MAX_VARS);
+        set_value (key, value, cscope->vars, &(cscope->vars_len),
+                        MAX_VARS);
 }
 
 /**
@@ -141,18 +193,27 @@ void unset_value (const char *key, var_t **arr, int *arr_len)
 
 void unset_var (const char *key)
 {
-        unset_value (key, vars, &vars_len);
+        scope_t *lscope = cscope;
+        for (; lscope != NULL; lscope = lscope->parent) {
+                if (has_value (key, lscope->vars, lscope->vars_len))
+                        unset_value (key, lscope->vars,
+                                        &(lscope->vars_len));
+        }
 }
 
 void ls_vars (void)
 {
         printf ("Vars:\n");
         int i;
-        for (i = 0; i < vars_len; i++) {
-                if (strcmp(vars[i]->value, "") != 0) {
-                        printf("%s = %s\n", vars[i]->key, vars[i]->value);
-                } else {
-                        printf("%s set\n", vars[i]->key);
+        scope_t *lscope = cscope;
+        for (; lscope != NULL; lscope = lscope->parent) {
+                for (i = 0; i < lscope->vars_len; i++) {
+                        if (strcmp(lscope->vars[i]->value, "") != 0) {
+                                printf("%s = %s\n", lscope->vars[i]->key,
+                                                lscope->vars[i]->value);
+                        } else {
+                                printf("%s set\n", lscope->vars[i]->key);
+                        }
                 }
         }
 }
@@ -195,12 +256,18 @@ void ls_alias (void)
  */
 void free_env (void)
 {
-        int i;
-        for (i = 0; i < vars_len; i++) {
-                free (vars[i]->key);
-                free (vars[i]->value);
-                free (vars[i]);
+        while (cscope->parent != NULL) {
+                leave_scope();
         }
+
+        int i;
+        for (i = 0; i < gscope->vars_len; i++) {
+                free (gscope->vars[i]->key);
+                free (gscope->vars[i]->value);
+                free (gscope->vars[i]);
+        }
+        free (gscope);
+
         for (i = 0; i < alias_len; i++) {
                 free (aliases[i]->key);
                 free (aliases[i]->value);
@@ -342,6 +409,9 @@ void init_env_wfp (FILE *fp)
  */
 void init_env (void)
 {
+        new_scope();
+        gscope = cscope;
+
         FILE *fp = NULL;
         int err = -1;
         char *home = getenv("HOME");

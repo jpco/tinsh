@@ -5,7 +5,7 @@
  * Evaluates the command line and executes it as necessary.
  * NOTE: frees cmdline!!!
  */
-void eval (char *cmdline);
+void eval (char *cmd);
 
 // Frees the current eval variables
 // NOTE: only if the program is to exit during execution!

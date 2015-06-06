@@ -24,6 +24,7 @@ Worse than sh!
     - can be toggled with `__jpsh_color` var
  - multiple lines in one line
  - History
+ - a(n as-of-yet unused) notion of scope for variables
 
 ### Todo (in no particular order)
 DON'T FORGET MEMORY LEAKS CAUSED BY REFACTORED EVAL
@@ -39,15 +40,15 @@ DON'T FORGET MEMORY LEAKS CAUSED BY REFACTORED EVAL
  - Preview functionality!
  - Long-buffer support
  - Piping/redirection (have to set up the stdin/stdout alteration)
+    - (`pipe(3)` and `dup2(3)`)
  - `^` / `^^n`
- - improve `with` (i.e., `with foo=bar echo (foo)`)
-    - `with foo=bar, action` seems to get into `if foo==bar, action`
  - `__jpsh_prompt`
  - Broaden .jpshrc location support
- - Readline/config support? (long-term goal)
+ - Readline/config support? (maybe long-term goal)
  - Generally less-brittle parsing (things are improving!)
 
 ##### Non-interactive
- - `:` / `{ }` support, then we can get
+ - `:` / `{ }` support, then we can start with control flow \& `with`
  - `int` and `path` vars
+ - subshells!
  - Globs! >>>> PREVIEW FUNCTION

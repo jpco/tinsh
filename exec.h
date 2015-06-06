@@ -4,6 +4,15 @@
 
 const char *builtins[NUM_BUILTINS];
 
+struct job {
+        char **argv;
+        int argc;
+
+        int bg;
+        int in_fd;
+        int out_fd;
+};
+
 /**
  * Kills the child process.
  * Returns 0 if the child was successfully killed, nonzero otherwise.
@@ -16,18 +25,6 @@ int sigchild (int signo);
  */
 char *subshell (char *cmd);
 
-/**
- * Executes the builtin functions within jpsh.
- *
- * Arguments:
- *  - argc: the number of args
- *  - argv: the arguments
- *
- * Returns:
- *  - 0 if there is no builtin with this name
- *  - 1 if the builtin successfully executed
- *  - 2 if there was an error
- */
 void try_exec (int argc, const char **argv, int bg);
 
 /**

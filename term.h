@@ -2,6 +2,13 @@
 #define JPSH_TERM_H
 
 /**
+ * Function to get the current terminal width.
+ * 
+ * Returns -1 on error, the current width on success.
+ */
+int term_width();
+
+/**
  * Function to get the current cursor position.
  * Assumes we are currently during the linebuffer
  * period, not during evaluation/execution. (i.e.,

@@ -7,6 +7,15 @@ typedef struct {
 } var_t;
 
 /**
+ * Creates new scope within the current scope.
+ */
+void new_scope();
+/**
+ * Leaves the current scope, reverting to the parent.
+ */
+void leave_scope();
+
+/**
  * Defines or overwrites the variable; if there is an
  * error, does not affect the array.
  */

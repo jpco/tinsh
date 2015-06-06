@@ -28,6 +28,16 @@ char rd (void)
         else return 0;
 }
 
+int term_width (void)
+{
+        struct winsize w;
+        if (ioctl (STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
+                print_err_wno ("Error getting term width", errno);
+                return -1;
+        }
+        return w.ws_col;
+}
+
 int cursor_pos (int *row, int *col)
 {
         int retval = write (fd, "[6n", 4);    // printf ("[6n"); 
