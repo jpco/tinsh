@@ -19,6 +19,22 @@ int olstrcmp (const char *str1, const char *str2)
         return (str2[i] == '\0');
 }
 
+int startswith (const char *str1, const char *pre)
+{
+        int i;
+        for (i = 0; pre[i] != '\0'; i++)
+                if (str1[i] != pre[i]) return 0;
+        return 1;
+}
+
+void arm_char (char *line, size_t len)
+{
+        int i;
+        for (i = 0; i < len; i++) {
+                line[i] = line[i+1];
+        }
+}
+
 void rm_char (char *line)
 {
         int i;

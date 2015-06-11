@@ -1,298 +1,421 @@
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 // local includes
-#include "env.h"
+#include "queue.h"
 #include "str.h"
-#include "defs.h"
 #include "debug.h"
 #include "exec.h"
 
 // self-include
 #include "eval.h"
 
-static char *cmdline;
-static char **lines;
-static char **argv;
+// SECTION EVAL FUNCTIONS
 
-char *make_pass (char *cmd, char start, char end,
-                char *(*parse_wd)(char *));
+static queue *ejob_res;
+static queue *ejobs;
+static queue *jobs;
 
-char **split_line (char *cmd);
+void mask_eval();
+void subsh_eval();
+void spl_line_eval();
+void spl_pipe_eval();
+void job_form();
+void var_eval();
 
-// word-parses
-char *squotes (char *cmd);
-char *subsh (char *cmd);
-char *dquotes (char *cmd);
-char *parsevar (char *cmd);
+void free_ceval();
 
-// misc passes
-char *home_pass (char *cmd);
-char *alias_pass (char *cmd);
+char *masked_strchr(const char *s, const char *m, char c);
+void masked_trim_str(const char *s, const char *m, char **ns, char **nm);
+void spl_cmd (const char *s, const char *m, char ***argv, char ***argm,
+                int *argc);
 
-// eval sections
-char *eval1 (char *cmd);
-void eval2 (char **cmd);
+void print_msg (char *msg, char *mask, int nl)
+{
+        size_t i;
+        size_t len = strlen(msg);
+        for (i = 0; i < len; i++) {
+                if (mask[i]) {
+                        printf ("[7m%c[0m", msg[i]);
+                } else {
+                        printf ("%c", msg[i]);
+                }
+        }
+
+        if (nl) printf ("\n");
+}
 
 void eval (char *cmd)
 {
-        cmdline = cmd;
+        ejob_res = q_make();
+        ejobs = q_make();
+        jobs = q_make();
 
-        // pre-splitting parsing
-        cmdline = eval1 (cmdline);
-      
-        // split!
-        lines = split_str (cmd, ';');
-        int len;
-        for (len = 0; lines[len] != NULL; len++);
-        int i;
-        for (i = 0; i < len-1; i++) {
-                char *line = malloc((strlen(lines[i])+1)*sizeof(char));
-                char **lineptr = &line;
-                strcpy(line, lines[i]);
-                eval2 (lineptr);
-                free (line);
+        char *ncmd = malloc((strlen(cmd)+1) * sizeof(char));
+        strcpy(ncmd, cmd);
+
+        q_push(ejob_res, ncmd);
+        q_push(ejobs, mask_eval);
+
+        while (q_len(ejobs) > 0) {
+                void (*ejob)(void);
+                q_pop(ejobs, (void **)&ejob);
+                ejob();
+        }
+}
+
+// Takes care of \ and ' masking.
+void mask_eval (void)
+{
+        // TODO: iron out subtleties of \, ', ` priority
+
+        char *cmdline;
+        q_pop(ejob_res, (void **)&cmdline);
+
+        char *cmdmask = calloc(strlen(cmdline) + 1, sizeof(char));
+        
+        char *buf = cmdline;
+        char *mbuf = cmdmask;
+        while ((buf = masked_strchr(buf, mbuf, '\\'))) {
+                ptrdiff_t diff = buf - cmdline;
+                mbuf = cmdmask + diff;
+                rm_char (buf);
+                arm_char (mbuf, strlen(cmdline) - diff + 1);
+                *mbuf = '\\';
         }
 
+        // '-pass
+        buf = cmdline;
+        mbuf = cmdmask;
+        while ((buf = masked_strchr(buf, mbuf, '\''))) {
+                ptrdiff_t diff = buf - cmdline;
+                mbuf = cmdmask + diff;
 
-        // post-splitting parsing
-        eval2 (lines+i);
+                rm_char (buf);
+                arm_char (mbuf, strlen(cmdline) - diff + 1);
+                char *end = masked_strchr(buf, mbuf, '\'');
+                ptrdiff_t ediff = end - buf;
 
-        free (lines[0]);
-        free (lines);
-        free (cmdline);
-}
-
-char *eval1 (char *cmd)
-{
-        // single quotes trump all
-        cmd = make_pass (cmd, '\'', '\'', &squotes);
-
-        // since nested commands often contain special chars...
-        cmd = make_pass (cmd, '`', '`', &subsh);
-
-        return cmd;
-}
-
-        
-void eval2 (char **cmd)
-{
-        if (*cmd == NULL) return;
-
-        // try aliases
-        *cmd = alias_pass (*cmd);
-        
-        // parse ~!
-        *cmd = home_pass (*cmd);
-
-        // vars-parsing time!
-        *cmd = make_pass (*cmd, '(', ')', &parsevar);
-
-        // single-quotes go last.
-        *cmd = make_pass (*cmd, '"', '"', &dquotes);
-
-        char *ncmd = trim_str(*cmd);
-        free (*cmd);
-        *cmd = ncmd;
-
-        // set up exec stuff
-        // TODO: background &... also piping and redirection and such
-        argv = split_str (*cmd, ' ');
-        int argc;
-        for (argc = 0; argv[argc] != NULL; argc++);
-
-        try_exec (argc, (const char **)argv, 0);
-
-        free (argv[0]);
-        free (argv);
-}
-
-// returns new cmd
-char *make_pass (char *cmd, char start, char end,
-                char *(*parse_wd)(char *))
-{
-        if (cmd == NULL) return NULL;
-
-        char *word = NULL;
-        char *buf = cmd;
-        int len = strlen(cmd);
-        for (; buf <= cmd+len && *buf != '\0'; buf++) {
-                if (*buf != start && *buf != end)  // don't care!
-                        continue;
-
-                if (buf > cmd && *(buf-1) == '\\') {
-                        // they escaped! vroom!
-                        rm_char (--buf);
-                        continue;
+                if (end == NULL) {
+                        print_err ("Unmatched ' in command.");
+                        end = buf + strlen(buf);
+                        ediff = end - buf;
+                } else {
+                        rm_char (end);
+                        arm_char (mbuf + ediff,
+                                        strlen(cmdline) - ediff - diff);
                 }
 
-                if (*buf == start && !word) {      // start of word
-                        *buf = '\0';
-                        word = buf+1;
-                } else if (*buf == end && word) {  // end of word
-                        if (word == buf) {        // trivial word
-                                rm_char (buf-1);
-                                rm_char (buf-1);
-                                word = NULL;
-                                len = strlen(cmd);
-                                buf--;
-                        } else {                  // the hard part
-                                *buf = '\0';
-                                char *nword = parse_wd(word);
-                                char *ncmd = NULL;
-                                ncmd = vcombine_str ('\0', 3,
-                                                cmd, nword, buf+1);
-                                free (nword);
-                                free (cmd);
-                                buf = (word-1-cmd)+ncmd;
-                                cmd = ncmd;
-                                len = strlen(cmd);
-                                word = NULL;
+                memset (mbuf, '\'', ediff);
+                buf = end;
+                mbuf = ediff + mbuf;
+        }
+
+        // '-pass
+        buf = cmdline;
+        mbuf = cmdmask;
+        while ((buf = masked_strchr(buf, mbuf, '"'))) {
+                ptrdiff_t diff = buf - cmdline;
+                mbuf = cmdmask + diff;
+
+                rm_char (buf);
+                arm_char (mbuf, strlen(cmdline) - diff + 1);
+                char *end = masked_strchr(buf, mbuf, '"');
+                ptrdiff_t ediff = end - buf;
+
+                if (end == NULL) {
+                        print_err ("Unmatched \" in command.");
+                        end = buf + strlen(buf);
+                        ediff = end - buf;
+                } else {
+                        rm_char (end);
+                        arm_char (mbuf + ediff,
+                                        strlen(cmdline) - ediff - diff);
+                }
+
+                char *sbuf;
+                for (sbuf = buf; sbuf < end; sbuf++) {
+                        if (*sbuf == ' ') {
+                                ptrdiff_t sdiff = sbuf - cmdline;
+                                cmdmask[sdiff] = '"';
                         }
                 }
+                buf = end;
+                mbuf = ediff + mbuf;
         }
 
-        if (word) {
-                print_err ("Malformed input... continuing.");
-        }
-        return cmd;
+//        printf ("Masked: ");
+//        print_msg (cmdline, cmdmask, 1);
+
+        q_push(ejob_res, cmdline);
+        q_push(ejob_res, cmdmask);
+        q_push(ejobs, subsh_eval);
 }
 
-// NOTE TO SELF:
-// PLEASE DO NOT FREE cmd
-
-char *squotes (char *cmd)
+void subsh_eval (void)
 {
-        // escape EVERYTHING!
-        char *ncmd = calloc(strlen(cmd)+1, sizeof(char));
-        strcpy(ncmd, cmd);
-        char *buf = ncmd;
-        for (; *buf != '\0'; buf++) {
-                if (is_separator (*buf)) {
-                        char *thrchr = calloc(3, sizeof(char));
-                        thrchr[0] = '\\';
-                        thrchr[1] = *buf;
-                        *buf = '\0';
-                        char *nncmd = vcombine_str(0, 3, ncmd, thrchr,
-                                        buf+1);
-                        free (ncmd);
-                        free (thrchr);
-                        buf = buf+1-ncmd+nncmd;
-                        ncmd = nncmd;
+        char *cmdline;
+        char *cmdmask;
+        q_pop(ejob_res, (void **)&cmdline);
+        q_pop(ejob_res, (void **)&cmdmask);
+
+        char *buf = cmdline-1;
+        while ((buf = masked_strchr(buf+1, cmdmask, '`'))) {
+                *buf = '\0';
+                ptrdiff_t diff = buf + 1 - cmdline;
+                char *end = masked_strchr(buf+1, cmdmask+diff, '`');
+                if (end == NULL) {
+                        print_err ("Unmatched \"`\" in command.");
+                        return;
                 }
+                *end = '\0';
+                ptrdiff_t ediff = end + 1 - cmdline;
+                char *ret = subshell(buf+1);
+
+                // Hacky but here it is
+                // TODO: split out mask_create from mask_eval,
+                //       then just call mask_create from here and not
+                //       muck up the queue
+                q_push(ejob_res, ret);
+                mask_eval();
+                char *rmask;
+                void (*throwaway)(void);
+                q_pop(ejob_res, (void **)&ret);
+                q_pop(ejob_res, (void **)&rmask);
+                q_pop(ejobs, (void **)&throwaway);  // gross
+
+                size_t retlen = strlen(ret);
+                char *nbuf = vcombine_str(0, 3, cmdline, ret, end+1);
+
+                char *nmask = calloc(strlen(nbuf)+1, sizeof(char));
+                strncpy(nmask, cmdmask, strlen(cmdline));
+                strncpy(nmask + strlen(cmdline), rmask, strlen(rmask));
+                strncpy(nmask + strlen(cmdline) + strlen(rmask),
+                                cmdmask+ediff+1, strlen(cmdline+ediff+1));
+
+                free (cmdline);
+                free (cmdmask);
+                cmdline = nbuf;
+                cmdmask = nmask;
+                buf = cmdline + ediff;
         }
 
-        return ncmd;
+//        printf("Subshelled: ");
+//        print_msg(cmdline, cmdmask, 1);
+
+        q_push(ejob_res, cmdline);
+        q_push(ejob_res, cmdmask);
+        q_push(ejobs, spl_line_eval);
 }
 
-char *subsh (char *cmd)
+void spl_line_eval (void)
 {
-        // AAA HAHAHAH HHAHHAAAAHHHHH
-        char *ncmd = calloc(strlen(cmd)+1, sizeof(char));
-        strcpy(ncmd, cmd);
-        return ncmd;
-}
+        char *cmdline;
+        char *cmdmask;
+        q_pop(ejob_res, (void **)&cmdline);
+        q_pop(ejob_res, (void **)&cmdmask);
 
-char *dquotes (char *cmd)
-{
-        // escape all spaces!
-        char *ncmd = calloc(strlen(cmd)+1, sizeof(char));
-        strcpy(ncmd, cmd);
-        char *buf = ncmd;
-        for (; *buf != '\0'; buf++) {
-                if (*buf == ' ') {
-                        *buf = '\0';
-                        char *nncmd = vcombine_str(0, 3, ncmd, "\\ ",
-                                        buf+1);
-                        free (ncmd);
-                        buf = buf+1-ncmd+nncmd;
-                        ncmd = nncmd;
-                }
-        }
+        size_t cmdlen = strlen(cmdline);
 
-        return ncmd;
-}
+        char *buf = cmdline;
+        char *nbuf = masked_strchr(buf, cmdmask, ';');
 
-char *parsevar (char *cmd)
-{
-        // get values! (var, env)
-        char *varval = get_var (cmd);
-        if (varval == NULL) {
-                char *envval = getenv (cmd);
-                if (envval == NULL) {
-                        return calloc(1, sizeof(char));
+        while (buf != NULL && buf - cmdline < cmdlen && *buf != '\0') {
+                if (nbuf != NULL) {
+                        *nbuf = '\0';
                 } else {
-                        // we have to malloc after getenv
-                        char *menvval = malloc((strlen(envval)+1)*sizeof(char));
-                        strcpy(menvval, envval);
-                        return menvval;
+                        nbuf = buf + strlen(buf);
                 }
-        } else {
-                return varval;
+                if (buf == '\0') continue;
+
+                ptrdiff_t bdiff = buf - cmdline;
+                ptrdiff_t nbdiff = nbuf - buf;
+
+                char *ncmd = malloc((nbdiff+1) * sizeof(char));
+                strcpy(ncmd, buf);
+
+                char *nmask = calloc(nbdiff+1, sizeof(char));
+                strncpy (nmask, cmdmask + bdiff, nbdiff);
+
+                buf = nbuf + 1;
+                if (buf - cmdline < cmdlen) {
+                        nbuf = masked_strchr(buf, cmdmask+nbdiff, ';');
+                }
+
+                q_push(ejob_res, ncmd);
+                q_push(ejob_res, nmask);
+                q_push(ejobs, spl_pipe_eval);
         }
+
+        free (cmdline);
+        free (cmdmask);
 }
 
-char *home_pass (char *cmd)
+void job_form (void)
 {
-        char *home = get_var ("__jpsh_~home");
+        char *line;
+        char *mask;
+        int *fds;
+        q_pop(ejob_res, (void **)&line);
+        q_pop(ejob_res, (void **)&mask);
+        q_pop(ejob_res, (void **)&fds);
 
-        char *ncmd = malloc((strlen(cmd)+1)*sizeof(char));
-        strcpy(ncmd, cmd);
-        free (cmd);
-        cmd = ncmd;
+        char *nline;
+        char *nmask;
+        masked_trim_str (line, mask, &nline, &nmask);
+        free (line);
+        free (mask);
 
-        if (!home) return cmd;
+        if (*nline == '\0') {
+                free (nline);
+                free (nmask);
+                free (fds);
+                return;
+        }
 
-        char *buf = cmd;
-        for (; *buf != '\0'; buf++) {
-                if (*buf != '~') continue;
-                if (buf > cmd && *(buf-1) == '\\') {
-                        rm_char (--buf);
+        job_t *job = malloc(sizeof(job_t));
+        if (fds[0] != -1) job->in_fd = fds[0];
+        else job->in_fd = STDIN_FILENO;
+
+        if (fds[1] != -1) job->out_fd = fds[1];
+        else job->out_fd = STDOUT_FILENO;
+
+        char **argm;
+        int argc;
+        spl_cmd (nline, nmask, &(job->argv), &argm, &argc);
+}
+
+void spl_pipe_eval (void)
+{
+        char *cmdline;
+        char *cmdmask;
+        q_pop(ejob_res, (void **)&cmdline);
+        q_pop(ejob_res, (void **)&cmdmask);
+
+        char *buf = cmdline;
+        char *nbuf = masked_strchr(buf, cmdmask, '|');
+
+        size_t cmdlen = strlen(cmdline);
+
+        char fflag = 1;
+        char lflag = 0;
+
+        while (buf != NULL && buf - cmdline < cmdlen && *buf != '\0') {
+                if (nbuf != NULL) {
+                        *nbuf = '\0';
+                } else {
+                        nbuf = buf + strlen(buf);
+                        lflag = 1;
+                }
+                if (buf == '\0') {
                         continue;
                 }
-                *buf = '\0';
-                ncmd = vcombine_str (0, 3, cmd,
-                                home,
-                                buf+1);
-                buf = buf-cmd+ncmd;
-                free (cmd);
-                cmd = ncmd;
-        }
 
-        free (home);
-        return cmd;
+                ptrdiff_t bdiff = buf - cmdline;
+                ptrdiff_t nbdiff = nbuf - buf;
+
+                char *ncmd = malloc((nbdiff+1) * sizeof(char));
+                strcpy(ncmd, buf);
+
+                char *nmask = calloc(nbdiff+1, sizeof(char));
+                strncpy (nmask, cmdmask + bdiff, nbdiff);
+
+                buf = nbuf + 1;
+                if (!lflag) {
+                        nbuf = masked_strchr(buf, cmdmask+nbdiff, '|');
+                }
+
+                int *fds = malloc(2 * sizeof(int));
+
+                if (!(fflag && lflag)) {
+                        pipe (fds);
+
+                        if (fflag) {
+                                close (fds[0]);
+                                fds[0] = -1;
+                        }
+                        if (lflag) {
+                                close (fds[1]);
+                                fds[1] = -1;
+                        }
+                } else {
+                        fds[0] = -1;
+                        fds[1] = -1;
+                }
+
+                q_push(ejob_res, ncmd);
+                q_push(ejob_res, nmask);
+                q_push(ejob_res, fds);
+                q_push(ejobs, job_form);
+
+                fflag = 0;
+        }
 }
 
-char *alias_pass (char *cmd) {
-        char *buf = cmd;
-        char *alias = NULL;
-        for (; *buf != '\0'; buf++) {
-                if (is_separator (*buf)) break;
+void var_eval (void)
+{
+
+}
+
+void spl_cmd (const char *s, const char *m, char ***argv, char ***argm, 
+                int *argc)
+{
+        *argv = malloc(strlen(s) * sizeof(char *));
+        *argm = malloc(strlen(s) * sizeof(char *));
+
+        size_t wdcount = 0;
+        char wdflag = 1;
+        char *wdbuf = calloc(strlen(s)+1, sizeof(char));
+        for (const char *buf = s; buf != NULL && *buf != '\0'; buf++) {
+                
+        }
+}
+
+void masked_trim_str (const char *s, const char *m, char **ns, char **nm)
+{
+        const char *buf = s;
+        size_t i;
+        size_t len = strlen(s);
+        for (i = 0; !m[i] && (s[i] == ' ' || s[i] == '\t'); i++) {
+                buf++;
         }
 
-        char delim = *buf;
-        *buf = '\0';
-        alias = get_alias (cmd);
-        *buf = delim;
-
-        char *ncmd = NULL;
-        if (alias) {
-                ncmd = vcombine_str (0, 2, alias, buf);
-        } else {
-                ncmd = vcombine_str (0, 1, cmd);
+        if (*buf == '\0') {
+                *ns = calloc(1, sizeof(char));
+                *nm = calloc(1, sizeof(char));
+                return;
         }
-//        free (cmd);
-        return ncmd;
+
+        *ns = malloc((strlen(buf) + 1) * sizeof(char));
+        *nm = malloc((strlen(buf) + 1) * sizeof(char));
+        strcpy (*ns, buf);
+        strncpy (*nm, m, strlen(buf));
+
+        for (i = strlen(buf) - 1; i >= 0 && !(*nm)[i] &&
+                                ((*ns)[i] == '\n' ||
+                                (*ns)[i] == ' '); i--) {
+                (*ns)[i] = '\0';
+                (*nm)[i] = '\0';
+        }
+}
+
+char *masked_strchr (const char *s, const char *m, char c)
+{
+        size_t len = strlen(s);
+        size_t i;
+        for (i = 0; i < len; i++) {
+                if (m[i]) {
+                        continue;
+                }
+                if (s[i] == c) return (char *)(s+i);
+        }
+
+        return NULL;
 }
 
 void free_ceval (void)
 {
-        free (lines[0]);
-        free (lines);
-        free (argv[0]);
-        free (argv);
-
-        free (cmdline);
+//       free (cmdline);
 }

@@ -1,12 +1,22 @@
 #ifndef JPSH_STR_H
 #define JPSH_STR_H
 
+#include <unistd.h>
+
 /**
  * Returns 1 if passed strings are the same,
  * otherwise 0. Returns 0 as soon as it encounters a mismatched
  * char.
  */
 int olstrcmp (const char *str1, const char *str2);
+
+/**
+ * Returns 1 if the first passed string starts with
+ * the second passed string (not including the '\0',
+ * of course.) Returns 0 as soon as it encounters a
+ * mismatched char.
+ */
+int startswith (const char *str1, const char *pre);
 
 /**
  * NOTES:
@@ -76,6 +86,16 @@ char *combine_str(const char **strs, int len, char delim);
  *  - same as combine_str.
  */
 char *vcombine_str(char delim, int ct, ...);
+
+/**
+ * NOTE:
+ *  - WILL thrash arguments
+ *
+ * Removes the pointed-to character from the string to
+ * which it belongs.
+ */
+void arm_char (char *line, size_t len);
+
 
 /**
  * NOTE:

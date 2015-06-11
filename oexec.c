@@ -192,31 +192,8 @@ void printjob (int argc, const char **argv, int bg)
 
 char *subshell (char *cmd)
 {
-        int fds[2];
-        pipe (fds);
-
-        pid = fork();
-        if (pid < 0) print_err_wno ("Fork error.", errno);
-        else if (pid == 0) {
-                close (fds[0]);
-                dup2 (fds[1], STDOUT_FILENO);
-                eval (cmd);
-                close (fds[1]);
-                exit (0);
-        } else {
-                close (fds[1]);
-                int status = 0;
-                if (waitpid (pid, &status, 0) < 0) {
-                        dbg_print_err_wno ("Waitpid error.", errno);
-                        exit (1);
-                }
-
-                char *output = malloc((SUBSH_LEN+1) * sizeof(char));
-                while (read (fds[0], output, SUBSH_LEN) > 0);
-
-                return output;
-        }
-        return NULL;
+        // run subshell
+        return cmd;
 }
 
 void try_exec (int argc, const char **argv, int bg)

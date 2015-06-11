@@ -34,14 +34,16 @@ typedef enum {NONE, ENV, VARS, ALIAS, STARTUP} config_section_t;
 //
 // SECTION: SCOPE MODIFIERS
 //
-void new_scope() {
+void new_scope (void)
+{
         scope_t *nscope = malloc(sizeof(scope_t));
         nscope->parent = cscope;
         nscope->vars_len = 0;
         cscope = nscope;
 }
 
-void leave_scope() {
+void leave_scope (void)
+{
         if (cscope->parent == NULL) {
                 print_err ("Cannot leave to NULL scope");
                 return;

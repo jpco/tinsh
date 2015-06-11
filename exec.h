@@ -4,14 +4,14 @@
 
 const char *builtins[NUM_BUILTINS];
 
-struct job {
+typedef struct {
         char **argv;
         int argc;
 
         int bg;
         int in_fd;
         int out_fd;
-};
+} job_t;
 
 /**
  * Kills the child process.

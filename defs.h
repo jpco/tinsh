@@ -4,10 +4,11 @@
 #define MAX_LINE        1000
 #define MAX_ALIASES     100
 #define MAX_VARS        1000
-#define MAX_JOBS        20
+#define MAX_JOBS        50
 #define MAX_SPLIT       100
 #define LEN_HIST        400
-#define NUM_SEPARATORS  10
+#define NUM_SEPARATORS  14
+#define SUBSH_LEN       1000
 
 extern char **environ;
 const char separators[NUM_SEPARATORS];

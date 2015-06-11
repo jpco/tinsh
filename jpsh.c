@@ -120,9 +120,9 @@ int main (int argc, char **argv)
         atexit (free_env);
         atexit (free_hist);
         atexit (term_exit);
-        if (signal (SIGINT, sigint_handler) == SIG_ERR) {
+/*        if (signal (SIGINT, sigint_handler) == SIG_ERR) {
                 print_err ("Cannot catch SIGINT.");
-        }
+        } */
 
         // interactivity
         while (1) {
