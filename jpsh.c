@@ -42,20 +42,25 @@ void parse_file (char *fstr)
         }
 
         size_t n = MAX_LINE;
-        char *rline = malloc ((1+n)*sizeof(char));
-        if (rline == NULL && errno == ENOMEM) {
+        char *line = malloc ((1+n) * sizeof(char));
+        if (line == NULL && errno == ENOMEM) {
                 print_err ("Could not allocate memory to parse file.");
                 return;
         }
-        char *line;
-        int read = getline (&rline, &n, fp);
-        for (; read >= 0; read = getline (&rline, &n, fp)) {
-                line = trim_str (rline);
-                if (*line != '#' && *line != '\0')
-                        eval (line);
+        int read = getline (&line, &n, fp);
+        for (; read >= 0; read = getline (&line, &n, fp)) {
+                eval (line);
                 free (line);
+                line = malloc ((1+n) * sizeof(char));
         }
+        free (line);
 }
+
+typedef struct {
+        char *cmd;
+        char *config;
+        char *file;
+} args_t;
 
 /*
  * Parses arguments into jpsh.
@@ -69,24 +74,24 @@ void parse_file (char *fstr)
  *  - binary 1 indicates that the default env file needs to be parsed
  *  - binary 10 indicates that the program is to be interactive
  */
-int parse_args(int argc, char **argv, char **cmd)
+args_t parse_args(int argc, char **argv)
 {
-        int retval = 3;
+        args_t retval;
+        retval.cmd = NULL;
+        retval.config = NULL;
+        retval.file = NULL;
+
         int i;
         for (i = 1; i < argc; i++) {
                 char *carg = argv[i];
-                if (strcmp(carg, "-e") == 0) {
-                        // maybe pre_eval?
+                if (olstrcmp(carg, "-e")) {
                         if (i < argc - 1)
-                                *cmd = argv[++i];
-                        retval &= ~2;
-                } else if (strcmp(carg, "-c") == 0) {
+                                retval.cmd = argv[++i];
+                } else if (olstrcmp(carg, "-c")) {
                         if (i < argc - 1)
-                                init_envp (argv[++i]);
-                        retval &= ~1;
+                                retval.config = argv[++i];
                 } else {
-                        parse_file (carg);
-                        retval &= ~2;
+                        retval.file = carg;
                 }
         }
         return retval;
@@ -103,26 +108,25 @@ int parse_args(int argc, char **argv, char **cmd)
  */
 int main (int argc, char **argv)
 {
-        int argcode = 3;
-        char *exec = NULL;
-        if (argc > 1) {
-                argcode = parse_args(argc, argv, &exec);
-        }
-        if (argcode & 1) {
+        args_t args = parse_args(argc, argv);
+
+        if (args.config != NULL) {
+                init_envp(args.config);
+        } else {
                 init_env();
         }
-        if (exec != NULL) {
-                eval (exec);
+        if (args.file != NULL) {
+                parse_file (args.file);
+                return 0;
+        } else if (args.cmd != NULL) {
+                eval (args.cmd);
+                return 0;
         }
-        if (!(argcode & 2)) return 0;
 
         term_init();
         atexit (free_env);
         atexit (free_hist);
         atexit (term_exit);
-/*        if (signal (SIGINT, sigint_handler) == SIG_ERR) {
-                print_err ("Cannot catch SIGINT.");
-        } */
 
         // interactivity
         while (1) {

@@ -25,7 +25,7 @@ int sigchild (int signo);
  */
 char *subshell (char *cmd);
 
-void try_exec (int argc, const char **argv, int bg);
+void try_exec (job_t *job);
 
 /**
  * Checks if "cmd" can be executed, given the current

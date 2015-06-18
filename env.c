@@ -161,7 +161,7 @@ char *get_var (const char *key)
                                           lscope->vars_len);
         }
 
-        return 0;
+        return NULL;
 }
 
 void set_var (const char *key, const char *value)

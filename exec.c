@@ -96,7 +96,7 @@ int chk_exec (const char *cmd)
         return 0;
 }
 
-int builtin (int argc, const char **argv, int bg)
+int builtin (int argc, const char **argv)
 {
         if (strchr(argv[0], '/')) return 0;
 
@@ -175,19 +175,31 @@ int builtin (int argc, const char **argv, int bg)
         return 1;
 }
 
-void printjob (int argc, const char **argv, int bg)
+void printjob (job_t *job)
 {
         char *db = get_var ("__jpsh_debug");
         if (db == NULL) return;
         else free (db);
-        printf ("\e[0;35m");
-        if (bg) printf ("(background) ");
-        printf ("[%s] ", argv[0]);
+
+        printf (" ==== JOB ====\n");
+        printf ("[%s] ", job->argv[0]);
         int i;
-        for (i = 1; i < argc; i++) {
-                printf("%s ", argv[i]);
+        for (i = 1; i < job->argc; i++) {
+                printf ("%s ", job->argv[i]);
         }
-        printf("\e[0m\n");
+        printf ("\n");
+        if (job->bg) {
+                printf (" - Background\n");
+        }
+        if (job->out_fd >= 0) {
+                printf (" - Out to %d\n", job->out_fd);
+        }
+        if (job->in_fd >= 0) {
+                printf (" - In from %d\n", job->in_fd);
+        }
+        if (job->bg || job->out_fd >= 0 || job->in_fd >= 0) {
+                printf ("\n");
+        }
 }
 
 char *subshell (char *cmd)
@@ -219,16 +231,35 @@ char *subshell (char *cmd)
         return NULL;
 }
 
-void try_exec (int argc, const char **argv, int bg)
+void try_exec (job_t *job)
 {
-        printjob (argc, argv, bg);
+        const char **argv = (const char **)job->argv;
+        int argc = job->argc;
 
-        if (!builtin (argc, argv, bg)) {
+        printjob (job);
+
+        if (job->out_fd+1) job->bg = 1;
+
+        int stdin_dup = dup(STDIN_FILENO);
+        int stdout_dup = dup(STDOUT_FILENO);
+
+        if (!builtin (argc, argv)) {
                 int success = 0;
                 int err = 0;
                 pid = fork();
                 if (pid < 0) print_err_wno ("Fork error.", errno);
                 else if (pid == 0) {
+                        if (job->out_fd >= 0) {
+                                if (dup2 (job->out_fd, STDOUT_FILENO) == -1) {
+                                        print_err_wno ("Output redirect error.", errno);
+                                }
+                        }
+                        if (job->in_fd >= 0) {
+                                if (dup2 (job->in_fd, STDIN_FILENO) == -1) {
+                                        print_err_wno ("Input redirect error.", errno);
+                                }
+                        }
+
                         success = execvpe (argv[0], argv, environ);
                         err = errno;
                         if (err == 2) {
@@ -240,7 +271,7 @@ void try_exec (int argc, const char **argv, int bg)
                         // clean up memory!
                         free_ceval();
                 }
-                if (!bg || !success) {
+                if (!(job->bg) || !success) {
                         int status = 0;
                         if (waitpid (pid, &status, 0) < 0) {
                                 int err = errno;
@@ -250,6 +281,13 @@ void try_exec (int argc, const char **argv, int bg)
                                 exit (1);
                         }
                 }
+                close (0);
+                close (1);
+                dup2 (stdin_dup, 0);
+                dup2 (stdout_dup, 1); 
+                close (stdin_dup);
+                close (stdout_dup);
+
                 pid = 0;
         }
 }
