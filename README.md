@@ -26,9 +26,12 @@ Worse than sh!
  - History
  - a(n as-of-yet unused) notion of scope for variables
     - environment variables and aliases always have global scope
+ - subshells (not severely tested)
 
 ### Todo (in no particular order)
 CURRENT: EVAL REFACTOR
+ - var resolution splits quotes
+ - redirection doesn't seem to be working, nor does piping
 
 ##### Interactive
  - Tab completion (more/better)
@@ -47,10 +50,11 @@ CURRENT: EVAL REFACTOR
  - Readline/config support? (maybe long-term goal)
 
 ##### Non-interactive
+ - split up `eval.c` and `eval-utils.c`
+ - maybe change eval structure so it's not chain-y? concatenative programming is weird in C
+ - re-mask after alias and var substitution
  - `:` / `{ }` support, then we can start with control flow \& `with`
  - `int`, `bool`, and `path` vars
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - (`pipe(3)` and `dup2(3)`)
- - subshells! (after piping)
  - Globs! (interactive >>>> PREVIEW FUNCTION)
- - Generally less-brittle parsing (things are improving!)

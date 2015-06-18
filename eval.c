@@ -16,8 +16,6 @@
 // self-include
 #include "eval.h"
 
-// SECTION EVAL FUNCTIONS
-
 static queue *ejob_res;
 static queue *ejobs;
 static queue *jobs;
@@ -28,6 +26,7 @@ void spl_line_eval();
 void spl_pipe_eval();
 void job_form();
 void var_eval();
+void comment_eval();
 
 void free_ceval();
 
@@ -72,9 +71,9 @@ void eval (char *cmd)
                 ejob();
         }
 
-        job_t *job;
-        q_pop (ejob_res, (void **)&job);
-        if (job != NULL) {
+        if (q_len (ejob_res) > 0) {
+                job_t *job;
+                q_pop (ejob_res, (void **)&job);
                 try_exec (job);
         }
 }
@@ -150,7 +149,8 @@ void mask_eval (void)
 
                 char *sbuf;
                 for (sbuf = buf; sbuf < end; sbuf++) {
-                        if (*sbuf == ' ') {
+                        if (*sbuf == ' ' || *sbuf == '>' ||
+                                *sbuf == '<') {
                                 ptrdiff_t sdiff = sbuf - cmdline;
                                 cmdmask[sdiff] = '"';
                         }
@@ -161,6 +161,23 @@ void mask_eval (void)
 
 //        printf ("Masked: ");
 //        print_msg (cmdline, cmdmask, 1);
+
+        q_push(ejob_res, cmdline);
+        q_push(ejob_res, cmdmask);
+        q_push(ejobs, comment_eval);
+}
+
+void comment_eval (void)
+{
+        char *cmdline;
+        char *cmdmask;
+        q_pop(ejob_res, (void **)&cmdline);
+        q_pop(ejob_res, (void **)&cmdmask);
+
+        char *pt = masked_strchr(cmdline, cmdmask, '#');
+        if (pt != NULL) {
+                *pt = '\0';
+        }
 
         q_push(ejob_res, cmdline);
         q_push(ejob_res, cmdmask);
@@ -313,15 +330,15 @@ void job_form (void)
                         }
                         int j;
                         for (j = 0; j < job->argc; j++) {
-                                printf (" - %s\n", job->argv[j]);
+//                                printf (" - %s\n", job->argv[j]);
                         }
-                        printf (" - correct is %s\n", job->argv[i]);
+//                        printf (" - correct is %s\n", job->argv[i]);
                         char *fname = malloc(strlen(job->argv[i])+1);
                         strcpy (fname, job->argv[i]);
                         rm_element (job->argv, argm, i, &(job->argc));
                         i -= 2;
 
-                        printf ("FILE NAME = %s\n", fname);
+//                        printf ("FILE NAME = %s\n", fname);
                         int fd = open(fname, O_RDWR | O_CREAT);
                         if (fd >= 0) {
                                 if (job->out_fd != -1) close(job->out_fd);
@@ -343,15 +360,15 @@ void job_form (void)
                         }
                         int j;
                         for (j = 0; j < job->argc; j++) {
-                                printf (" - %s\n", job->argv[j]);
+//                                printf (" - %s\n", job->argv[j]);
                         }
-                        printf (" - correct is %s\n", job->argv[i]);
+//                        printf (" - correct is %s\n", job->argv[i]);
                         char *fname = malloc(strlen(job->argv[i])+1);
                         strcpy (fname, job->argv[i]);
                         rm_element (job->argv, argm, i, &(job->argc));
                         i -= 2;
 
-                        printf ("FILE NAME = %s\n", fname);
+//                        printf ("FILE NAME = %s\n", fname);
                         int fd = open(fname, O_RDWR | O_TRUNC | O_CREAT,
                                         0664);
                         if (fd >= 0) {
@@ -449,6 +466,12 @@ void var_eval (void)
         q_pop(ejob_res, (void **)&job);
         q_pop(ejob_res, (void **)&argm);
 
+        int p;
+//        printf("Job: \n");
+        for (p = 0; p < job->argc; p++) {
+//                printf("'%s'\n", job->argv[p]);
+        }
+
         int a1mask = 0;
         int i;
         for (i = 0; i < strlen(job->argv[0])+1; i++) {
@@ -522,6 +545,11 @@ void var_eval (void)
                 i -= 2;
 
                 job->argc = len;
+        }
+
+//        printf("Job2: \n");
+        for (p = 0; p < job->argc; p++) {
+//                printf("'%s'\n", job->argv[p]);
         }
 
         q_push (ejob_res, job);
@@ -631,7 +659,8 @@ void rm_element (char **argv, char **argm,
 }
 
 void add_element (char **argv, char **argm,
-                char *na, char *nm, int idx, int *argc) {
+                char *na, char *nm, int idx, int *argc)
+{
         if (nm == NULL) {
                 nm = calloc(strlen(na)+1, sizeof(char));
         }
