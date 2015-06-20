@@ -1,21 +1,8 @@
 #ifndef JPSH_EXEC_H
 #define JPSH_EXEC_H
-#define NUM_BUILTINS 13
 
-const char *builtins[NUM_BUILTINS];
-
-typedef struct {
-        char **argv;
-        int argc;
-
-        int bg;
-
-        int *pipe_in;
-        int *pipe_out;
-
-        char *file_in;
-        char *file_out;
-} job_t;
+#include "defs.h"
+#include "exec_utils.h"
 
 /**
  * Kills the child process.

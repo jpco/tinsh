@@ -202,16 +202,16 @@ void spl_line_eval (void)
         free (cmdmask);
 }
 
+static job_t *prev_job;
+
 void job_form (void)
 {
         char *line;
         char *mask;
-        int *pipe_in;
-        int *pipe_out;
+        char *job_out;
         q_pop(ejob_res, (void **)&line);
         q_pop(ejob_res, (void **)&mask);
-        q_pop(ejob_res, (void **)&pipe_in);
-        q_pop(ejob_res, (void **)&pipe_out);
+        q_pop(ejob_res, (void **)&job_out);
 
         char *nline = NULL;
         char *nmask = NULL;
@@ -228,19 +228,24 @@ void job_form (void)
         job_t *job = malloc(sizeof(job_t));
 
         // defaults
-        job->pipe_in = pipe_in;
-        job->pipe_out = pipe_out;
+        job->p_in = NULL;
+        job->p_out = NULL;
+        job->p_prev = NULL;
+        job->p_next = NULL;
         job->file_in = NULL;
         job->file_out = NULL;
         job->bg = 0;
 
         char **argm;
         spl_cmd (nline, nmask, &(job->argv), &argm, &(job->argc));
+
+        // Background job?
         if (olstrcmp(job->argv[job->argc-1], "&")) {
                 job->bg = 1;
                 rm_element (job->argv, argm, (job->argc)-1, &(job->argc));
         }
 
+        // File redirection
         int i;
         for (i = 0; i < job->argc; i++) {
                 if (olstrcmp(job->argv[i], ">") && !(*argm[i])) {
@@ -275,6 +280,19 @@ void job_form (void)
                 }
         }
 
+        // Piped from previous job?
+        if (prev_job != NULL) {
+                job->p_prev = prev_job;
+                job->p_prev->p_next = job;
+        }
+
+        // Pipe to next job?
+        if (job_out != NULL) {
+                prev_job = job;
+        } else {
+                prev_job = NULL;
+        }
+
         q_push(ejob_res, job);
         q_push(ejob_res, argm);
         q_push(ejobs, var_eval);
@@ -290,14 +308,10 @@ void spl_pipe_eval (void)
         char *buf = cmdline;
         char *nbuf = masked_strchr(buf, cmdmask, '|');
 
-//        printf ("pre-pipe: ");
-//        print_msg (cmdline, cmdmask, 1);
-
         size_t cmdlen = strlen(cmdline);
 
         char lflag = 0;
 
-        int *curr_pipe = NULL;
         while (buf != NULL && buf - cmdline < cmdlen && *buf != '\0') {
                 if (nbuf != NULL) {
                         *nbuf = '\0';
@@ -322,24 +336,15 @@ void spl_pipe_eval (void)
                 if (!lflag) {
                         nbuf = masked_strchr(buf, cmdmask+nbdiff, '|');
                 }
-
-                int *fds = malloc(2 * sizeof(int));
-
-                int *pipe_in = curr_pipe;
-                curr_pipe = NULL;
-
-                int *pipe_out = NULL;
-
-                if (!lflag) {
-                        pipe (fds);
-                        pipe_out = fds;
-                        curr_pipe = fds;
-                }
-
                 q_push(ejob_res, ncmd);
                 q_push(ejob_res, nmask);
-                q_push(ejob_res, pipe_in);
-                q_push(ejob_res, pipe_out);
+
+                if (lflag) {
+                        q_push(ejob_res, NULL);
+                } else {
+                        q_push(ejob_res, (void *)0xBEEFCAFE);
+                }
+
                 q_push(ejobs, job_form);
         }
 }

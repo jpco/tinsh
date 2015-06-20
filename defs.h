@@ -14,4 +14,20 @@ extern char **environ;
 const char separators[NUM_SEPARATORS];
 int is_separator(char c);
 
+typedef struct job_struct {
+        char **argv;
+        int argc;
+
+        int bg;
+
+        int *p_in;
+        int *p_out;
+        
+        struct job_struct *p_prev;
+        struct job_struct *p_next;
+
+        char *file_in;
+        char *file_out;
+} job_t;
+
 #endif

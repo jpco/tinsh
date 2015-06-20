@@ -3,12 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <signal.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <dirent.h>
 
 // local includes
 #include "cd.h"
@@ -19,155 +14,15 @@
 #include "debug.h"
 #include "eval.h"
 #include "color.h"
+#include "exec_utils.h"
 
 // self include
 #include "exec.h"
 
-static int pid;
-const char *builtins[NUM_BUILTINS] = {"exit", "cd", "pwd",
-        "lsvars", "lsalias", "set", "setenv", "unset",
-        "unenv", "alias", "unalias", "color", NULL};
+int pid;
 
-int sigchild (int signo)
+int builtin (int argc, const char **argv)
 {
-        if (pid == 0) return 1;
-        else {
-                if ((kill (pid, signo)) < 0) {
-                        print_err_wno ("Could not kill child process",
-                                        errno);
-                        return 2;
-                } else {
-                        return 0;
-                }
-        }
-}
-
-int chk_exec (const char *cmd)
-{
-        if (*cmd == '\0') return 0;
-        int i;
-        for (i = 0; builtins[i] != NULL; i++) {
-                if (olstrcmp(cmd, builtins[i])) return 2;
-        }
-
-        if (strchr (cmd, '/')) { // absolute path
-                if (opendir(cmd) == NULL) {
-                        return (1 + access (cmd, X_OK));
-                } else {
-                        return 0;
-                }
-        }
-        
-        // relative path
-        char *path = getenv ("PATH");
-        if (path == NULL)
-                path = "/bin:/usr/bin";
-        int len = strlen (cmd);
-        int pathlen = strlen (path);
-        char *cpath = path;
-        char *buf = path;
-
-        while ((buf = strchr (cpath, ':')) || 1) {
-                if (buf) *buf = '\0';
-                char *curr_cmd;
-                if (buf == cpath) { // initial :, so current dir
-                        curr_cmd = vcombine_str ('/', 2,
-                                        getenv ("PWD"), cmd);
-                } else if ((buf && *(buf-1) != '/') ||
-                           (cpath[strlen(cpath)-1] != '/')) {
-                        // then need to add '/'
-                        curr_cmd = vcombine_str ('/', 2, cpath, cmd);
-                } else {
-                        curr_cmd = vcombine_str ('\0', 2, cpath, cmd);
-                }
-
-                if (!access (curr_cmd, X_OK)) {
-                        free (curr_cmd);
-                        if (buf) *buf = ':';
-                        return 1;
-                }
-
-                free (curr_cmd);
-                if (buf) *buf = ':';
-                if (buf) {
-                        cpath = buf + 1;
-                } else {
-                        break;
-                }
-        }
-
-        return 0;
-}
-
-int setup_redirects (job_t *job)
-{
-        int cin = -1;
-        int cout = -1;
-
-        // Piping. File redirection comes afterwards since it supersedes.
-        if (job->pipe_in != NULL) {
-                close (job->pipe_in[1]);
-                dup2 (job->pipe_in[0], STDIN_FILENO);
-                cin = job->pipe_in[0];
-
-                free (job->pipe_in);
-                job->pipe_in = NULL;
-        }
-        if (job->pipe_out != NULL) {
-                close (job->pipe_out[0]);
-                dup2 (job->pipe_out[1], STDOUT_FILENO);
-                cout = job->pipe_out[0];
-        }
-
-        // File redirection.
-        if (job->file_in != NULL) {
-                int in_fd = open (job->file_in, O_RDONLY);
-                if (in_fd == -1) {
-                        print_err_wno ("Could not open file for reading.",
-                                        errno);
-                        int err = errno;
-                        if (cin != -1) close (cin);
-                        if (cout != -1) close (cout);
-                        errno = err;
-                        return -1;
-                }
-                if (cin != -1) close (cin);
-                dup2 (in_fd, STDIN_FILENO);
-                cin = in_fd;
-
-                free (job->file_in);
-                job->file_in = NULL;
-        }
-        if (job->file_out != NULL) {
-                int out_fd = open (job->file_out,
-                                   O_CREAT | O_WRONLY, 0644);
-                if (out_fd == -1) {
-                        int err = errno;
-                        print_err_wno ("Could not open file for writing.",
-                                        errno);
-                        if (cin != -1) close (cin);
-                        if (cout != -1) close (cout);
-                        errno = err;
-                        return -1;
-                }
-                if (cout != -1) close (cout);
-                dup2 (out_fd, STDOUT_FILENO);
-                cout = out_fd;
-
-                free (job->file_out);
-                job->file_out = NULL;
-        }
-
-        return 0;
-}
-
-int builtin (job_t *job)
-{
-        setup_redirects (job);
-
-        const char **argv = (const char **)job->argv;
-        int argc = job->argc;
-
         if (strchr(argv[0], '/')) return 0;
 
         if (olstrcmp (argv[0], "exit")) {
@@ -176,9 +31,8 @@ int builtin (job_t *job)
         } else if (olstrcmp (argv[0], "cd")) {
                 if (argv[1] == NULL) { // going HOME
                         if (cd (getenv("HOME")) > 0) return 2;
-                } else {
-                        if (cd (argv[1]) > 0) return 2;
                 }
+                if (cd (argv[1]) > 0) return 2;
         } else if (olstrcmp (argv[0], "pwd")) {
                 printf("%s\n", getenv ("PWD"));
         } else if (olstrcmp (argv[0], "lsvars")) {
@@ -246,36 +100,6 @@ int builtin (job_t *job)
         return 1;
 }
 
-void printjob (job_t *job)
-{
-        char *db = get_var ("__jpsh_debug");
-        if (db == NULL) return;
-        else free (db);
-
-        fprintf (stderr, " ==== JOB ====\n");
-        fprintf (stderr, "[%s] ", job->argv[0]);
-        int i;
-        for (i = 1; i < job->argc; i++) {
-                fprintf (stderr, "%s ", job->argv[i]);
-        }
-        fprintf (stderr, "\n");
-        if (job->bg) {
-                fprintf (stderr, " - Background\n");
-        }
-        if (job->pipe_in != NULL) {
-                fprintf (stderr, " - In from %d\n", job->pipe_in[0]);
-        }
-        if (job->pipe_out != NULL) {
-                fprintf (stderr, " - Out to %d\n", job->pipe_out[1]);
-        }
-        if (job->file_in != NULL) {
-                fprintf (stderr, " - File in: %s\n", job->file_in);
-        }
-        if (job->file_out != NULL) {
-                fprintf (stderr, " - File out: %s\n", job->file_out);
-        }
-}
-
 char *subshell (char *cmd, char *mask)
 {
         // just use popen
@@ -308,50 +132,65 @@ char *subshell (char *cmd, char *mask)
 
 void fork_exec (job_t *job)
 {
-        setup_redirects (job);
-        
+        int redir = setup_redirects (job);
+
+        if (redir == -1) {
+                exit (1);
+        }
+
         execvpe ((const char *)job->argv[0],
                         (char *const *)job->argv,
                         (char *const *)environ);
 
         print_err_wno ("Could not execute command.", errno);
 
-        return;
+        exit(1);
 }
 
 void try_exec (job_t *job)
 {
         int argc = job->argc;
         const char **argv = (const char **)job->argv;
+
+        if (job->p_prev == NULL) {
+                job_t *cjob = job;
+                while (cjob->p_next != NULL) {
+                        int *fds = malloc(2 * sizeof(int));
+                        pipe (fds);
+
+                        cjob->p_out = fds;
+                        cjob->p_next->p_in = fds;
+
+                        cjob = cjob->p_next;
+                }
+        }
+
         printjob (job);
 
         int dup_in = dup (STDIN_FILENO);
         int dup_out = dup (STDOUT_FILENO);
 
-        if (!builtin(job)) {
+        if (!builtin(job->argc, (const char **)job->argv)) {
 
                 pid = fork();
                 if (pid < 0) print_err_wno ("fork() error.", errno);
-                else if (pid == 0) {
-                        fork_exec(job);
-                        exit (1);
-                } else {
+                else if (pid == 0) fork_exec(job);
+                else {
                         int status = 0;
                         if (waitpid (pid, &status, 0) < 0) {
                                 print_err_wno ("waitpid() error.", errno);
                         }
-                        if (job->pipe_in != NULL)
-                                close (job->pipe_in[0]);
-                        if (job->pipe_out != NULL)
-                                close (job->pipe_out[1]);
+                        if (job->p_in != NULL)
+                                close (job->p_in[0]);
+                        if (job->p_out != NULL)
+                                close (job->p_out[1]);
                 }
-
         }
 
-        if (job->pipe_in != NULL) {
-                close (job->pipe_in[0]);
-                close (job->pipe_in[1]);
-                free (job->pipe_in);
+        if (job->p_in != NULL) {
+                close (job->p_in[0]);
+                close (job->p_in[1]);
+                free (job->p_in);
         }
 
         free (job->file_in);

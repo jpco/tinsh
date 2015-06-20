@@ -49,11 +49,13 @@ Worse than sh!
 ##### Non-interactive
  - `>>` to append to files
  - `:` / `{ }` support, then we can start with control flow \& `with`
+    - goal: `with`, `if`, `else`, `while`, `for`, `cfor`, `fn`
  - `int`, `bool`, and `path` vars
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - (`pipe(3)` and `dup2(3)`)
  - Globs! (interactive >>>> PREVIEW FUNCTION)
  - Move pipe file action into `exec`, make links from job to job in `eval`
+ - forgot to care about `job->bg`
 
 ##### Bugs
  - Segfaults on bad `set` syntax
