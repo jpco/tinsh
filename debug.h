@@ -1,6 +1,8 @@
 #ifndef JPSH_DEBUG_H
 #define JPSH_DEBUG_H
 
+extern int debug_line_no;
+
 void print_err (const char *errmsg);
 void print_err_wno (const char *errmsg, int err);
 

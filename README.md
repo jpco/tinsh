@@ -47,16 +47,13 @@ Worse than sh!
  - Readline/config support? (maybe long-term goal)
 
 ##### Non-interactive
- - maybe change eval structure so it's not chain-y? concatenative programming is weird in C
  - `>>` to append to files
  - `:` / `{ }` support, then we can start with control flow \& `with`
  - `int`, `bool`, and `path` vars
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - (`pipe(3)` and `dup2(3)`)
  - Globs! (interactive >>>> PREVIEW FUNCTION)
- - Update `print_err` functions to support parsing files
  - Move pipe file action into `exec`, make links from job to job in `eval`
 
-##### Bugfixes
+##### Bugs
  - Segfaults on bad `set` syntax
- - Segfaults on `-c` flag

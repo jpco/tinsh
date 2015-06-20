@@ -17,6 +17,8 @@
 
 // don't need self-include for main
 
+int debug_line_no = 0;
+
 // Very basic signal handler.
 // TODO: this should handle more signals
 void sigint_handler (int signo)
@@ -49,6 +51,7 @@ void parse_file (char *fstr)
         }
         int read = getline (&line, &n, fp);
         for (; read >= 0; read = getline (&line, &n, fp)) {
+                debug_line_no++;
                 eval (line);
                 free (line);
                 line = malloc ((1+n) * sizeof(char));

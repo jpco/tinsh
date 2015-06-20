@@ -8,8 +8,11 @@
 // self-include
 #include "debug.h"
 
+extern int debug_line_no;
+
 void print_err (const char *errmsg)
 {
+        if (debug_line_no) fprintf (stderr, "Line %d: ", debug_line_no);
         fprintf (stderr, "%s\n", errmsg);
 }
 
@@ -24,6 +27,7 @@ void dbg_print_err (const char *errmsg)
 
 void print_err_wno (const char *errmsg, int err)
 {
+        if (debug_line_no) fprintf (stderr, "Line %d: ", debug_line_no);
         if (errmsg != NULL) fprintf (stderr, "%s\n", errmsg);
         fprintf (stderr, "%d: %s\n", err, strerror(err));
 }

@@ -319,6 +319,9 @@ void init_env_defaults (void)
  */
 void init_env_wfp (FILE *fp)
 {
+        new_scope();
+        gscope = cscope;
+
         size_t n = MAX_LINE;
         char *rline = malloc((1+n)*sizeof(char));
         if (rline == NULL && errno == ENOMEM) {
@@ -411,9 +414,6 @@ void init_env_wfp (FILE *fp)
  */
 void init_env (void)
 {
-        new_scope();
-        gscope = cscope;
-
         FILE *fp = NULL;
         int err = -1;
         char *home = getenv("HOME");
