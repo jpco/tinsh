@@ -18,7 +18,10 @@ void spl_cmd (const char *s, const char *m, char ***argv, char ***argm,
 void arm_char (char *line, size_t len);
 
 char *mask_str (char *cmdline);
+char *unmask_str (char *str, char *mask);
 
 void print_msg (char *msg, char *mask, int nl);
+
+int devar (char *str, char *mask, char ***nstrs, char ***nmask, int *strc);
 
 #endif // _JPSH_EVAL_UTILS_H_

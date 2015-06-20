@@ -40,7 +40,7 @@ int term_width (void)
 
 int cursor_pos (int *row, int *col)
 {
-        int retval = write (fd, "[6n", 4);    // printf ("[6n"); 
+        write (fd, "[6n", 4);    // printf ("[6n"); 
         char cbuf[20] = {0};
         int idx = 0;
         char cval = '\0';

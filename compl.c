@@ -45,7 +45,6 @@ char *l_compl (char *line, char *start, char *end)
         if (end < line+linelen)
                 end[1] = lchr;
 
-        char fchr = *start;
         *start = '\0';
         char *compl_line = vcombine_str(0, 3, line, compl_wd, end+1);
         free (compl_wd);

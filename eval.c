@@ -125,7 +125,6 @@ void subsh_eval (void)
 
                 char *rmask = mask_str(ret);
 
-                size_t retlen = strlen(ret);
                 char *nbuf = vcombine_str(0, 3, cmdline, ret, end+1);
 
                 char *nmask = calloc(strlen(nbuf)+1, sizeof(char));

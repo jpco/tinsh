@@ -81,7 +81,6 @@ char **split_str (char *line, char delim)
 
 char *trim_str (const char *line)
 {
-        const char *oline = line;
         while (*line == ' ' || *line == '\t') line++;
 
         if (*line == '\0') {
@@ -146,9 +145,4 @@ char *vcombine_str (char delim, int ct, ...)
                 strarr[i] = va_arg(argl, const char *);
 
         return combine_str (strarr, ct, delim);
-}
-
-char *rstrchr(const char *str, char delim)
-{
-
 }

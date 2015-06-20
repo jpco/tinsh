@@ -20,7 +20,6 @@
 static int idx;
 static int length;
 static int prompt_length;
-static int rowlen;
 
 static char *buf;
 static char *sprompt;
@@ -118,7 +117,6 @@ void buffer (char cin)
                         buf[i] = buf[i-1];
         }
 
-        int i;
         buf[idx++] = cin;
         length++;
 
@@ -128,8 +126,6 @@ void buffer (char cin)
 
 void rebuffer (char *sin)
 {
-        int cidx = idx;
-        int clen = length;
         memset (buf, 0, MAX_LINE * sizeof(char));
         if (*sin == '\0') {
                 length = 0;
@@ -197,8 +193,6 @@ void buffer_mv_right (void)
 
 void buffer_cpl (void)
 {
-        int cidx = idx;
-        int clen = length;
         char *cplst, *cplend;
         thiswd (&cplst, &cplend);
         cplend = buf + idx;

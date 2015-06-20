@@ -138,9 +138,9 @@ void fork_exec (job_t *job)
                 exit (1);
         }
 
-        execvpe ((const char *)job->argv[0],
-                        (char *const *)job->argv,
-                        (char *const *)environ);
+        execvpe ((char *)job->argv[0],
+                        (char **)job->argv,
+                        (char **)environ);
 
         print_err_wno ("Could not execute command.", errno);
 
@@ -149,7 +149,6 @@ void fork_exec (job_t *job)
 
 void try_exec (job_t *job)
 {
-        int argc = job->argc;
         const char **argv = (const char **)job->argv;
 
         if (job->p_prev == NULL) {
@@ -170,7 +169,7 @@ void try_exec (job_t *job)
         int dup_in = dup (STDIN_FILENO);
         int dup_out = dup (STDOUT_FILENO);
 
-        if (!builtin(job->argc, (const char **)job->argv)) {
+        if (!builtin(job->argc, argv)) {
 
                 pid = fork();
                 if (pid < 0) print_err_wno ("fork() error.", errno);

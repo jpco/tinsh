@@ -56,8 +56,6 @@ int chk_exec (const char *cmd)
         char *path = getenv ("PATH");
         if (path == NULL)
                 path = "/bin:/usr/bin";
-        int len = strlen (cmd);
-        int pathlen = strlen (path);
         char *cpath = path;
         char *buf = path;
 
