@@ -94,16 +94,6 @@ char *vcombine_str(char delim, int ct, ...);
  * Removes the pointed-to character from the string to
  * which it belongs.
  */
-void arm_char (char *line, size_t len);
-
-
-/**
- * NOTE:
- *  - WILL thrash arguments
- *
- * Removes the pointed-to character from the string to
- * which it belongs.
- */
 void rm_char (char *line);
 
 /**

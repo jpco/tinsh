@@ -58,3 +58,8 @@ CURRENT: EVAL REFACTOR
  - Piping/redirection (have to set up the stdin/stdout alteration)
     - (`pipe(3)` and `dup2(3)`)
  - Globs! (interactive >>>> PREVIEW FUNCTION)
+
+##### Bugfixes
+ - Segfaults on bad `set` syntax
+ - Why does it take extra `exit`s for each unrecognized command?
+ - Masks inside subshells don't work

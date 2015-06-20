@@ -23,7 +23,7 @@ int sigchild (int signo);
  * Runs a subshell and returns the stdout output of the
  * subshell.
  */
-char *subshell (char *cmd);
+char *subshell (char *cmd, char *mask);
 
 void try_exec (job_t *job);
 

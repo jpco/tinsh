@@ -12,6 +12,7 @@
 #include "debug.h"
 #include "exec.h"
 #include "env.h"
+#include "eval_utils.h"
 
 // self-include
 #include "eval.h"
@@ -30,14 +31,6 @@ void comment_eval();
 
 void free_ceval();
 
-void rm_element (char **argv, char **argm, int idx, int *argc);
-void add_element (char **argv, char **argm, char *na, char *nm, int idx,
-                int *argc);
-char *masked_strchr(const char *s, const char *m, char c);
-void masked_trim_str(const char *s, const char *m, char **ns, char **nm);
-void spl_cmd (const char *s, const char *m, char ***argv, char ***argm,
-                int *argc);
-
 void print_msg (char *msg, char *mask, int nl)
 {
         size_t i;
@@ -55,6 +48,11 @@ void print_msg (char *msg, char *mask, int nl)
 
 void eval (char *cmd)
 {
+        eval_m (cmd, NULL);
+}
+
+void eval_m (char *cmd, char *mask)
+{
         ejob_res = q_make();
         ejobs = q_make();
         jobs = q_make();
@@ -63,7 +61,15 @@ void eval (char *cmd)
         strcpy(ncmd, cmd);
 
         q_push(ejob_res, ncmd);
-        q_push(ejobs, mask_eval);
+        if (mask == NULL) {
+                q_push(ejobs, mask_eval);
+        } else {
+                char *nmask = calloc((strlen(ncmd)+1), sizeof(char));
+                memcpy(nmask, mask, strlen(ncmd));
+
+                q_push(ejob_res, nmask);
+                q_push(ejobs, comment_eval);
+        }
 
         while (q_len(ejobs) > 0) {
                 void (*ejob)(void);
@@ -78,89 +84,12 @@ void eval (char *cmd)
         }
 }
 
-// Takes care of \ and ' masking.
 void mask_eval (void)
 {
-        // TODO: iron out subtleties of \, ', ` priority
-
         char *cmdline;
         q_pop(ejob_res, (void **)&cmdline);
 
-        char *cmdmask = calloc(strlen(cmdline) + 1, sizeof(char));
-        
-        char *buf = cmdline;
-        char *mbuf = cmdmask;
-        while ((buf = masked_strchr(buf, mbuf, '\\'))) {
-                ptrdiff_t diff = buf - cmdline;
-                mbuf = cmdmask + diff;
-                rm_char (buf);
-                arm_char (mbuf, strlen(cmdline) - diff + 1);
-                *mbuf = '\\';
-        }
-
-        // '-pass
-        buf = cmdline;
-        mbuf = cmdmask;
-        while ((buf = masked_strchr(buf, mbuf, '\''))) {
-                ptrdiff_t diff = buf - cmdline;
-                mbuf = cmdmask + diff;
-
-                rm_char (buf);
-                arm_char (mbuf, strlen(cmdline) - diff + 1);
-                char *end = masked_strchr(buf, mbuf, '\'');
-                ptrdiff_t ediff = end - buf;
-
-                if (end == NULL) {
-                        print_err ("Unmatched ' in command.");
-                        end = buf + strlen(buf);
-                        ediff = end - buf;
-                } else {
-                        rm_char (end);
-                        arm_char (mbuf + ediff,
-                                        strlen(cmdline) - ediff - diff);
-                }
-
-                memset (mbuf, '\'', ediff);
-                buf = end;
-                mbuf = ediff + mbuf;
-        }
-
-        // '-pass
-        buf = cmdline;
-        mbuf = cmdmask;
-        while ((buf = masked_strchr(buf, mbuf, '"'))) {
-                ptrdiff_t diff = buf - cmdline;
-                mbuf = cmdmask + diff;
-
-                rm_char (buf);
-                arm_char (mbuf, strlen(cmdline) - diff + 1);
-                char *end = masked_strchr(buf, mbuf, '"');
-                ptrdiff_t ediff = end - buf;
-
-                if (end == NULL) {
-                        print_err ("Unmatched \" in command.");
-                        end = buf + strlen(buf);
-                        ediff = end - buf;
-                } else {
-                        rm_char (end);
-                        arm_char (mbuf + ediff,
-                                        strlen(cmdline) - ediff - diff);
-                }
-
-                char *sbuf;
-                for (sbuf = buf; sbuf < end; sbuf++) {
-                        if (*sbuf == ' ' || *sbuf == '>' ||
-                                *sbuf == '<') {
-                                ptrdiff_t sdiff = sbuf - cmdline;
-                                cmdmask[sdiff] = '"';
-                        }
-                }
-                buf = end;
-                mbuf = ediff + mbuf;
-        }
-
-//        printf ("Masked: ");
-//        print_msg (cmdline, cmdmask, 1);
+        char *cmdmask = mask_str(cmdline);
 
         q_push(ejob_res, cmdline);
         q_push(ejob_res, cmdmask);
@@ -202,27 +131,17 @@ void subsh_eval (void)
                 }
                 *end = '\0';
                 ptrdiff_t ediff = end + 1 - cmdline;
-                char *ret = subshell(buf+1);
+                char *ret = subshell(buf+1, cmdmask+diff);
 
-                // Hacky but here it is
-                // TODO: split out mask_create from mask_eval,
-                //       then just call mask_create from here and not
-                //       muck up the queue
-                q_push(ejob_res, ret);
-                mask_eval();
-                char *rmask;
-                void (*throwaway)(void);
-                q_pop(ejob_res, (void **)&ret);
-                q_pop(ejob_res, (void **)&rmask);
-                q_pop(ejobs, (void **)&throwaway);  // gross
+                char *rmask = mask_str(ret);
 
                 size_t retlen = strlen(ret);
                 char *nbuf = vcombine_str(0, 3, cmdline, ret, end+1);
 
                 char *nmask = calloc(strlen(nbuf)+1, sizeof(char));
                 memcpy(nmask, cmdmask, strlen(cmdline));
-                memcpy(nmask + strlen(cmdline), rmask, strlen(rmask));
-                memcpy(nmask + strlen(cmdline) + strlen(rmask),
+                memcpy(nmask + strlen(cmdline), rmask, strlen(ret));
+                memcpy(nmask + strlen(cmdline) + strlen(ret),
                                 cmdmask+ediff+1, strlen(cmdline+ediff+1));
 
                 free (cmdline);
@@ -466,12 +385,6 @@ void var_eval (void)
         q_pop(ejob_res, (void **)&job);
         q_pop(ejob_res, (void **)&argm);
 
-        int p;
-//        printf("Job: \n");
-        for (p = 0; p < job->argc; p++) {
-//                printf("'%s'\n", job->argv[p]);
-        }
-
         int a1mask = 0;
         int i;
         for (i = 0; i < strlen(job->argv[0])+1; i++) {
@@ -482,15 +395,15 @@ void var_eval (void)
                 char *alias = get_alias (job->argv[0]);
                 if (alias != NULL) {
                         rm_element (job->argv, argm, 0, &(job->argc));
-                        // TODO: mask eval!!
+                        char *a_mask = mask_str (alias);
                         char **a_argv;
                         char **a_argm;
                         int a_argc;
-                        spl_cmd (alias, NULL, &a_argv, &a_argm, &a_argc);
+                        spl_cmd (alias, a_mask, &a_argv, &a_argm, &a_argc);
                         int k;
                         for (k = 0; k < a_argc; k++) {
                                 add_element (job->argv, argm, a_argv[k],
-                                                NULL, k, &(job->argc));
+                                                a_argm[k], k, &(job->argc));
                         }
                 }
         }
@@ -521,21 +434,34 @@ void var_eval (void)
                         value = nvalue;
                 }
                 char *nwd = NULL;
+                char *nmask = NULL;
                 if (value != NULL) {
+                        char *valmask = mask_str(value);
                         nwd = vcombine_str(0, 3, arg, value, rparen+1);
+
+                        nmask = calloc(strlen(nwd)+1, sizeof(char));
+                        memcpy(nmask, argm[i], strlen(arg));
+                        memcpy(nmask+strlen(arg), valmask, strlen(value));
+                        memcpy(nmask+strlen(arg)+strlen(value),
+                                        argm[i]+(rparen-arg)+1,
+                                        strlen(rparen+1));
                 } else {
                         nwd = vcombine_str(0, 2, arg, rparen+1);
+
+                        nmask = calloc(strlen(nwd)+1, sizeof(char));
+                        memcpy(nmask, argm[i], strlen(arg));
+                        memcpy(nmask+strlen(arg), argm[i]+(rparen-arg)+1,
+                                        strlen(rparen+1));
                 }
                 if (nwd != NULL) {
-                        // todo: VAR MASKING
                         char **v_argv;
                         char **v_argm;
                         int v_argc;
-                        spl_cmd (nwd, NULL, &v_argv, &v_argm, &v_argc);
+                        spl_cmd (nwd, nmask, &v_argv, &v_argm, &v_argc);
                         int k;
                         for (k = 0; k < v_argc; k++) {
                                 add_element (job->argv, argm, v_argv[k],
-                                                NULL, k+i, &len);
+                                                v_argm[k], k+i, &len);
                         }
                         i += k;
                         free (nwd);
@@ -547,146 +473,7 @@ void var_eval (void)
                 job->argc = len;
         }
 
-//        printf("Job2: \n");
-        for (p = 0; p < job->argc; p++) {
-//                printf("'%s'\n", job->argv[p]);
-        }
-
         q_push (ejob_res, job);
-}
-
-void spl_cmd (const char *s, const char *m, char ***argv, char ***argm, 
-                int *argc)
-{
-        *argv = calloc((1+strlen(s)), sizeof(char *));
-        *argm = calloc((1+strlen(s)), sizeof(char *));
-        char null_m = 0;
-        if (m == NULL) {
-                m = calloc((1+strlen(s)), sizeof(char));
-                null_m = 1;
-        }
-
-        size_t wdcount = 0;
-        char wdflag = 0;
-        char *wdbuf = calloc(strlen(s)+1, sizeof(char));
-        char *wmbuf = calloc(strlen(s)+1, sizeof(char));
-        size_t wblen = 0;
-        for (const char *buf = s; buf != NULL && *buf != '\0'; buf++) {
-                if (!m[buf-s]) {
-                        if (*buf == ' ') {
-                                continue;
-                        }
-        
-                        if (*buf == '>' || *buf == '<' || *buf == '&') {
-                                wdflag = 1;
-                        }
-                }
-
-                if (!m[buf-s+1]) {
-                        if (buf[1] == ' ' || buf[1] == '>' ||
-                            buf[1] == '<' || buf[1] == '&') {
-                                wdflag = 1;
-                        }
-                }
-                wdbuf[wblen] = *buf;
-                wmbuf[wblen++] = m[buf-s];
-
-                if (wdflag) {
-                        (*argv)[wdcount] = wdbuf;
-                        (*argm)[wdcount++] = wmbuf;
-
-                        wdbuf = calloc(strlen(s)+1, sizeof(char));
-                        wmbuf = calloc(strlen(s)+1, sizeof(char));
-                        wblen = 0;
-
-                        wdflag = 0;
-                }
-        }
-
-        if (strlen(wdbuf) > 0) {
-                (*argv)[wdcount] = wdbuf;
-                (*argm)[wdcount++] = wmbuf;
-        }
-
-        *argc = wdcount;
-        if (null_m) {
-                free ((char *)m);
-        }
-}
-
-void masked_trim_str (const char *s, const char *m, char **ns, char **nm)
-{
-        const char *buf = s;
-        size_t i;
-        size_t len = strlen(s);
-        for (i = 0; !m[i] && (s[i] == ' ' || s[i] == '\t'); i++) {
-                buf++;
-        }
-
-        if (*buf == '\0') {
-                *ns = calloc(1, sizeof(char));
-                *nm = calloc(1, sizeof(char));
-                return;
-        }
-
-        *ns = calloc((strlen(buf) + 1), sizeof(char));
-        *nm = calloc((strlen(buf) + 1), sizeof(char));
-        strcpy (*ns, buf);
-        memcpy (*nm, m, strlen(buf));
-
-        for (i = strlen(buf) - 1; i >= 0 && i < strlen(buf) &&
-                                !(*nm)[i] &&
-                                ((*ns)[i] == '\n' ||
-                                (*ns)[i] == ' '); i--) {
-                (*ns)[i] = '\0';
-                (*nm)[i] = '\0';
-        }
-}
-
-void rm_element (char **argv, char **argm,
-                int idx, int *argc) {
-        free (argv[idx]);
-        free (argm[idx]);
-        int i;
-        for (i = idx; i < *argc-1; i++) {
-               argv[i] = argv[i+1];
-               argm[i] = argm[i+1];
-        }
-        argv[*argc-1] = NULL;
-        argm[*argc-1] = NULL;
-
-        (*argc)--;
-}
-
-void add_element (char **argv, char **argm,
-                char *na, char *nm, int idx, int *argc)
-{
-        if (nm == NULL) {
-                nm = calloc(strlen(na)+1, sizeof(char));
-        }
-        int i;
-        for (i = *argc; i > idx; i--) {
-                argv[i] = argv[i-1];
-                argm[i] = argm[i-1];
-        }
-        argv[idx] = na;
-        argm[idx] = nm;
-
-        (*argc)++;
-}
-
-char *masked_strchr (const char *s, const char *m, char c)
-{
-        size_t len = strlen(s);
-        size_t i;
-        for (i = 0; i < len; i++) {
-                if (m[i]) {
-                        continue;
-                }
-                if (s[i] == c) return (char *)(s+i);
-        }
-
-        return NULL;
 }
 
 void free_ceval (void)

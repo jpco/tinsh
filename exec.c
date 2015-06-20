@@ -202,7 +202,7 @@ void printjob (job_t *job)
         }
 }
 
-char *subshell (char *cmd)
+char *subshell (char *cmd, char *mask)
 {
         int fds[2];
         pipe (fds);
@@ -212,7 +212,7 @@ char *subshell (char *cmd)
         else if (pid == 0) {
                 close (fds[0]);
                 dup2 (fds[1], STDOUT_FILENO);
-                eval (cmd);
+                eval_m (cmd, mask);
                 close (fds[1]);
                 exit (0);
         } else {

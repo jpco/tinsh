@@ -27,14 +27,6 @@ int startswith (const char *str1, const char *pre)
         return 1;
 }
 
-void arm_char (char *line, size_t len)
-{
-        int i;
-        for (i = 0; i < len; i++) {
-                line[i] = line[i+1];
-        }
-}
-
 void rm_char (char *line)
 {
         int i;
