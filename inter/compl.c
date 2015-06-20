@@ -87,6 +87,8 @@ char *w_compl (char *owd, int first)
                 }
         }
 
+        free (wd);
+
         if (complwd != NULL) {
                 buf = complwd;
                 for (; *buf != '\0' && *(buf+1) != '\0'; buf++) {
@@ -291,5 +293,10 @@ char *f_compl (char *wd, int exec)
                 free (file);
                 file = nfile;
         }
+
+        free (wdcpy);
+        free (dirpath);
+        free (base);
+
         return file;
 }
