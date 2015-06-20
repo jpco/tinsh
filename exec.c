@@ -36,14 +36,17 @@ void free_cchain (void)
                 free (cjob->argv);
                 free (cjob->argm);
                 free (cjob->p_in);
-                free (cjob->p_out);
                 free (cjob->file_in);
                 free (cjob->file_out);
+                free (cjob->p_prev);
 
-                job_t *njob = cjob->p_next;
-                free (cjob);
-
-                cjob = njob;
+                if (cjob->p_next == NULL) {
+                        free (cjob);
+                        cjob = NULL;
+                        cchain = NULL;
+                } else {
+                        cjob = cjob->p_next;
+                }
         }
 }
 
@@ -142,11 +145,7 @@ void try_exec (job_t *job)
         if (job->p_in != NULL) {
                 close (job->p_in[0]);
                 close (job->p_in[1]);
-                free (job->p_in);
         }
-
-        free (job->file_in);
-        free (job->file_out);
 
         dup2 (dup_in, STDIN_FILENO);
         dup2 (dup_out, STDOUT_FILENO);
@@ -155,7 +154,6 @@ void try_exec (job_t *job)
 
         if (job->p_next == NULL) {
                 free_cchain();
-                cchain = NULL;
         }
 
         pid = 0;

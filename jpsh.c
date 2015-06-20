@@ -140,7 +140,7 @@ int main (int argc, char **argv)
         while (1) {
                 char *line = line_loop();
 
-                if (*line != '\0' && !term_prep()) {
+                if (*line != '\0' && term_prep() == 0) {
                         eval (line);
                 }
                 term_unprep();

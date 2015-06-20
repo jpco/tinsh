@@ -347,6 +347,12 @@ int ansi (char cin, int status)
         return retval;
 }
 
+void free_buf (void)
+{
+        free (buf);
+        buf = NULL;
+}
+
 char *line_loop (void)
 {
         char cin[2];
@@ -358,6 +364,7 @@ char *line_loop (void)
                 print_err ("Line loop calloc failed.");
                 return NULL;
         }
+        atexit (free_buf);
 
         prompt();
 
@@ -382,5 +389,7 @@ char *line_loop (void)
         free (sprompt);
 
         hist_add (buf);
-        return buf;
+        char *rbuf = buf;
+        buf = NULL;
+        return rbuf;
 }

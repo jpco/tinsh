@@ -75,6 +75,7 @@ void eval_m (char *cmd, char *mask)
 
         char *ncmd = malloc((strlen(cmd)+1) * sizeof(char));
         strcpy(ncmd, cmd);
+        free (cmd);
 
         q_push(ejob_res, ncmd);
         if (mask == NULL) {

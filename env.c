@@ -50,7 +50,6 @@ void init_env_defaults (void)
 void init_env_wfp (FILE *fp)
 {
         new_scope();
-        atexit (free_env);
 
         size_t n = MAX_LINE;
         char *rline = malloc((1+n)*sizeof(char));

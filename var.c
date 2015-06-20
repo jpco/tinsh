@@ -25,8 +25,8 @@ static var_t *aliases[MAX_ALIASES];
 static int alias_len;
 
 // Current scope & global scope
-static scope_t *gscope;
-static scope_t *cscope;
+static scope_t *gscope = NULL;
+static scope_t *cscope = NULL;
 
 //
 // SECTION: SCOPE MODIFIERS
@@ -256,21 +256,33 @@ void ls_alias (void)
  */
 void free_env (void)
 {
-        while (cscope->parent != NULL) {
-                leave_scope();
+        if (cscope != NULL) {
+                while (cscope->parent != NULL) {
+                        leave_scope();
+                }
+                cscope = NULL;
+        }
+
+        if (gscope != NULL) {
+                int i;
+                for (i = 0; i < gscope->vars_len; i++) {
+                        free (gscope->vars[i]->key);
+                        free (gscope->vars[i]->value);
+                        free (gscope->vars[i]);
+                }
+                free (gscope);
+                gscope = NULL;
         }
 
         int i;
-        for (i = 0; i < gscope->vars_len; i++) {
-                free (gscope->vars[i]->key);
-                free (gscope->vars[i]->value);
-                free (gscope->vars[i]);
-        }
-        free (gscope);
-
         for (i = 0; i < alias_len; i++) {
-                free (aliases[i]->key);
-                free (aliases[i]->value);
-                free (aliases[i]);
+                var_t *torm = aliases[i];
+
+                if (torm == NULL) continue;
+                free (torm->key);
+                free (torm->value);
+                free (torm);
+
+                aliases[i] = NULL;
         }
 }

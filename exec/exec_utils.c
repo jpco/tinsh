@@ -133,6 +133,7 @@ int setup_redirects (job_t *job)
                 cin = job->p_in[0];
 
                 free (job->p_in);
+                job->p_in = NULL;
         }
         if (job->p_out != NULL) {
                 close (job->p_out[0]);
@@ -155,6 +156,7 @@ int setup_redirects (job_t *job)
                 cin = in_fd;
 
                 free (job->file_in);
+                job->file_in = NULL;
         }
         if (job->file_out != NULL) {
                 int out_fd = open (job->file_out,
@@ -171,6 +173,7 @@ int setup_redirects (job_t *job)
                 cout = out_fd;
 
                 free (job->file_out);
+                job->file_out = NULL;
         }
 
         return 0;
