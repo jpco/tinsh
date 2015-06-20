@@ -19,4 +19,6 @@ void arm_char (char *line, size_t len);
 
 char *mask_str (char *cmdline);
 
+void print_msg (char *msg, char *mask, int nl);
+
 #endif // _JPSH_EVAL_UTILS_H_

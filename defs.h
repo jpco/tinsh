@@ -28,6 +28,9 @@ typedef struct job_struct {
 
         char *file_in;
         char *file_out;
+
+        // used in the eval process
+        void (*job_fn)(struct job_struct *);
 } job_t;
 
 #endif

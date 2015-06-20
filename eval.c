@@ -1,9 +1,7 @@
 #include <stddef.h>
-#include <stdio.h>
+// #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <errno.h>
 
 // local includes
@@ -31,21 +29,6 @@ void comment_eval();
 
 void free_ceval();
 
-void print_msg (char *msg, char *mask, int nl)
-{
-        size_t i;
-        size_t len = strlen(msg);
-        for (i = 0; i < len; i++) {
-                if (mask[i]) {
-                        printf ("[7m%c[0m", msg[i]);
-                } else {
-                        printf ("%c", msg[i]);
-                }
-        }
-
-        if (nl) printf ("\n");
-}
-
 void eval (char *cmd)
 {
         eval_m (cmd, NULL);
@@ -72,15 +55,22 @@ void eval_m (char *cmd, char *mask)
         }
 
         while (q_len(ejobs) > 0) {
+                if (q_len(jobs) > 0) {
+                        job_t *job;
+                        q_pop (jobs, (void **)&job);
+                        try_exec (job);
+                }
+
                 void (*ejob)(void);
                 q_pop(ejobs, (void **)&ejob);
                 ejob();
         }
 
-        while (q_len (ejob_res) > 0) {
+        if (q_len(jobs) > 0) {
                 job_t *job;
-                q_pop (ejob_res, (void **)&job);
-                try_exec (job);
+                q_pop (jobs, (void **)&job);
+
+                job->job_fn(job);
         }
 }
 
@@ -150,9 +140,6 @@ void subsh_eval (void)
                 cmdmask = nmask;
                 buf = cmdline + ediff;
         }
-
-//        printf("Subshelled: ");
-//        print_msg(cmdline, cmdmask, 1);
 
         q_push(ejob_res, cmdline);
         q_push(ejob_res, cmdmask);
@@ -292,6 +279,8 @@ void job_form (void)
         } else {
                 prev_job = NULL;
         }
+
+        job->job_fn = try_exec;
 
         q_push(ejob_res, job);
         q_push(ejob_res, argm);
@@ -444,7 +433,7 @@ void var_eval (void)
                 job->argc = len;
         }
 
-        q_push (ejob_res, job);
+        q_push (jobs, job);
 }
 
 void free_ceval (void)

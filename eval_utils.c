@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdio.h>
 
 // local includes
 #include "debug.h"
@@ -59,7 +60,7 @@ void masked_trim_str (const char *s, const char *m, char **ns, char **nm)
         *ns = calloc((strlen(buf) + 1), sizeof(char));
         *nm = calloc((strlen(buf) + 1), sizeof(char));
         strcpy (*ns, buf);
-        memcpy (*nm, m, strlen(buf));
+        memcpy (*nm, m+(buf-s), strlen(buf));
 
         for (i = strlen(buf) - 1; i >= 0 && i < strlen(buf) &&
                                 !(*nm)[i] &&
@@ -230,4 +231,19 @@ char *mask_str (char *cmdline)
         }
 
         return cmdmask;
+}
+
+void print_msg (char *msg, char *mask, int nl)
+{
+        size_t i;
+        size_t len = strlen(msg);
+        for (i = 0; i < len; i++) {
+                if (mask[i]) {
+                        printf ("[7m%c[0m", msg[i]);
+                } else {
+                        printf ("%c", msg[i]);
+                }
+        }
+
+        if (nl) printf ("\n");
 }
