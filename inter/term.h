@@ -23,6 +23,10 @@ int cursor_pos (int *row, int *col);
  * Initializes the terminal.
  */
 void term_init();
+
+/**
+ * Exits the terminal.
+ */
 void term_exit();
 
 /*

@@ -2,13 +2,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// self-include
 #include "queue.h"
 
-/* typedef struct {
+struct queue_str {
         void *elts[MAX_QUEUE];
         size_t q_last;
         size_t q_first;
-} queue; */
+};
 
 queue *q_make (void)
 {

@@ -10,10 +10,10 @@
 #include <errno.h>
 
 // local includes
-#include "defs.h"
-#include "debug.h"
-#include "str.h"
-#include "env.h"
+#include "../defs.h"
+#include "../debug.h"
+#include "../str.h"
+#include "../var.h"
 
 // self-include
 #include "exec_utils.h"

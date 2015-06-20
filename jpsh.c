@@ -5,14 +5,16 @@
 #include <signal.h>
 
 // local includes
+#include "inter/hist.h"
+#include "inter/term.h"
+
 #include "defs.h"
 #include "eval.h"
 #include "exec.h"
 #include "env.h"
+#include "var.h"
 #include "str.h"
 #include "linebuffer.h"
-#include "hist.h"
-#include "term.h"
 #include "debug.h"
 
 // don't need self-include for main

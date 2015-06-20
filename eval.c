@@ -5,12 +5,13 @@
 #include <errno.h>
 
 // local includes
-#include "queue.h"
+#include "eval/queue.h"
+#include "eval/eval_utils.h"
+
 #include "str.h"
 #include "debug.h"
 #include "exec.h"
-#include "env.h"
-#include "eval_utils.h"
+#include "var.h"
 
 // self-include
 #include "eval.h"
@@ -26,8 +27,6 @@ void spl_pipe_eval();
 void job_form();
 void var_eval();
 void comment_eval();
-
-void free_ceval();
 
 void eval (char *cmd)
 {
@@ -433,9 +432,4 @@ void var_eval (void)
         }
 
         q_push (jobs, job);
-}
-
-void free_ceval (void)
-{
-//       free (cmdline);
 }

@@ -4,9 +4,9 @@
 #include <stdio.h>
 
 // local includes
-#include "debug.h"
-#include "str.h"
-#include "env.h"
+#include "../debug.h"
+#include "../str.h"
+#include "../var.h"
 
 // self-include
 #include "eval_utils.h"
@@ -315,4 +315,9 @@ int devar (char *str, char *mask, char ***nstrs, char ***nmasks, int *strc) {
         } else {
                 return -1;
         }
+}
+
+void free_ceval (void)
+{
+        // TODO: free() more things
 }

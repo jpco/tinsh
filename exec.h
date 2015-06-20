@@ -2,7 +2,7 @@
 #define JPSH_EXEC_H
 
 #include "defs.h"
-#include "exec_utils.h"
+#include "exec/exec_utils.h"
 
 /**
  * Kills the child process.

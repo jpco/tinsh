@@ -9,7 +9,7 @@
 #include <signal.h>
 
 // local includes
-#include "debug.h"
+#include "../debug.h"
 
 // self-include
 #include "term.h"

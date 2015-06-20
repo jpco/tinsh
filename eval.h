@@ -3,7 +3,6 @@
 
 /**
  * Evaluates the command line and executes it as necessary.
- * NOTE: frees cmdline!!!
  */
 void eval (char *cmd);
 

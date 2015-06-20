@@ -5,14 +5,15 @@
 #include <limits.h>
 
 // local includes
+#include "inter/color.h"
+#include "inter/compl.h"
+#include "inter/hist.h"
+#include "inter/term.h"
+
 #include "defs.h"
 #include "str.h"
-#include "env.h"
-#include "hist.h"
-#include "term.h"
+#include "var.h"
 #include "debug.h"
-#include "color.h"
-#include "compl.h"
 
 // self-include
 #include "linebuffer.h"

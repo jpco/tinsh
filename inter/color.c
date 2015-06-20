@@ -4,12 +4,20 @@
 #include <string.h>
 
 // local includes
-#include "exec.h"
-#include "defs.h"
-#include "str.h"
+#include "../exec/exec_utils.h"
+
+#include "../defs.h"
+#include "../str.h"
 
 // self-include
 #include "color.h"
+
+/**
+ * ===============
+ * TODO: Rewrite this to have anything to do with the
+ * current eval system!!
+ * ===============
+ */
 
 void color_wd (const char *wd, int first) {
         if (first) {

@@ -4,9 +4,9 @@
 #include <errno.h>
 
 // local includes
-#include "defs.h"
-#include "str.h"
-#include "debug.h"
+#include "../defs.h"
+#include "../str.h"
+#include "../debug.h"
 
 // self-include
 #include "hist.h"

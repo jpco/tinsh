@@ -11,10 +11,10 @@
 #include <dirent.h>
 
 // local includes
-#include "debug.h"
-#include "str.h"
-#include "exec.h"
-#include "defs.h"
+#include "../debug.h"
+#include "../str.h"
+#include "../exec.h"
+#include "../defs.h"
 
 // self-include
 #include "compl.h"
@@ -28,12 +28,15 @@ char *f_compl (char *wd, int exec);
 
 char *l_compl (char *line, char *start, char *end)
 {
+        // Safety checks
         errno = 0;
         if (line == NULL) return NULL;
         if (start == NULL) start = line;
         if (end == NULL) end = line + strlen(line);
         int linelen = strlen(line);
-        char lchr = '\0';
+
+        // Save the character which will be temporarily smashed
+        char lchr = 0;
         if (end < line+linelen)
                 lchr = end[1];
 
@@ -54,7 +57,8 @@ char *l_compl (char *line, char *start, char *end)
 char *w_compl (char *owd, int first)
 {
         // TODO: bash autocompletion 
-//        char *complwd = f_compl(owd, 0);
+        // TODO: make mesh with current eval system
+        // TODO: implicit var expansion
         char *wd = vcombine_str (0, 1, owd);
 
         // Cut out backslashes from word
@@ -67,6 +71,7 @@ char *w_compl (char *owd, int first)
 
         char *complwd = f_compl(wd, 0);
 
+        // If first, look in path
         if (first) {
                 free (complwd);
 

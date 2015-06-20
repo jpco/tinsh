@@ -3,7 +3,7 @@
 #include <string.h>
 
 // local includes
-#include "env.h"
+#include "var.h"
 
 // self-include
 #include "debug.h"

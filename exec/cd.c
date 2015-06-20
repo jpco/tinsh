@@ -5,15 +5,20 @@
 #include <errno.h>
 #include <linux/limits.h>
 
+// local includes
+#include "../defs.h"
+#include "../debug.h"
+
+// self-include
 #include "cd.h"
-#include "defs.h"
-#include "debug.h"
 
 int cd (const char *arg)
 {
+        // "cd with no args" is handled elsewhere.
         if (arg == NULL || *arg == '\0') return 1;
         char *pwd = getenv("PWD");
 
+        // Builds the (rough) path of the passed argument.
         char newwd[PATH_MAX];
         if (*arg == '/') {
                 strcpy(newwd, arg);
@@ -25,6 +30,7 @@ int cd (const char *arg)
                 snprintf(newwd, PATH_MAX, "%s/%s", pwd, arg);
         }
 
+        // Canonicalizes the path.
         char newwd_c[PATH_MAX];
         if (!realpath(newwd, newwd_c)) {
                 int err = errno;
@@ -32,6 +38,8 @@ int cd (const char *arg)
                 return 1;
         }
 
+        // Need to change the environment variable of PWD, AS WELL AS
+        // the internal cwd dir.
         if (setenv("PWD", newwd_c, 1) != 0) {
                 int er = errno;
                 print_err_wno ("Could not set new PWD value", er);
@@ -43,5 +51,7 @@ int cd (const char *arg)
                 setenv("PWD", pwd, 1);
                 return 1;
         }
+
+        // Done.
         return 0;
 }
