@@ -41,7 +41,7 @@ void parse_file (char *fstr)
         FILE *fp = fopen (fstr, "r");
         int err = errno;
         if (fp == NULL) {
-                print_err_wno ("Error interpreting file.", err);
+                print_err_wno ("Error opening file.", err);
                 return;
         }
 
@@ -58,7 +58,9 @@ void parse_file (char *fstr)
                 free (line);
                 line = malloc ((1+n) * sizeof(char));
         }
+
         free (line);
+        fclose (fp);
 }
 
 typedef struct {

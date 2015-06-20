@@ -38,4 +38,7 @@ int has_alias (const char *key);
 char *get_alias (const char *key);
 void ls_alias ();
 
+// Frees the environment.
+void free_env ();
+
 #endif

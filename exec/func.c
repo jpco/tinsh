@@ -6,6 +6,7 @@
 #include "../inter/color.h"
 #include "../eval/eval_utils.h"
 
+#include "../eval.h"
 #include "../defs.h"
 #include "../str.h"
 #include "../var.h"
@@ -21,7 +22,6 @@ int func (int argc, const char **argv)
         if (strchr(argv[0], '/')) return 0;
 
         if (olstrcmp (argv[0], "exit")) {
-                atexit (free_ceval);
                 exit (0);
         } else if (olstrcmp (argv[0], "cd")) {
                 if (argv[1] == NULL) { // going HOME
@@ -43,8 +43,12 @@ int func (int argc, const char **argv)
                                 set_var (keynval, NULL);
                         } else {
                                 char **key_val = split_str (keynval, '=');
+
                                 set_var (key_val[0], key_val[1]);
+                                free (key_val[0]);
+                                free (key_val);
                         }
+                        free (keynval);
                 }
         } else if (olstrcmp (argv[0], "setenv")) {
                 if (argc == 1) {
@@ -55,6 +59,8 @@ int func (int argc, const char **argv)
                                 print_err ("Malformed \"setenv\".");
                         } else {
                                 char **key_val = split_str (keynval, '=');
+                                free (keynval);
+
                                 setenv (key_val[0], key_val[1], 1);
                         }
                 }

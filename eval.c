@@ -21,16 +21,49 @@ static queue *ejobs;
 static queue *jobs;
 
 void mask_eval();
+void comment_eval();
 void subsh_eval();
 void spl_line_eval();
 void spl_pipe_eval();
 void job_form();
 void var_eval();
-void comment_eval();
 
 void eval (char *cmd)
 {
         eval_m (cmd, NULL);
+}
+
+void free_ceval (void)
+{
+        if (ejob_res != NULL) {
+                while (q_len (ejob_res) > 0) {
+                        void *elt;
+                        q_pop(ejob_res, &elt);
+                        free (elt);
+                }
+                free (ejob_res);
+                ejob_res = NULL;
+        }
+
+        if (ejobs != NULL) {
+                while (q_len (ejobs) > 0) {
+                        void *elt;
+                        q_pop(ejobs, &elt);
+                        free (elt);
+                }
+                free (ejobs);
+                ejobs = NULL;
+        }
+
+        if (jobs != NULL) {
+                while (q_len (jobs) > 0) {
+                        void *elt;
+                        q_pop(jobs, &elt);
+                        free (elt);
+                }
+                free (jobs);
+                jobs = NULL;
+        }
 }
 
 void eval_m (char *cmd, char *mask)
@@ -38,6 +71,7 @@ void eval_m (char *cmd, char *mask)
         ejob_res = q_make();
         ejobs = q_make();
         jobs = q_make();
+        atexit (free_ceval);
 
         char *ncmd = malloc((strlen(cmd)+1) * sizeof(char));
         strcpy(ncmd, cmd);
@@ -54,23 +88,19 @@ void eval_m (char *cmd, char *mask)
         }
 
         while (q_len(ejobs) > 0) {
-                if (q_len(jobs) > 0) {
-                        job_t *job;
-                        q_pop (jobs, (void **)&job);
-                        try_exec (job);
-                }
-
                 void (*ejob)(void);
                 q_pop(ejobs, (void **)&ejob);
                 ejob();
         }
 
-        if (q_len(jobs) > 0) {
+        while (q_len(jobs) > 0) {
                 job_t *job;
                 q_pop (jobs, (void **)&job);
 
                 job->job_fn(job);
         }
+
+        free_ceval();
 }
 
 void mask_eval (void)
@@ -167,10 +197,10 @@ void spl_line_eval (void)
                 ptrdiff_t bdiff = buf - cmdline;
                 ptrdiff_t nbdiff = nbuf - buf;
 
-                char *ncmd = malloc((nbdiff+1) * sizeof(char));
-                strcpy(ncmd, buf);
+                char *ncmd = malloc ((nbdiff+1) * sizeof(char));
+                strcpy (ncmd, buf);
 
-                char *nmask = calloc(nbdiff+1, sizeof(char));
+                char *nmask = calloc (nbdiff+1, sizeof(char));
                 memcpy (nmask, cmdmask + bdiff, nbdiff + 1);
 
                 buf = nbuf + 1;
@@ -221,20 +251,22 @@ void job_form (void)
         job->file_out = NULL;
         job->bg = 0;
 
-        char **argm;
-        spl_cmd (nline, nmask, &(job->argv), &argm, &(job->argc));
+        spl_cmd (nline, nmask, &(job->argv), &(job->argm), &(job->argc));
+        free (nline);
+        free (nmask);
 
         // Background job?
         if (olstrcmp(job->argv[job->argc-1], "&")) {
                 job->bg = 1;
-                rm_element (job->argv, argm, (job->argc)-1, &(job->argc));
+                rm_element (job->argv, job->argm, (job->argc)-1,
+                                &(job->argc));
         }
 
         // File redirection
         int i;
         for (i = 0; i < job->argc; i++) {
-                if (olstrcmp(job->argv[i], ">") && !(*argm[i])) {
-                        rm_element (job->argv, argm, i, &(job->argc));
+                if (olstrcmp(job->argv[i], ">") && !(*(job->argm[i]))) {
+                        rm_element (job->argv, job->argm, i, &(job->argc));
 
                         if (i == job->argc) {      // they messed up
                                 print_err ("Missing redirect destination.");
@@ -243,13 +275,14 @@ void job_form (void)
 
                         char *fname = malloc(strlen(job->argv[i])+1);
                         strcpy (fname, job->argv[i]);
-                        rm_element (job->argv, argm, i, &(job->argc));
+                        rm_element (job->argv, job->argm, i, &(job->argc));
                         i -= 2;
 
                         job->file_out = fname;
 
-                } else if (olstrcmp(job->argv[i], "<") && !(*argm[i])) {
-                        rm_element (job->argv, argm, i, &(job->argc));
+                } else if (olstrcmp(job->argv[i], "<")
+                                && !(*(job->argm[i]))) {
+                        rm_element (job->argv, job->argm, i, &(job->argc));
 
                         if (i == job->argc) {      // they messed up
                                 print_err ("Missing redirect source.");
@@ -258,7 +291,7 @@ void job_form (void)
 
                         char *fname = malloc(strlen(job->argv[i])+1);
                         strcpy (fname, job->argv[i]);
-                        rm_element (job->argv, argm, i, &(job->argc));
+                        rm_element (job->argv, job->argm, i, &(job->argc));
                         i -= 2;
 
                         job->file_in = fname;
@@ -278,11 +311,9 @@ void job_form (void)
                 prev_job = NULL;
         }
 
-        job->job_fn = try_exec;
+        job->job_fn = var_eval;
 
-        q_push(ejob_res, job);
-        q_push(ejob_res, argm);
-        q_push(ejobs, var_eval);
+        q_push (jobs, job);
 }
 
 void spl_pipe_eval (void)
@@ -334,45 +365,50 @@ void spl_pipe_eval (void)
 
                 q_push(ejobs, job_form);
         }
+
+        free (cmdline);
+        free (cmdmask);
 }
 
-void var_eval (void)
+void var_eval (job_t *job)
 {
-        job_t *job;
-        char **argm;
-        q_pop(ejob_res, (void **)&job);
-        q_pop(ejob_res, (void **)&argm);
-
         int a1mask = 0;
         int i;
         for (i = 0; i < strlen(job->argv[0])+1; i++) {
-                a1mask += argm[0][i];
+                a1mask += job->argm[0][i];
         }
 
         if (!a1mask) {
                 char *alias = get_alias (job->argv[0]);
                 if (alias != NULL) {
-                        rm_element (job->argv, argm, 0, &(job->argc));
+                        rm_element (job->argv, job->argm, 0, &(job->argc));
                         char *a_mask = mask_str (alias);
                         char **a_argv;
                         char **a_argm;
                         int a_argc;
                         spl_cmd (alias, a_mask, &a_argv, &a_argm, &a_argc);
+                        free (alias);
+                        free (a_mask);
+
                         int k;
                         for (k = 0; k < a_argc; k++) {
-                                add_element (job->argv, argm, a_argv[k],
-                                                a_argm[k], k, &(job->argc));
+                                add_element (job->argv, job->argm,
+                                                a_argv[k], a_argm[k], k,
+                                                &(job->argc));
                         }
+
+                        free (a_argv);
+                        free (a_argm);
                 }
         }
 
         for (i = 0; i < job->argc; i++) {
                 char *arg = job->argv[i];
-                char *lparen = masked_strchr (arg, argm[i], '(');
+                char *lparen = masked_strchr (arg, job->argm[i], '(');
                 if (lparen == NULL) continue;
 
                 char *rparen = masked_strchr (lparen,
-                                        argm[i] + (lparen - arg),
+                                        job->argm[i] + (lparen - arg),
                                         ')');
                 if (rparen == NULL) {
                         dbg_print_err ("Mismatched parenthesis.");
@@ -398,38 +434,47 @@ void var_eval (void)
                         nwd = vcombine_str(0, 3, arg, value, rparen+1);
 
                         nmask = calloc(strlen(nwd)+1, sizeof(char));
-                        memcpy(nmask, argm[i], strlen(arg));
+                        memcpy(nmask, job->argm[i], strlen(arg));
                         memcpy(nmask+strlen(arg), valmask, strlen(value));
                         memcpy(nmask+strlen(arg)+strlen(value),
-                                        argm[i]+(rparen-arg)+1,
+                                        job->argm[i]+(rparen-arg)+1,
                                         strlen(rparen+1));
+
+                        free (value);
+                        free (valmask);
                 } else {
                         nwd = vcombine_str(0, 2, arg, rparen+1);
 
                         nmask = calloc(strlen(nwd)+1, sizeof(char));
-                        memcpy(nmask, argm[i], strlen(arg));
-                        memcpy(nmask+strlen(arg), argm[i]+(rparen-arg)+1,
+                        memcpy(nmask, job->argm[i], strlen(arg));
+                        memcpy(nmask+strlen(arg), job->argm[i]+(rparen-arg)+1,
                                         strlen(rparen+1));
                 }
+
                 if (nwd != NULL) {
                         char **v_argv;
                         char **v_argm;
                         int v_argc;
                         spl_cmd (nwd, nmask, &v_argv, &v_argm, &v_argc);
+                        free (nwd);
+                        free (nmask);
+
                         int k;
                         for (k = 0; k < v_argc; k++) {
-                                add_element (job->argv, argm, v_argv[k],
-                                                v_argm[k], k+i, &len);
+                                add_element (job->argv, job->argm,
+                                                v_argv[k], v_argm[k], k+i,
+                                                &len);
                         }
                         i += k;
-                        free (nwd);
+                        free (v_argv);
+                        free (v_argm);
                 }
 
-                rm_element (job->argv, argm, i, &len);
+                rm_element (job->argv, job->argm, i, &len);
                 i -= 2;
 
                 job->argc = len;
         }
 
-        q_push (jobs, job);
+        try_exec (job);
 }

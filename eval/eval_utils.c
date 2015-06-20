@@ -316,8 +316,3 @@ int devar (char *str, char *mask, char ***nstrs, char ***nmasks, int *strc) {
                 return -1;
         }
 }
-
-void free_ceval (void)
-{
-        // TODO: free() more things
-}

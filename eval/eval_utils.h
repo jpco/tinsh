@@ -43,6 +43,4 @@ void print_msg (char *msg, char *mask, int nl);
 // split the new string.
 int devar (char *str, char *mask, char ***nstrs, char ***nmask, int *strc);
 
-void free_ceval();
-
 #endif // JPSH_EVAL_UTILS_H

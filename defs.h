@@ -57,6 +57,7 @@ int is_separator(char c);
  */
 typedef struct job_struct {
         char **argv;
+        char **argm;
         int argc;
 
         int bg;

@@ -22,6 +22,30 @@
 #include "exec.h"
 
 int pid;
+static job_t *cchain;
+
+void free_cchain (void)
+{
+        job_t *cjob = cchain;
+        while (cjob != NULL) {
+                int i;
+                for (i = 0; i < cjob->argc; i++) {
+                        free (cjob->argv[i]);
+                        free (cjob->argm[i]);
+                }
+                free (cjob->argv);
+                free (cjob->argm);
+                free (cjob->p_in);
+                free (cjob->p_out);
+                free (cjob->file_in);
+                free (cjob->file_out);
+
+                job_t *njob = cjob->p_next;
+                free (cjob);
+
+                cjob = njob;
+        }
+}
 
 char *subshell (char *cmd, char *mask)
 {
@@ -65,7 +89,11 @@ void fork_exec (job_t *job)
                         (char **)job->argv,
                         (char **)environ);
 
-        print_err_wno ("Could not execute command.", errno);
+        if (errno == 2) {
+                print_err ("Command not found.");
+        } else {
+                print_err_wno ("Could not execute command.", errno);
+        }
 
         exit(1);
 }
@@ -85,7 +113,10 @@ void try_exec (job_t *job)
 
                         cjob = cjob->p_next;
                 }
+
+                cchain = job;
         }
+        atexit (free_cchain);
 
         printjob (job);
 
@@ -121,6 +152,11 @@ void try_exec (job_t *job)
         dup2 (dup_out, STDOUT_FILENO);
         close (dup_in);
         close (dup_out);
+
+        if (job->p_next == NULL) {
+                free_cchain();
+                cchain = NULL;
+        }
 
         pid = 0;
 }

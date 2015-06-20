@@ -7,8 +7,7 @@
 #include "var.h"
 #include "debug.h"
 #include "str.h"
-#include "eval.h"
-
+#include "eval.h" 
 // enum to differentiate sections of the config file
 typedef enum {NONE, ENV, VARS, ALIAS, STARTUP} config_section_t;
 
@@ -51,6 +50,7 @@ void init_env_defaults (void)
 void init_env_wfp (FILE *fp)
 {
         new_scope();
+        atexit (free_env);
 
         size_t n = MAX_LINE;
         char *rline = malloc((1+n)*sizeof(char));
