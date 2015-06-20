@@ -33,7 +33,8 @@ int sigchild (int signo)
         if (pid == 0) return 1;
         else {
                 if ((kill (pid, signo)) < 0) {
-                        print_err_wno ("Could not kill child", errno);
+                        print_err_wno ("Could not kill child process",
+                                        errno);
                         return 2;
                 } else {
                         return 0;
@@ -98,8 +99,75 @@ int chk_exec (const char *cmd)
         return 0;
 }
 
-int builtin (int argc, const char **argv)
+int setup_redirects (job_t *job)
 {
+        int cin = -1;
+        int cout = -1;
+
+        // Piping. File redirection comes afterwards since it supersedes.
+        if (job->pipe_in != NULL) {
+                close (job->pipe_in[1]);
+                dup2 (job->pipe_in[0], STDIN_FILENO);
+                cin = job->pipe_in[0];
+
+                free (job->pipe_in);
+                job->pipe_in = NULL;
+        }
+        if (job->pipe_out != NULL) {
+                close (job->pipe_out[0]);
+                dup2 (job->pipe_out[1], STDOUT_FILENO);
+                cout = job->pipe_out[0];
+        }
+
+        // File redirection.
+        if (job->file_in != NULL) {
+                int in_fd = open (job->file_in, O_RDONLY);
+                if (in_fd == -1) {
+                        print_err_wno ("Could not open file for reading.",
+                                        errno);
+                        int err = errno;
+                        if (cin != -1) close (cin);
+                        if (cout != -1) close (cout);
+                        errno = err;
+                        return -1;
+                }
+                if (cin != -1) close (cin);
+                dup2 (in_fd, STDIN_FILENO);
+                cin = in_fd;
+
+                free (job->file_in);
+                job->file_in = NULL;
+        }
+        if (job->file_out != NULL) {
+                int out_fd = open (job->file_out,
+                                   O_CREAT | O_WRONLY, 0644);
+                if (out_fd == -1) {
+                        int err = errno;
+                        print_err_wno ("Could not open file for writing.",
+                                        errno);
+                        if (cin != -1) close (cin);
+                        if (cout != -1) close (cout);
+                        errno = err;
+                        return -1;
+                }
+                if (cout != -1) close (cout);
+                dup2 (out_fd, STDOUT_FILENO);
+                cout = out_fd;
+
+                free (job->file_out);
+                job->file_out = NULL;
+        }
+
+        return 0;
+}
+
+int builtin (job_t *job)
+{
+        setup_redirects (job);
+
+        const char **argv = (const char **)job->argv;
+        int argc = job->argc;
+
         if (strchr(argv[0], '/')) return 0;
 
         if (olstrcmp (argv[0], "exit")) {
@@ -108,8 +176,9 @@ int builtin (int argc, const char **argv)
         } else if (olstrcmp (argv[0], "cd")) {
                 if (argv[1] == NULL) { // going HOME
                         if (cd (getenv("HOME")) > 0) return 2;
+                } else {
+                        if (cd (argv[1]) > 0) return 2;
                 }
-                if (cd (argv[1]) > 0) return 2;
         } else if (olstrcmp (argv[0], "pwd")) {
                 printf("%s\n", getenv ("PWD"));
         } else if (olstrcmp (argv[0], "lsvars")) {
@@ -239,63 +308,15 @@ char *subshell (char *cmd, char *mask)
 
 void fork_exec (job_t *job)
 {
-        int cin = -1;
-        int cout = -1;
-
-        // Piping. File redirection comes afterwards since it supersedes.
-        if (job->pipe_in != NULL) {
-                close (job->pipe_in[1]);
-                dup2 (job->pipe_in[0], STDIN_FILENO);
-                cin = job->pipe_in[0];
-
-                free (job->pipe_in);
-        }
-        if (job->pipe_out != NULL) {
-                close (job->pipe_out[0]);
-                dup2 (job->pipe_out[1], STDOUT_FILENO);
-                cout = job->pipe_out[0];
-        }
-
-        // File redirection.
-        if (job->file_in != NULL) {
-                int in_fd = open (job->file_in, O_RDONLY);
-                if (in_fd == -1) {
-                        print_err_wno ("Could not open file for reading.",
-                                        errno);
-                        if (cin != -1) close (cin);
-                        if (cout != -1) close (cout);
-                        return;
-                }
-                if (cin != -1) close (cin);
-                dup2 (in_fd, STDIN_FILENO);
-                cin = in_fd;
-
-                free (job->file_in);
-        }
-        if (job->file_out != NULL) {
-                int out_fd = open (job->file_out,
-                                   O_CREAT | O_WRONLY, 0644);
-                if (out_fd == -1) {
-                        print_err_wno ("Could not open file for writing.",
-                                        errno);
-                        if (cin != -1) close (cin);
-                        if (cout != -1) close (cout);
-                        return;
-                }
-                if (cout != -1) close (cout);
-                dup2 (out_fd, STDOUT_FILENO);
-                cout = out_fd;
-
-                free (job->file_out);
-        }
-
+        setup_redirects (job);
+        
         execvpe ((const char *)job->argv[0],
                         (char *const *)job->argv,
                         (char *const *)environ);
 
         print_err_wno ("Could not execute command.", errno);
 
-        exit(1);
+        return;
 }
 
 void try_exec (job_t *job)
@@ -307,12 +328,14 @@ void try_exec (job_t *job)
         int dup_in = dup (STDIN_FILENO);
         int dup_out = dup (STDOUT_FILENO);
 
-        if (!builtin(job->argc, (const char **)job->argv)) {
+        if (!builtin(job)) {
 
                 pid = fork();
                 if (pid < 0) print_err_wno ("fork() error.", errno);
-                else if (pid == 0) fork_exec(job);
-                else {
+                else if (pid == 0) {
+                        fork_exec(job);
+                        exit (1);
+                } else {
                         int status = 0;
                         if (waitpid (pid, &status, 0) < 0) {
                                 print_err_wno ("waitpid() error.", errno);

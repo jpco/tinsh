@@ -14,7 +14,7 @@ int cd (const char *arg)
         if (arg == NULL || *arg == '\0') return 1;
         char *pwd = getenv("PWD");
 
-        char newwd[100];
+        char newwd[PATH_MAX];
         if (*arg == '/') {
                 strcpy(newwd, arg);
         } else {
@@ -22,7 +22,7 @@ int cd (const char *arg)
                         print_err ("PWD undefined; could not cd.");
                         return 1;
                 }
-                snprintf(newwd, 100, "%s/%s", pwd, arg);
+                snprintf(newwd, PATH_MAX, "%s/%s", pwd, arg);
         }
 
         char newwd_c[PATH_MAX];
