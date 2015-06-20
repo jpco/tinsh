@@ -6,6 +6,8 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <dirent.h>
 
 // local includes
@@ -181,29 +183,33 @@ void printjob (job_t *job)
         if (db == NULL) return;
         else free (db);
 
-        printf (" ==== JOB ====\n");
-        printf ("[%s] ", job->argv[0]);
+        fprintf (stderr, " ==== JOB ====\n");
+        fprintf (stderr, "[%s] ", job->argv[0]);
         int i;
         for (i = 1; i < job->argc; i++) {
-                printf ("%s ", job->argv[i]);
+                fprintf (stderr, "%s ", job->argv[i]);
         }
-        printf ("\n");
+        fprintf (stderr, "\n");
         if (job->bg) {
-                printf (" - Background\n");
+                fprintf (stderr, " - Background\n");
         }
-        if (job->out_fd >= 0) {
-                printf (" - Out to %d\n", job->out_fd);
+        if (job->pipe_in != NULL) {
+                fprintf (stderr, " - In from %d\n", job->pipe_in[0]);
         }
-        if (job->in_fd >= 0) {
-                printf (" - In from %d\n", job->in_fd);
+        if (job->pipe_out != NULL) {
+                fprintf (stderr, " - Out to %d\n", job->pipe_out[1]);
         }
-        if (job->bg || job->out_fd >= 0 || job->in_fd >= 0) {
-                printf ("\n");
+        if (job->file_in != NULL) {
+                fprintf (stderr, " - File in: %s\n", job->file_in);
+        }
+        if (job->file_out != NULL) {
+                fprintf (stderr, " - File out: %s\n", job->file_out);
         }
 }
 
 char *subshell (char *cmd, char *mask)
 {
+        // just use popen
         int fds[2];
         pipe (fds);
 
@@ -231,63 +237,107 @@ char *subshell (char *cmd, char *mask)
         return NULL;
 }
 
+void fork_exec (job_t *job)
+{
+        int cin = -1;
+        int cout = -1;
+
+        // Piping. File redirection comes afterwards since it supersedes.
+        if (job->pipe_in != NULL) {
+                close (job->pipe_in[1]);
+                dup2 (job->pipe_in[0], STDIN_FILENO);
+                cin = job->pipe_in[0];
+
+                free (job->pipe_in);
+        }
+        if (job->pipe_out != NULL) {
+                close (job->pipe_out[0]);
+                dup2 (job->pipe_out[1], STDOUT_FILENO);
+                cout = job->pipe_out[0];
+        }
+
+        // File redirection.
+        if (job->file_in != NULL) {
+                int in_fd = open (job->file_in, O_RDONLY);
+                if (in_fd == -1) {
+                        print_err_wno ("Could not open file for reading.",
+                                        errno);
+                        if (cin != -1) close (cin);
+                        if (cout != -1) close (cout);
+                        return;
+                }
+                if (cin != -1) close (cin);
+                dup2 (in_fd, STDIN_FILENO);
+                cin = in_fd;
+
+                free (job->file_in);
+        }
+        if (job->file_out != NULL) {
+                int out_fd = open (job->file_out,
+                                   O_CREAT | O_WRONLY, 0644);
+                if (out_fd == -1) {
+                        print_err_wno ("Could not open file for writing.",
+                                        errno);
+                        if (cin != -1) close (cin);
+                        if (cout != -1) close (cout);
+                        return;
+                }
+                if (cout != -1) close (cout);
+                dup2 (out_fd, STDOUT_FILENO);
+                cout = out_fd;
+
+                free (job->file_out);
+        }
+
+        execvpe ((const char *)job->argv[0],
+                        (char *const *)job->argv,
+                        (char *const *)environ);
+
+        print_err_wno ("Could not execute command.", errno);
+
+        exit(1);
+}
+
 void try_exec (job_t *job)
 {
-        const char **argv = (const char **)job->argv;
         int argc = job->argc;
-
+        const char **argv = (const char **)job->argv;
         printjob (job);
 
-        if (job->out_fd+1) job->bg = 1;
+        int dup_in = dup (STDIN_FILENO);
+        int dup_out = dup (STDOUT_FILENO);
 
-        int stdin_dup = dup(STDIN_FILENO);
-        int stdout_dup = dup(STDOUT_FILENO);
+        if (!builtin(job->argc, (const char **)job->argv)) {
 
-        if (!builtin (argc, argv)) {
-                int success = 0;
-                int err = 0;
                 pid = fork();
-                if (pid < 0) print_err_wno ("Fork error.", errno);
-                else if (pid == 0) {
-                        if (job->out_fd >= 0) {
-                                if (dup2 (job->out_fd, STDOUT_FILENO) == -1) {
-                                        print_err_wno ("Output redirect error.", errno);
-                                }
-                        }
-                        if (job->in_fd >= 0) {
-                                if (dup2 (job->in_fd, STDIN_FILENO) == -1) {
-                                        print_err_wno ("Input redirect error.", errno);
-                                }
-                        }
-
-                        success = execvpe (argv[0], argv, environ);
-                        err = errno;
-                        if (err == 2) {
-                                print_err ("Command not found.");
-                        } else {
-                                print_err_wno ("Execution error.", err);
-                        }
-
-                        // clean up memory!
-                        free_ceval();
-                }
-                if (!(job->bg) || !success) {
+                if (pid < 0) print_err_wno ("fork() error.", errno);
+                else if (pid == 0) fork_exec(job);
+                else {
                         int status = 0;
                         if (waitpid (pid, &status, 0) < 0) {
-                                int err = errno;
-                                if (err != 10) {
-                                        dbg_print_err_wno ("Waitpid error.",errno);
-                                }
-                                exit (1);
+                                print_err_wno ("waitpid() error.", errno);
                         }
+                        if (job->pipe_in != NULL)
+                                close (job->pipe_in[0]);
+                        if (job->pipe_out != NULL)
+                                close (job->pipe_out[1]);
                 }
-                close (0);
-                close (1);
-                dup2 (stdin_dup, 0);
-                dup2 (stdout_dup, 1); 
-                close (stdin_dup);
-                close (stdout_dup);
 
-                pid = 0;
         }
+
+        if (job->pipe_in != NULL) {
+                close (job->pipe_in[0]);
+                close (job->pipe_in[1]);
+                free (job->pipe_in);
+        }
+
+        free (job->file_in);
+        free (job->file_out);
+
+        dup2 (dup_in, STDIN_FILENO);
+        dup2 (dup_out, STDOUT_FILENO);
+        close (dup_in);
+        close (dup_out);
+
+        pid = 0;
 }

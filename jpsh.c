@@ -108,8 +108,8 @@ args_t parse_args(int argc, char **argv)
  */
 int main (int argc, char **argv)
 {
+//        signal(SIGINT, sigint_handler);
         args_t args = parse_args(argc, argv);
-        signal(SIGINT, sigint_handler);
 
         if (args.config != NULL) {
                 init_envp(args.config);

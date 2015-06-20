@@ -29,9 +29,6 @@ Worse than sh!
  - subshells (not severely tested)
 
 ### Todo (in no particular order)
-CURRENT: EVAL REFACTOR
- - var resolution splits quotes
- - redirection doesn't seem to be working, nor does piping
 
 ##### Interactive
  - Tab completion (more/better)
@@ -40,7 +37,7 @@ CURRENT: EVAL REFACTOR
     - deal with parens
     - bash autocomplete files
     - suggestion on conflict >>>> PREVIEW FUNCTION
-    - refactor... the code is pretty messy
+    - clean up... the code is pretty messy
  - Redo line coloration... that didn't last long
  - Preview functionality!
  - Long-buffer support
@@ -50,9 +47,7 @@ CURRENT: EVAL REFACTOR
  - Readline/config support? (maybe long-term goal)
 
 ##### Non-interactive
- - split up `eval.c` and `eval-utils.c`
  - maybe change eval structure so it's not chain-y? concatenative programming is weird in C
- - re-mask after alias and var substitution
  - `:` / `{ }` support, then we can start with control flow \& `with`
  - `int`, `bool`, and `path` vars
  - Piping/redirection (have to set up the stdin/stdout alteration)
@@ -61,5 +56,3 @@ CURRENT: EVAL REFACTOR
 
 ##### Bugfixes
  - Segfaults on bad `set` syntax
- - Why does it take extra `exit`s for each unrecognized command?
- - Masks inside subshells don't work

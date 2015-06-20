@@ -9,8 +9,12 @@ typedef struct {
         int argc;
 
         int bg;
-        int in_fd;
-        int out_fd;
+
+        int *pipe_in;
+        int *pipe_out;
+
+        char *file_in;
+        char *file_out;
 } job_t;
 
 /**

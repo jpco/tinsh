@@ -77,7 +77,7 @@ void eval_m (char *cmd, char *mask)
                 ejob();
         }
 
-        if (q_len (ejob_res) > 0) {
+        while (q_len (ejob_res) > 0) {
                 job_t *job;
                 q_pop (ejob_res, (void **)&job);
                 try_exec (job);
@@ -206,10 +206,12 @@ void job_form (void)
 {
         char *line;
         char *mask;
-        int *fds;
+        int *pipe_in;
+        int *pipe_out;
         q_pop(ejob_res, (void **)&line);
         q_pop(ejob_res, (void **)&mask);
-        q_pop(ejob_res, (void **)&fds);
+        q_pop(ejob_res, (void **)&pipe_in);
+        q_pop(ejob_res, (void **)&pipe_out);
 
         char *nline = NULL;
         char *nmask = NULL;
@@ -220,16 +222,17 @@ void job_form (void)
         if (*nline == '\0') {
                 free (nline);
                 free (nmask);
-                free (fds);
                 return;
         }
 
         job_t *job = malloc(sizeof(job_t));
-        if (fds[0] != -1) job->in_fd = fds[0];
-        else job->in_fd = STDIN_FILENO;
 
-        if (fds[1] != -1) job->out_fd = fds[1];
-        else job->out_fd = STDOUT_FILENO;
+        // defaults
+        job->pipe_in = pipe_in;
+        job->pipe_out = pipe_out;
+        job->file_in = NULL;
+        job->file_out = NULL;
+        job->bg = 0;
 
         char **argm;
         spl_cmd (nline, nmask, &(job->argv), &argm, &(job->argc));
@@ -247,28 +250,13 @@ void job_form (void)
                                 print_err ("Missing redirect destination.");
                                 continue;
                         }
-                        int j;
-                        for (j = 0; j < job->argc; j++) {
-//                                printf (" - %s\n", job->argv[j]);
-                        }
-//                        printf (" - correct is %s\n", job->argv[i]);
+
                         char *fname = malloc(strlen(job->argv[i])+1);
                         strcpy (fname, job->argv[i]);
                         rm_element (job->argv, argm, i, &(job->argc));
                         i -= 2;
 
-//                        printf ("FILE NAME = %s\n", fname);
-                        int fd = open(fname, O_RDWR | O_CREAT);
-                        if (fd >= 0) {
-                                if (job->out_fd != -1) close(job->out_fd);
-                                job->out_fd = fd;
-                        } else {
-                                dbg_print_err_wno ("Could not open"
-                                                "redirect destination.",
-                                                errno);
-                        }
-
-                        free (fname);
+                        job->file_out = fname;
 
                 } else if (olstrcmp(job->argv[i], "<") && !(*argm[i])) {
                         rm_element (job->argv, argm, i, &(job->argc));
@@ -277,29 +265,13 @@ void job_form (void)
                                 print_err ("Missing redirect source.");
                                 continue;
                         }
-                        int j;
-                        for (j = 0; j < job->argc; j++) {
-//                                printf (" - %s\n", job->argv[j]);
-                        }
-//                        printf (" - correct is %s\n", job->argv[i]);
+
                         char *fname = malloc(strlen(job->argv[i])+1);
                         strcpy (fname, job->argv[i]);
                         rm_element (job->argv, argm, i, &(job->argc));
                         i -= 2;
 
-//                        printf ("FILE NAME = %s\n", fname);
-                        int fd = open(fname, O_RDWR | O_TRUNC | O_CREAT,
-                                        0664);
-                        if (fd >= 0) {
-                                if (job->in_fd != -1) close(job->in_fd);
-                                job->in_fd = fd;
-                        } else {
-                                dbg_print_err_wno ("Could not open"
-                                                "redirect source.",
-                                                errno);
-                        }
-
-                        free (fname);
+                        job->file_in = fname;
                 }
         }
 
@@ -323,9 +295,9 @@ void spl_pipe_eval (void)
 
         size_t cmdlen = strlen(cmdline);
 
-        char fflag = 1;
         char lflag = 0;
 
+        int *curr_pipe = NULL;
         while (buf != NULL && buf - cmdline < cmdlen && *buf != '\0') {
                 if (nbuf != NULL) {
                         *nbuf = '\0';
@@ -353,28 +325,22 @@ void spl_pipe_eval (void)
 
                 int *fds = malloc(2 * sizeof(int));
 
-                if (!(fflag && lflag)) {
-                        pipe (fds);
+                int *pipe_in = curr_pipe;
+                curr_pipe = NULL;
 
-                        if (fflag) {
-                                close (fds[0]);
-                                fds[0] = -1;
-                        }
-                        if (lflag) {
-                                close (fds[1]);
-                                fds[1] = -1;
-                        }
-                } else {
-                        fds[0] = -1;
-                        fds[1] = -1;
+                int *pipe_out = NULL;
+
+                if (!lflag) {
+                        pipe (fds);
+                        pipe_out = fds;
+                        curr_pipe = fds;
                 }
 
                 q_push(ejob_res, ncmd);
                 q_push(ejob_res, nmask);
-                q_push(ejob_res, fds);
+                q_push(ejob_res, pipe_in);
+                q_push(ejob_res, pipe_out);
                 q_push(ejobs, job_form);
-
-                fflag = 0;
         }
 }
 
