@@ -405,6 +405,41 @@ void var_eval (job_t *job)
 
         for (i = 0; i < job->argc; i++) {
                 char *arg = job->argv[i];
+                // ~
+                if (has_var ("__jpsh_~home")) {
+                        char *home_ptr;
+                        char *home_val = get_var ("__jpsh_~home");
+                        char *home_mask = mask_str (home_val);
+
+                        while ((home_ptr = masked_strchr (arg,
+                                        job->argm[i], '~')) != NULL) {
+                                *home_ptr = '\0';
+                                char *nwd = vcombine_str (0, 3,
+                                                arg,
+                                                home_val,
+                                                home_ptr+1);
+                                char *nmask = calloc(strlen(nwd)+1,
+                                                        sizeof(char));
+                                memcpy(nmask, job->argm[i], strlen(arg));
+                                memcpy(nmask+strlen(arg), home_mask,
+                                        strlen(home_val));
+                                memcpy(nmask+strlen(arg)+strlen(home_val),
+                                        job->argm[i]+(home_ptr-arg)+1,
+                                        strlen(home_ptr+1));
+
+                                int len = job->argc;
+                                rm_element (job->argv, job->argm, i, &len);
+                                add_element (job->argv, job->argm,
+                                                nwd, nmask, i, &len);
+                        }
+
+                        free (home_val);
+                        free (home_mask);
+                }
+
+                arg = job->argv[i];
+
+                // normal (foo) vars
                 char *lparen = masked_strchr (arg, job->argm[i], '(');
                 if (lparen == NULL) continue;
 

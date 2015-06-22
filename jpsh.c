@@ -55,7 +55,6 @@ void parse_file (char *fstr)
         for (; read >= 0; read = getline (&line, &n, fp)) {
                 debug_line_no++;
                 eval (line);
-                free (line);
                 line = malloc ((1+n) * sizeof(char));
         }
 
@@ -115,7 +114,7 @@ args_t parse_args(int argc, char **argv)
  */
 int main (int argc, char **argv)
 {
-//        signal(SIGINT, sigint_handler);
+        signal(SIGINT, sigint_handler);
         args_t args = parse_args(argc, argv);
 
         if (args.config != NULL) {
@@ -123,6 +122,9 @@ int main (int argc, char **argv)
         } else {
                 init_env();
         }
+
+        atexit (free_env);
+
         if (args.file != NULL) {
                 parse_file (args.file);
                 return 0;
@@ -132,7 +134,6 @@ int main (int argc, char **argv)
         }
 
         term_init();
-        atexit (free_env);
         atexit (free_hist);
         atexit (term_exit);
 

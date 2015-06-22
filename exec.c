@@ -52,7 +52,10 @@ void free_cchain (void)
 
 char *subshell (char *cmd, char *mask)
 {
-        // just use popen
+        char *ncmd = malloc((strlen(cmd)+1) * sizeof(char));
+        strcpy (ncmd, cmd);
+        cmd = ncmd;
+
         int fds[2];
         pipe (fds);
 
