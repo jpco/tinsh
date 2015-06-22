@@ -5,12 +5,12 @@
 // local includes
 #include "eval_utils.h"
 #include "queue.h"
-#include "../debug.h"
-#include "../exec.h"
 #include "spl_line.h"
 #include "mask.h"
-#include "../str.h"
 #include "var.h"
+#include "../str.h"
+#include "../debug.h"
+#include "../exec.h"
 
 extern queue *ejob_res;
 extern queue *ejobs;

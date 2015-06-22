@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <unistd.h>
 
 // local includes
 #include "queue.h"
@@ -17,6 +19,111 @@ extern queue *ejobs;
 extern queue *jobs;
 
 static job_t *prev_job;
+
+void redirect (job_t *job, int i)
+{
+        // TODO: update  cmd splitting to account for syntax changes
+
+        char *o_rdwd = vcombine_str(0, 1, job->argv[i]);
+        char *rdwd = o_rdwd;
+        rm_element (job->argv, job->argm, i, &(job->argc));
+
+        rd_t *redir = malloc(sizeof(rd_t));
+        // defaults
+        redir->loc_fd = STDOUT_FILENO;
+        redir->mode = RD_OW;
+        redir->fd = -1;
+        redir->name = NULL;
+
+        if (*rdwd == '<') {
+                // inbound redirect!
+                redir->loc_fd = STDIN_FILENO;
+                rdwd++;
+                if (*rdwd == '<') {     // literal
+                        redir->mode = RD_LIT;
+                        free (o_rdwd);
+
+                        if (i == job->argc) {
+                                print_err ("Missing redirect literal.");
+                                free (redir);
+                                return;
+                        }
+                        redir->name = vcombine_str(0, 1, job->argv[i]);
+                        rm_element (job->argv, job->argm, i, &(job->argc));
+                } else if (*rdwd == '-') {      // file
+                        free (o_rdwd);
+                        redir->mode = RD_RD;
+
+                        if (i == job->argc) {
+                                print_err ("Missing redirect source.");
+                                free (redir);
+                                return;
+                        }
+                        redir->name = vcombine_str(0, 1, job->argv[i]);
+                        rm_element (job->argv, job->argm, i, &(job->argc));
+                } else {        // fifo!
+                        redir->mode = RD_FIFO;
+                        rdwd++;
+                        if (*rdwd == '~') {
+                                redir->fd = STDOUT_FILENO;
+                        } else if (*rdwd == '&') {
+                                redir->fd = -2;
+                        } else {
+                                redir->fd = *rdwd - '0';
+                        }
+                        free (o_rdwd);
+
+                        if (i == job->argc) {
+                                print_err ("Missing redirect command.");
+                                free (redir);
+                                return;
+                        }
+                        redir->name = vcombine_str(0, 1, job->argv[i]);
+                        rm_element (job->argv, job->argm, i, &(job->argc));
+                }
+        } else {
+                if (*rdwd == '~') redir->mode = RD_FIFO;
+                rdwd++;
+
+                if (*rdwd == '>') redir->loc_fd = STDOUT_FILENO;
+                else if (*rdwd == '&') {
+                        redir->loc_fd = -2;
+                        rdwd++;
+                } else {
+                        redir->loc_fd = *rdwd - '0';
+                        rdwd++;
+                }
+                rdwd++;
+
+                char last = *rdwd;
+                free (o_rdwd);
+
+                if (last == '\0' || last == '+' || last == '*'
+                                || last == '^') {     // out to file
+                        if (last == '+') {
+                                redir->mode = RD_APP;
+                        } else if (last == '*') {
+                                redir->mode = RD_PRE;
+                        } else if (last == '^') {
+                                redir->mode = RD_REV;
+                        }
+
+                        if (i == job->argc) {
+                                print_err ("Missing redirect "
+                                           "destination.");
+                                free (redir);
+                                return;
+                        }
+                        redir->name = vcombine_str(0, 1, job->argv[i]);
+                        rm_element (job->argv, job->argm, i, &(job->argc));
+                } else {        // fd replacement
+                        redir->mode = RD_REP;
+                        redir->fd = last - '0';
+                }
+        }
+
+        q_push (job->rd_queue, redir);
+}
 
 void job_form (void)
 {
@@ -46,8 +153,7 @@ void job_form (void)
         job->p_out = NULL;
         job->p_prev = NULL;
         job->p_next = NULL;
-        job->file_in = NULL;
-        job->file_out = NULL;
+        job->rd_queue = q_make();
         job->bg = 0;
 
         spl_cmd (nline, nmask, &(job->argv), &(job->argm), &(job->argc));
@@ -64,36 +170,24 @@ void job_form (void)
         // File redirection
         int i;
         for (i = 0; i < job->argc; i++) {
-                if (olstrcmp(job->argv[i], ">") && !(*(job->argm[i]))) {
-                        rm_element (job->argv, job->argm, i, &(job->argc));
+                char fc = *(job->argv[i]);
+                char lc = (job->argv[i])[strlen(job->argv[i])-1];
+                char blc = (job->argv[i])[strlen(job->argv[i])-2];
 
-                        if (i == job->argc) {      // they messed up
-                                print_err ("Missing redirect destination.");
-                                continue;
+                int j;
+                int rsum = 0;
+                for (j = 0; j < strlen(job->argv[i]); j++) {
+                        rsum += (job->argm[i])[j];
+                }
+
+                if (!rsum) {
+                        if (fc == '<' && (lc == '-' || lc == '~')) {
+                                redirect (job, i);
                         }
-
-                        char *fname = malloc(strlen(job->argv[i])+1);
-                        strcpy (fname, job->argv[i]);
-                        rm_element (job->argv, job->argm, i, &(job->argc));
-                        i -= 2;
-
-                        job->file_out = fname;
-
-                } else if (olstrcmp(job->argv[i], "<")
-                                && !(*(job->argm[i]))) {
-                        rm_element (job->argv, job->argm, i, &(job->argc));
-
-                        if (i == job->argc) {      // they messed up
-                                print_err ("Missing redirect source.");
-                                continue;
+                        if ((fc == '-' || fc == '~') && 
+                                   (lc == '>' || blc == '>')) {
+                                redirect (job, i);
                         }
-
-                        char *fname = malloc(strlen(job->argv[i])+1);
-                        strcpy (fname, job->argv[i]);
-                        rm_element (job->argv, job->argm, i, &(job->argc));
-                        i -= 2;
-
-                        job->file_in = fname;
                 }
         }
 

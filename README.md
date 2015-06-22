@@ -22,11 +22,10 @@ Worse than sh!
     - commands
  - Kind-of coloration (though not in-buffer!)
     - can be toggled with `__jpsh_color` var
- - multiple lines in one line
  - History
  - a(n as-of-yet unused) notion of scope for variables
     - environment variables and aliases always have global scope
- - subshells (not severely tested)
+ - subshells (kind of broken)
 
 ### Todo (in no particular order)
 CURRENT: memory leak & errors on subshells!
@@ -42,19 +41,21 @@ CURRENT: memory leak & errors on subshells!
     - clean up... the code is pretty messy
  - Redo line coloration... that didn't last long
  - Preview functionality!
- - Long-buffer support
  - `^` / `^^n`
  - `__jpsh_prompt`
  - Broaden .jpshrc location support
  - Readline/config support? (maybe long-term goal)
 
 ##### Non-interactive
- - `>>` to append to files
+ - redirection modes `->*`, `->^`, `~>`
  - `:` / `{ }` support, then we can start with control flow \& `with`
     - goal: `with`, `if`, `else`, `while`, `for`, `cfor`, `fn`
  - `int`, `bool`, and `path` vars
  - Globs! (interactive >>>> PREVIEW FUNCTION)
- - forgot to care about `job->bg`
+ - oops! forgot to care about `job->bg`
+    - how do file descriptors & piping work with `job->bg` though...
+ - iron out masking subtleties, because it's not quite right
 
 ##### Bugs
- - Segfaults on bad `set` syntax
+ - long buffers don't quite work.
+ - subshells are pretty broken.

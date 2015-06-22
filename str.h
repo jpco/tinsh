@@ -94,6 +94,6 @@ char *vcombine_str(char delim, int ct, ...);
  * Removes the pointed-to character from the string to
  * which it belongs.
  */
-void rm_char (char *line);
+char rm_char (char *line);
 
 #endif

@@ -6,8 +6,10 @@
 #include "queue.h"
 #include "eval_utils.h"
 #include "comment.h"
+
 #include "../str.h"
 #include "../debug.h"
+#include "../defs.h"
 
 // self-include
 #include "mask.h"
@@ -28,13 +30,11 @@ void mask_eval (void)
         q_push(ejobs, comment_eval);
 }
 
-char *mask_str (char *cmdline)
+void bs_pass (char **cmdline_ptr, char **cmdmask_ptr)
 {
-        // TODO: iron out subtleties of \, ', ` priority
+        char *cmdline = *cmdline_ptr;
+        char *cmdmask = *cmdmask_ptr;
 
-        char *cmdmask = calloc(strlen(cmdline) + 1, sizeof(char));
-        
-        // \-pass
         char *buf = cmdline;
         char *mbuf = cmdmask;
         while ((buf = masked_strchr(buf, mbuf, '\\'))) {
@@ -44,10 +44,15 @@ char *mask_str (char *cmdline)
                 arm_char (mbuf, strlen(cmdline) - diff + 1);
                 *mbuf = '\\';
         }
+}
 
-        // '-pass
-        buf = cmdline;
-        mbuf = cmdmask;
+void squote_pass (char **cmdline_ptr, char **cmdmask_ptr)
+{
+        char *cmdline = *cmdline_ptr;
+        char *cmdmask = *cmdmask_ptr;
+
+        char *buf = cmdline;
+        char *mbuf = cmdmask;
         while ((buf = masked_strchr(buf, mbuf, '\''))) {
                 ptrdiff_t diff = buf - cmdline;
                 mbuf = cmdmask + diff;
@@ -71,10 +76,15 @@ char *mask_str (char *cmdline)
                 buf = end;
                 mbuf = ediff + mbuf;
         }
+}
 
-        // "-pass
-        buf = cmdline;
-        mbuf = cmdmask;
+void dquote_pass (char **cmdline_ptr, char **cmdmask_ptr)
+{
+        char *cmdline = *cmdline_ptr;
+        char *cmdmask = *cmdmask_ptr;
+
+        char *buf = cmdline;
+        char *mbuf = cmdmask;
         while ((buf = masked_strchr(buf, mbuf, '"'))) {
                 ptrdiff_t diff = buf - cmdline;
                 mbuf = cmdmask + diff;
@@ -96,8 +106,9 @@ char *mask_str (char *cmdline)
 
                 char *sbuf;
                 for (sbuf = buf; sbuf < end; sbuf++) {
-                        if (*sbuf == ' ' || *sbuf == '>' ||
-                                *sbuf == '<') {
+                        char cb = *sbuf;
+                        if (is_separator(cb) && cb != '(' &&
+                                cb != ')' && cb != '~' && cb != ';' && cb != '>' && cb != '<') {
                                 ptrdiff_t sdiff = sbuf - cmdline;
                                 cmdmask[sdiff] = '"';
                         }
@@ -105,7 +116,16 @@ char *mask_str (char *cmdline)
                 buf = end;
                 mbuf = ediff + mbuf;
         }
+}
 
+char *mask_str (char *cmdline)
+{
+        // TODO: iron out subtleties of \, ', ` priority
+
+        char *cmdmask = calloc(strlen(cmdline) + 1, sizeof(char));        
+        bs_pass (&cmdline, &cmdmask);
+        squote_pass (&cmdline, &cmdmask);
+        dquote_pass (&cmdline, &cmdmask);
         return cmdmask;
 }
 
@@ -125,4 +145,3 @@ char *unmask_str (char *str, char *mask)
 
         return nstr;
 }
-

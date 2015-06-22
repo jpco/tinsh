@@ -4,10 +4,10 @@
 #include <stdio.h>
 
 // local includes
+#include "queue.h"
 #include "../debug.h"
 #include "../str.h"
 #include "../var.h"
-#include "queue.h"
 
 // self-include
 #include "eval_utils.h"
@@ -96,16 +96,11 @@ void spl_cmd (const char *s, const char *m, char ***argv, char ***argm,
                 if (!m[buf-s]) {
                         if (*buf == ' ') {
                                 continue;
-                        }
-        
-                        if (*buf == '>' || *buf == '<' || *buf == '&') {
-                                wdflag = 1;
-                        }
+                        }        
                 }
 
                 if (!m[buf-s+1]) {
-                        if (buf[1] == ' ' || buf[1] == '>' ||
-                            buf[1] == '<' || buf[1] == '&') {
+                        if (buf[1] == ' ') {
                                 wdflag = 1;
                         }
                 }

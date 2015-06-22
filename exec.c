@@ -36,9 +36,15 @@ void free_cchain (void)
                 free (cjob->argv);
                 free (cjob->argm);
                 free (cjob->p_in);
-                free (cjob->file_in);
-                free (cjob->file_out);
                 free (cjob->p_prev);
+
+                while (q_len(cjob->rd_queue) > 0) {
+                        rd_t *loc_rd;
+                        q_pop(cjob->rd_queue, (void **)&loc_rd);
+                        free (loc_rd->name);
+                        free (loc_rd);
+                }
+                free (cjob->rd_queue);
 
                 if (cjob->p_next == NULL) {
                         free (cjob);

@@ -27,13 +27,16 @@ int startswith (const char *str1, const char *pre)
         return 1;
 }
 
-void rm_char (char *line)
+char rm_char (char *line)
 {
+        char tr = *line;
         int i;
         int len = strlen(line);
         for (i = 0; i < len; i++) {
                 line[i] = line[i+1];
         }
+
+        return tr;
 }
 
 char **split_str (char *line, char delim)

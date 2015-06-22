@@ -10,6 +10,8 @@
 #include <errno.h>
 
 // local includes
+#include "../eval/queue.h"
+
 #include "../defs.h"
 #include "../debug.h"
 #include "../str.h"
@@ -113,24 +115,62 @@ void printjob (job_t *job)
         if (job->p_out != NULL) {
                 fprintf (stderr, " - Out to %d\n", job->p_out[1]);
         }
-        if (job->file_in != NULL) {
-                fprintf (stderr, " - File in: %s\n", job->file_in);
+
+        queue *lo_copy = q_make();
+        while (q_len(job->rd_queue) != 0) {
+                rd_t *redir;
+                q_pop(job->rd_queue, (void **)&redir);
+                fprintf (stderr, " - Redirect\n");
+                fprintf (stderr, " - - local fd: %d\n",
+                         redir->loc_fd);
+                switch (redir->mode) {
+                        case RD_FIFO:
+                                fprintf (stderr, " - - type: FIFO\n");
+                                break;
+                        case RD_APP:
+                                fprintf (stderr, " - - type: append\n");
+                                break;
+                        case RD_PRE:
+                                fprintf (stderr, " - - type: prepend\n");
+                                break;
+                        case RD_REV:
+                                fprintf (stderr, " - - type: reverse\n");
+                                break;
+                        case RD_OW:
+                                fprintf (stderr, " - - type: overwrite\n");
+                                break;
+                        case RD_REP:
+                                fprintf (stderr, " - - type: replicate\n");
+                                break;
+                        case RD_LIT:
+                                fprintf (stderr, " - - type: literal\n");
+                                break;
+                        case RD_RD:
+                                fprintf (stderr, " - - type: read\n");
+                                break;
+                }
+                if (redir->mode == RD_RD || redir->mode == RD_REP) {
+                        fprintf (stderr, " - - fd: %d\n", redir->fd);
+                } else {
+                        fprintf (stderr, " - - name: %s\n", redir->name);
+                }
+
+                q_push(lo_copy, redir);
         }
-        if (job->file_out != NULL) {
-                fprintf (stderr, " - File out: %s\n", job->file_out);
+        while (q_len(lo_copy) > 0) {
+                rd_t *redir;
+                q_pop(lo_copy, (void **)&redir);
+                q_push(job->rd_queue, redir);
         }
+        free (lo_copy);
 }
 
 int setup_redirects (job_t *job)
 {
-        int cin = -1;
-        int cout = -1;
-
         // Piping. File redirection comes afterwards since it supersedes.
         if (job->p_in != NULL) {
                 close (job->p_in[1]);
                 dup2 (job->p_in[0], STDIN_FILENO);
-                cin = job->p_in[0];
 
                 free (job->p_in);
                 job->p_in = NULL;
@@ -138,10 +178,61 @@ int setup_redirects (job_t *job)
         if (job->p_out != NULL) {
                 close (job->p_out[0]);
                 dup2 (job->p_out[1], STDOUT_FILENO);
-                cout = job->p_out[0];
         }
 
-        // File redirection.
+        while (q_len(job->rd_queue) > 0) {
+                rd_t *redir;
+                q_pop (job->rd_queue, (void **)&redir);
+
+                int other_fd = -1;
+
+                // TODO: implement these
+                if (redir->mode == RD_FIFO || redir->mode == RD_LIT ||
+                        redir->mode == RD_PRE || redir->mode == RD_REV) {
+                        free (redir->name);
+                        free (redir);
+                        return 0;
+                }
+
+                // typedef enum {RD_APP, RD_PRE, RD_REV, RD_OW, RD_RD, RD_REP} rdm;
+                if (redir->mode == RD_REP) {
+                        other_fd = redir->fd;
+                } else {
+                        // time to open a file
+                        int flags = 0;
+                        if (redir->mode == RD_APP) {
+                                flags = O_CREAT | O_WRONLY | O_APPEND;
+                        } else if (redir->mode == RD_OW) {
+                                flags = O_CREAT | O_WRONLY | O_TRUNC;
+                        } else if (redir->mode == RD_RD) {
+                                flags = O_RDONLY;
+                        }
+
+                        // TODO: should probably not have "0644" hardcoded in
+                        other_fd = open (redir->name, flags, 0644);
+                        if (other_fd == -1) {
+                                print_err_wno ("Could not open file.",
+                                        errno);
+                                free (redir->name);
+                                free (redir);
+                                return -1;
+                        }
+                }
+
+                if (redir->loc_fd == -2) {      // stderr & stdout
+                        dup2 (other_fd, STDOUT_FILENO);
+                        dup2 (other_fd, STDERR_FILENO);
+                } else {
+                        dup2 (other_fd, redir->loc_fd);
+                }
+
+                free (redir->name);
+                free (redir);
+                return 0;
+        }
+
+        // The old file redirection that won't work no more!
+        /*
         if (job->file_in != NULL) {
                 int in_fd = open (job->file_in, O_RDONLY);
                 if (in_fd == -1) {
@@ -174,7 +265,7 @@ int setup_redirects (job_t *job)
 
                 free (job->file_out);
                 job->file_out = NULL;
-        }
+        } */
 
         return 0;
 }

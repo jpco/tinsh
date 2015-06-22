@@ -3,6 +3,8 @@
 #include <string.h>
 
 // local includes
+#include "cd.h"
+
 #include "../inter/color.h"
 #include "../eval/eval_utils.h"
 
@@ -11,8 +13,6 @@
 #include "../str.h"
 #include "../var.h"
 #include "../debug.h"
-
-#include "cd.h"
 
 // self-include
 #include "func.h"
@@ -44,9 +44,14 @@ int func (int argc, const char **argv)
                         } else {
                                 char **key_val = split_str (keynval, '=');
 
-                                set_var (key_val[0], key_val[1]);
-                                free (key_val[0]);
-                                free (key_val);
+                                if (key_val[0] != NULL) {
+                                        set_var (key_val[0], key_val[1]);
+                                        free (key_val[0]);
+                                        free (key_val);
+                                } else {
+                                        print_err ("Malformed 'set' "
+                                                   "syntax.");
+                                }
                         }
                         free (keynval);
                 }
@@ -68,7 +73,10 @@ int func (int argc, const char **argv)
                 if (argc < 2) {
                         print_err ("Too few args.\n");
                 } else {
-                        unset_var (argv[1]);
+                        int i;
+                        for (i = 1; i < argc; i++) {
+                                unset_var (argv[i]);
+                        }
                 }
         } else if (olstrcmp (argv[0], "unenv")) {
                 if (argc < 2) {
