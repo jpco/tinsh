@@ -27,20 +27,8 @@ void spl_cmd (const char *s, const char *m, char ***argv, char ***argm,
  */
 void arm_char (char *line, size_t len);
 
-// Generates a mask for a string, and removes the masking characters in
-// the string. Thrashes cmdline.
-char *mask_str (char *cmdline);
-
-// A quick way to encode mask data into a string. Does not thrash args.
-char *unmask_str (char *str, char *mask);
-
 // Prints msg, with every masked character with inverted colors. Allows
 // one to pick out bugs in masking.
 void print_msg (char *msg, char *mask, int nl);
-
-// A masked version of get_var which will find variables, pull them,
-// mask the values, insert both back into the original string, then
-// split the new string.
-int devar (char *str, char *mask, char ***nstrs, char ***nmask, int *strc);
 
 #endif // JPSH_EVAL_UTILS_H

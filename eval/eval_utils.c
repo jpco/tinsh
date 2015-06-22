@@ -7,9 +7,14 @@
 #include "../debug.h"
 #include "../str.h"
 #include "../var.h"
+#include "queue.h"
 
 // self-include
 #include "eval_utils.h"
+
+extern queue *ejob_res;
+extern queue *ejobs;
+extern queue *jobs;
 
 void rm_element (char **argv, char **argm, int idx, int *argc)
 {
@@ -152,104 +157,6 @@ void arm_char (char *line, size_t len)
         }
 }
 
-char *mask_str (char *cmdline)
-{
-        // TODO: iron out subtleties of \, ', ` priority
-
-        char *cmdmask = calloc(strlen(cmdline) + 1, sizeof(char));
-        
-        // \-pass
-        char *buf = cmdline;
-        char *mbuf = cmdmask;
-        while ((buf = masked_strchr(buf, mbuf, '\\'))) {
-                ptrdiff_t diff = buf - cmdline;
-                mbuf = cmdmask + diff;
-                rm_char (buf);
-                arm_char (mbuf, strlen(cmdline) - diff + 1);
-                *mbuf = '\\';
-        }
-
-        // '-pass
-        buf = cmdline;
-        mbuf = cmdmask;
-        while ((buf = masked_strchr(buf, mbuf, '\''))) {
-                ptrdiff_t diff = buf - cmdline;
-                mbuf = cmdmask + diff;
-
-                rm_char (buf);
-                arm_char (mbuf, strlen(cmdline) - diff + 1);
-                char *end = masked_strchr(buf, mbuf, '\'');
-                ptrdiff_t ediff = end - buf;
-
-                if (end == NULL) {
-                        print_err ("Unmatched ' in command.");
-                        end = buf + strlen(buf);
-                        ediff = end - buf;
-                } else {
-                        rm_char (end);
-                        arm_char (mbuf + ediff,
-                                        strlen(cmdline) - ediff - diff);
-                }
-
-                memset (mbuf, '\'', ediff);
-                buf = end;
-                mbuf = ediff + mbuf;
-        }
-
-        // "-pass
-        buf = cmdline;
-        mbuf = cmdmask;
-        while ((buf = masked_strchr(buf, mbuf, '"'))) {
-                ptrdiff_t diff = buf - cmdline;
-                mbuf = cmdmask + diff;
-
-                rm_char (buf);
-                arm_char (mbuf, strlen(cmdline) - diff + 1);
-                char *end = masked_strchr(buf, mbuf, '"');
-                ptrdiff_t ediff = end - buf;
-
-                if (end == NULL) {
-                        print_err ("Unmatched \" in command.");
-                        end = buf + strlen(buf);
-                        ediff = end - buf;
-                } else {
-                        rm_char (end);
-                        arm_char (mbuf + ediff,
-                                        strlen(cmdline) - ediff - diff);
-                }
-
-                char *sbuf;
-                for (sbuf = buf; sbuf < end; sbuf++) {
-                        if (*sbuf == ' ' || *sbuf == '>' ||
-                                *sbuf == '<') {
-                                ptrdiff_t sdiff = sbuf - cmdline;
-                                cmdmask[sdiff] = '"';
-                        }
-                }
-                buf = end;
-                mbuf = ediff + mbuf;
-        }
-
-        return cmdmask;
-}
-
-char *unmask_str (char *str, char *mask)
-{
-        char *nstr = calloc((2*strlen(str)+1), sizeof(char));
-
-        int i;
-        int j = 0;
-        int len = strlen(str);
-        for (i = 0; i < len; i++) {
-                if (mask[i]) {
-                        nstr[j++] = '\\';
-                }
-                nstr[j++] = str[i];
-        }
-
-        return nstr;
-}
-
 void print_msg (char *msg, char *mask, int nl)
 {
         size_t i;
@@ -263,56 +170,4 @@ void print_msg (char *msg, char *mask, int nl)
         }
 
         if (nl) printf ("\n");
-}
-
-int devar (char *str, char *mask, char ***nstrs, char ***nmasks, int *strc) {
-        char *lparen = masked_strchr (str, mask, '(');
-        if (lparen == NULL) return -1;
-
-        char *rparen = masked_strchr (lparen,
-                                mask + (lparen - str),
-                                ')');
-        if (rparen == NULL) {
-                dbg_print_err ("Mismatched parenthesis.");
-                return -1;
-        }
-
-        *lparen = '\0';
-        *rparen = '\0';
-
-        char *value;
-        if ((value = get_var (lparen+1)) != NULL) {
-        } else if ((value = getenv (lparen+1)) != NULL) {
-                char *nvalue = malloc((strlen(value)+1)
-                                * sizeof(char));
-                strcpy (nvalue, value);
-                value = nvalue;
-        }
-        char *nwd = NULL;
-        char *nmask = NULL;
-        if (value != NULL) {
-                char *valmask = mask_str(value);
-                nwd = vcombine_str(0, 3, str, value, rparen+1);
-
-                nmask = calloc(strlen(nwd)+1, sizeof(char));
-                memcpy(nmask, mask, strlen(str));
-                memcpy(nmask+strlen(str), valmask, strlen(value));
-                memcpy(nmask+strlen(str)+strlen(value),
-                                mask+(rparen-str)+1,
-                                strlen(rparen+1));
-        } else {
-                nwd = vcombine_str(0, 2, str, rparen+1);
-
-                nmask = calloc(strlen(nwd)+1, sizeof(char));
-                memcpy(nmask, mask, strlen(str));
-                memcpy(nmask+strlen(str), mask+(rparen-str)+1,
-                                strlen(rparen+1));
-        }
-        if (nwd != NULL) {
-                spl_cmd (nwd, nmask, nstrs, nmasks, strc);
-                free (nwd);
-                return 0;
-        } else {
-                return -1;
-        }
 }
