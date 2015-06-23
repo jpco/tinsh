@@ -129,7 +129,7 @@ int main (int argc, char **argv)
                 parse_file (args.file);
                 return 0;
         } else if (args.cmd != NULL) {
-                eval (args.cmd);
+                eval (strdup(args.cmd));
                 return 0;
         }
 

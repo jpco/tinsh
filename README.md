@@ -26,6 +26,11 @@ Worse than sh!
  - a(n as-of-yet unused) notion of scope for variables
     - environment variables and aliases always have global scope
  - subshells (kind of broken)
+ - Input/output redirection
+    - `->` is basic stdout-to-file. `-2>` is stderr-to-file, and `-&>` is both.
+    - `-2>1` and `-1>2` (or equivalently, `->2`) map stderr and stdout to each other.
+    - Need not use 1 and 2 explicitly; other file descriptors, if they work in the system, will work.
+    - `->+` appends to a file.
 
 ### Todo (in no particular order)
 CURRENT: memory leak & errors on subshells!
@@ -57,5 +62,5 @@ CURRENT: memory leak & errors on subshells!
  - iron out masking subtleties, because it's not quite right
 
 ##### Bugs
- - long buffers don't quite work.
+ - long buffers don't quite work....
  - subshells are pretty broken.
