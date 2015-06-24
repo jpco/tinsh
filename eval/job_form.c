@@ -22,10 +22,9 @@ static job_t *prev_job;
 
 int redirect (job_t *job, int i)
 {
-
         int retval = i;
 
-        char *o_rdwd = vcombine_str(0, 1, job->argv[i]);
+        char *o_rdwd = strdup(job->argv[i]);
         char *rdwd = o_rdwd;
         rm_element (job->argv, job->argm, i, &(job->argc));
         retval--;
@@ -50,7 +49,7 @@ int redirect (job_t *job, int i)
                                 free (redir);
                                 return i;
                         }
-                        redir->name = vcombine_str(0, 1, job->argv[i]);
+                        redir->name = strdup(job->argv[i]);
                         rm_element (job->argv, job->argm, i, &(job->argc));
                         retval--;
                 } else if (*rdwd == '-') {      // file
@@ -62,7 +61,7 @@ int redirect (job_t *job, int i)
                                 free (redir);
                                 return i;
                         }
-                        redir->name = vcombine_str(0, 1, job->argv[i]);
+                        redir->name = strdup(job->argv[i]);
                         rm_element (job->argv, job->argm, i, &(job->argc));
                         retval--;
                 } else {        // fifo!
@@ -82,7 +81,7 @@ int redirect (job_t *job, int i)
                                 free (redir);
                                 return i;
                         }
-                        redir->name = vcombine_str(0, 1, job->argv[i]);
+                        redir->name = strdup(job->argv[i]);
                         rm_element (job->argv, job->argm, i, &(job->argc));
                         retval--;
                 }
@@ -119,7 +118,7 @@ int redirect (job_t *job, int i)
                                 free (redir);
                                 return i;
                         }
-                        redir->name = vcombine_str(0, 1, job->argv[i]);
+                        redir->name = strdup(job->argv[i]);
                         rm_element (job->argv, job->argm, i, &(job->argc));
                         retval--;
                 } else {        // fd replacement
@@ -128,7 +127,7 @@ int redirect (job_t *job, int i)
                 }
         }
 
-        q_push (job->rd_queue, redir);
+        s_push (job->rd_stack, redir);
         return retval;
 }
 
@@ -160,7 +159,7 @@ void job_form (void)
         job->p_out = NULL;
         job->p_prev = NULL;
         job->p_next = NULL;
-        job->rd_queue = q_make();
+        job->rd_stack = s_make();
         job->bg = 0;
 
         spl_cmd (nline, nmask, &(job->argv), &(job->argm), &(job->argc));

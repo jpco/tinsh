@@ -1,7 +1,7 @@
 #ifndef JPSH_DEFS_H
 #define JPSH_DEFS_H
 
-#include "eval/queue.h"
+#include "eval/stack.h"
 
 // Definitions for preventing
 // magic numbers. These numbers
@@ -95,7 +95,7 @@ typedef struct job_struct {
         struct job_struct *p_next;
 
         // the file redirections to take place.
-        queue *rd_queue;
+        stack *rd_stack;
 
         // used in the eval process
         void (*job_fn)(struct job_struct *);

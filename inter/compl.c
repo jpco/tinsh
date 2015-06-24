@@ -42,7 +42,7 @@ char *l_compl (char *line, char *start, char *end)
 
         char *compl_wd = w_compl(start, (start == line ? 1 : 0));
         if (compl_wd == NULL || *compl_wd == '\0') {
-                char *cline = vcombine_str(0, 1, line);
+                char *cline = strdup(line);
                 return cline;
         }
         if (end < line+linelen)

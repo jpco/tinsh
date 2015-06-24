@@ -10,7 +10,7 @@
 #include <errno.h>
 
 // local includes
-#include "../eval/queue.h"
+#include "../eval/stack.h"
 
 #include "../defs.h"
 #include "../debug.h"
@@ -116,10 +116,10 @@ void printjob (job_t *job)
                 fprintf (stderr, " - Out to %d\n", job->p_out[1]);
         }
 
-        queue *lo_copy = q_make();
-        while (q_len(job->rd_queue) != 0) {
+        stack *lo_copy = s_make();
+        while (s_len(job->rd_stack) != 0) {
                 rd_t *redir;
-                q_pop(job->rd_queue, (void **)&redir);
+                s_pop(job->rd_stack, (void **)&redir);
                 fprintf (stderr, " - Redirect\n");
                 fprintf (stderr, " - - local fd: %d\n",
                          redir->loc_fd);
@@ -155,12 +155,12 @@ void printjob (job_t *job)
                         fprintf (stderr, " - - name: %s\n", redir->name);
                 }
 
-                q_push(lo_copy, redir);
+                s_push(lo_copy, redir);
         }
-        while (q_len(lo_copy) > 0) {
+        while (s_len(lo_copy) > 0) {
                 rd_t *redir;
-                q_pop(lo_copy, (void **)&redir);
-                q_push(job->rd_queue, redir);
+                s_pop(lo_copy, (void **)&redir);
+                s_push(job->rd_stack, redir);
         }
         free (lo_copy);
 }
@@ -180,9 +180,9 @@ int setup_redirects (job_t *job)
                 dup2 (job->p_out[1], STDOUT_FILENO);
         }
 
-        while (q_len(job->rd_queue) > 0) {
+        while (s_len(job->rd_stack) > 0) {
                 rd_t *redir;
-                q_pop (job->rd_queue, (void **)&redir);
+                s_pop (job->rd_stack, (void **)&redir);
 
                 int other_fd = -1;
 
@@ -193,8 +193,7 @@ int setup_redirects (job_t *job)
                         free (redir);
                         return 0;
                 }
-
-                // typedef enum {RD_APP, RD_PRE, RD_REV, RD_OW, RD_RD, RD_REP} rdm;
+                
                 if (redir->mode == RD_REP) {
                         other_fd = redir->fd;
                 } else {
@@ -228,44 +227,7 @@ int setup_redirects (job_t *job)
 
                 free (redir->name);
                 free (redir);
-                return 0;
         }
-
-        // The old file redirection that won't work no more!
-        /*
-        if (job->file_in != NULL) {
-                int in_fd = open (job->file_in, O_RDONLY);
-                if (in_fd == -1) {
-                        print_err_wno ("Could not open file for reading.",
-                                        errno);
-                        if (cin != -1) close (cin);
-                        if (cout != -1) close (cout);
-                        return -1;
-                }
-                if (cin != -1) close (cin);
-                dup2 (in_fd, STDIN_FILENO);
-                cin = in_fd;
-
-                free (job->file_in);
-                job->file_in = NULL;
-        }
-        if (job->file_out != NULL) {
-                int out_fd = open (job->file_out,
-                                   O_CREAT | O_WRONLY, 0644);
-                if (out_fd == -1) {
-                        print_err_wno ("Could not open file for writing.",
-                                        errno);
-                        if (cin != -1) close (cin);
-                        if (cout != -1) close (cout);
-                        return -1;
-                }
-                if (cout != -1) close (cout);
-                dup2 (out_fd, STDOUT_FILENO);
-                cout = out_fd;
-
-                free (job->file_out);
-                job->file_out = NULL;
-        } */
 
         return 0;
 }

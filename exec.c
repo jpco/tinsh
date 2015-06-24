@@ -10,6 +10,8 @@
 #include "exec/exec_utils.h"
 #include "exec/func.h"
 
+#include "eval/stack.h"
+
 #include "inter/color.h"
 
 #include "defs.h"
@@ -38,13 +40,13 @@ void free_cchain (void)
                 free (cjob->p_in);
                 free (cjob->p_prev);
 
-                while (q_len(cjob->rd_queue) > 0) {
+                while (s_len(cjob->rd_stack) > 0) {
                         rd_t *loc_rd;
-                        q_pop(cjob->rd_queue, (void **)&loc_rd);
+                        s_pop(cjob->rd_stack, (void **)&loc_rd);
                         free (loc_rd->name);
                         free (loc_rd);
                 }
-                free (cjob->rd_queue);
+                free (cjob->rd_stack);
 
                 if (cjob->p_next == NULL) {
                         free (cjob);

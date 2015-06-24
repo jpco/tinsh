@@ -13,6 +13,18 @@ _guided by the need to be at least okay_
     - `color`: colors the following commands
  - Variables: Both regular and environment variables are referenced in parentheses, like `(home)` expands to `/home/<username>`. To write something in parentheses not to be parsed, `\(home)` works. Unmatched parens are not problematic and do not need to be escaped.
  - Aliases: any command word (a word which is the first argument of a job) which matches an alias will be expanded.
+ - Redirection:
+    - output redirection is given by `-[fd|&]>[fd|+]`
+         - the left area indicates the source fd, while the right one
+           indicates the destination. a `&` in the left spot indicates
+           moving both stdout and stderr. If the left part is absent,
+           defaults to stdout.
+         - the right area indicates the destination fd in the case of a
+           redirect (like sending stderr to stdout, `-2>1`); otherwise, it 
+           outputs to a file given in the next word, appending if `+` is
+           present, overwriting
+           otherwise.
+    - Input redirection is given by `<[<]-`
 
 ### Done
  - Aliasing
@@ -30,10 +42,6 @@ _guided by the need to be at least okay_
     - environment variables and aliases always have global scope
  - subshells (kind of broken)
  - Input/output redirection
-    - `->` is basic stdout-to-file. `-2>` is stderr-to-file, and `-&>` is both.
-    - `-2>1` and `-1>2` (or equivalently, `->2`) map stderr and stdout to each other.
-    - Need not use 1 and 2 explicitly; other file descriptors, if they work in the system, will work.
-    - `->+` appends to a file.
 
 ### Todo (in no particular order)
 CURRENT: memory errors on subshells!
@@ -55,7 +63,8 @@ CURRENT: memory errors on subshells!
  - Readline/config support? (maybe long-term goal)
 
 ##### Non-interactive
- - redirection modes `->*`, `->^`, `~>`
+ - redirection modes `->*`, `->^`, `~>` (and `<~`, and `<<-`)
+    - goal: `(-|~)[(fd|&)]>[(fd|+|*|^)]` and `<[fd]~`
  - `:` / `{ }` support, then we can start with control flow \& `with`
     - goal: `with`, `if`, `else`, `while`, `for`, `cfor`, `fn`
  - `int`, `bool`, and `path` vars
@@ -63,10 +72,9 @@ CURRENT: memory errors on subshells!
     - this is connected to compl.c so don't re-invent the wheel
  - `job->bg` is deactivated because background job handling needs to be
     more robust than just forgetting about the job after the fact
- - builtins aren't right. those things need to be rejiggered before flow
-    can happen.
+ - builtins aren't right. those things need to be rejiggered to support
+    redirection before flow control can happen.
  - string manipulation will need to come at some point soon
-
  - subtleties
      - masking is not quite right; interactions of ', ", \\
         - and newline! interaction of ' and newline!
