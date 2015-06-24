@@ -20,13 +20,15 @@ extern queue *jobs;
 
 static job_t *prev_job;
 
-void redirect (job_t *job, int i)
+int redirect (job_t *job, int i)
 {
-        // TODO: update  cmd splitting to account for syntax changes
+
+        int retval = i;
 
         char *o_rdwd = vcombine_str(0, 1, job->argv[i]);
         char *rdwd = o_rdwd;
         rm_element (job->argv, job->argm, i, &(job->argc));
+        retval--;
 
         rd_t *redir = malloc(sizeof(rd_t));
         // defaults
@@ -46,10 +48,11 @@ void redirect (job_t *job, int i)
                         if (i == job->argc) {
                                 print_err ("Missing redirect literal.");
                                 free (redir);
-                                return;
+                                return i;
                         }
                         redir->name = vcombine_str(0, 1, job->argv[i]);
                         rm_element (job->argv, job->argm, i, &(job->argc));
+                        retval--;
                 } else if (*rdwd == '-') {      // file
                         free (o_rdwd);
                         redir->mode = RD_RD;
@@ -57,10 +60,11 @@ void redirect (job_t *job, int i)
                         if (i == job->argc) {
                                 print_err ("Missing redirect source.");
                                 free (redir);
-                                return;
+                                return i;
                         }
                         redir->name = vcombine_str(0, 1, job->argv[i]);
                         rm_element (job->argv, job->argm, i, &(job->argc));
+                        retval--;
                 } else {        // fifo!
                         redir->mode = RD_FIFO;
                         rdwd++;
@@ -76,10 +80,11 @@ void redirect (job_t *job, int i)
                         if (i == job->argc) {
                                 print_err ("Missing redirect command.");
                                 free (redir);
-                                return;
+                                return i;
                         }
                         redir->name = vcombine_str(0, 1, job->argv[i]);
                         rm_element (job->argv, job->argm, i, &(job->argc));
+                        retval--;
                 }
         } else {
                 if (*rdwd == '~') redir->mode = RD_FIFO;
@@ -112,10 +117,11 @@ void redirect (job_t *job, int i)
                                 print_err ("Missing redirect "
                                            "destination.");
                                 free (redir);
-                                return;
+                                return i;
                         }
                         redir->name = vcombine_str(0, 1, job->argv[i]);
                         rm_element (job->argv, job->argm, i, &(job->argc));
+                        retval--;
                 } else {        // fd replacement
                         redir->mode = RD_REP;
                         redir->fd = last - '0';
@@ -123,6 +129,7 @@ void redirect (job_t *job, int i)
         }
 
         q_push (job->rd_queue, redir);
+        return retval;
 }
 
 void job_form (void)
@@ -179,14 +186,14 @@ void job_form (void)
                 for (j = 0; j < strlen(job->argv[i]); j++) {
                         rsum += (job->argm[i])[j];
                 }
-
+                
                 if (!rsum) {
                         if (fc == '<' && (lc == '-' || lc == '~')) {
-                                redirect (job, i);
+                                i = redirect (job, i--);
                         }
                         if ((fc == '-' || fc == '~') && 
                                    (lc == '>' || blc == '>')) {
-                                redirect (job, i);
+                                i = redirect (job, i--);
                         }
                 }
         }

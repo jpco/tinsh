@@ -1,5 +1,8 @@
 # jpsh
-Worse than sh!
+Worse than bash! ~~Better than csh!~~
+
+_guided by the need to be at least okay_
+(we gotta beat [http://harmful.cat-v.org/software/csh](csh) at least!)
 
 ### Syntax
  - Builtins:
@@ -33,7 +36,7 @@ Worse than sh!
     - `->+` appends to a file.
 
 ### Todo (in no particular order)
-CURRENT: memory leak & errors on subshells!
+CURRENT: memory errors on subshells!
  - e.g., try 'echo `foo`'
 
 ##### Interactive
@@ -57,9 +60,17 @@ CURRENT: memory leak & errors on subshells!
     - goal: `with`, `if`, `else`, `while`, `for`, `cfor`, `fn`
  - `int`, `bool`, and `path` vars
  - Globs! (interactive >>>> PREVIEW FUNCTION)
- - oops! forgot to care about `job->bg`
-    - how do file descriptors & piping work with `job->bg` though...
- - iron out masking subtleties, because it's not quite right
+    - this is connected to compl.c so don't re-invent the wheel
+ - `job->bg` is deactivated because background job handling needs to be
+    more robust than just forgetting about the job after the fact
+ - builtins aren't right. those things need to be rejiggered before flow
+    can happen.
+ - string manipulation will need to come at some point soon
+
+ - subtleties
+     - masking is not quite right; interactions of ', ", \\
+        - and newline! interaction of ' and newline!
+     - bash can do `time <aliased cmd>`; how to determine?
 
 ##### Bugs
  - long buffers don't quite work....
