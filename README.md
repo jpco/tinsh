@@ -26,6 +26,10 @@ _guided by the need to be at least okay_
            present, overwriting
            otherwise.
     - Input redirection is given by `<-` so far. In to stdin. Not interesting.
+ - Default arguments. Running a jpsh script, the file name of the script
+   is given by `(_)` and the arguments passed to the script are in `(_%d)`
+   where `%d` is the index of the argument (one-indexed). `(_n)` is the
+   number of args.
 
 ### Done
  - Aliasing
@@ -85,3 +89,4 @@ CURRENT: memory errors on subshells!
 ##### Bugs
  - long buffers don't quite work....
  - multiple subshells in a line don't seem to be working
+ - segfault on `(not_set_var)`

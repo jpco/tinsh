@@ -66,6 +66,7 @@ typedef struct {
         char *cmd;
         char *config;
         char *file;
+        char **fargs;
 } args_t;
 
 /*
@@ -88,6 +89,12 @@ args_t parse_args(int argc, char **argv)
         retval.file = NULL;
 
         int i;
+
+        char *fargs[argc];
+        int fargc = 0;
+        fargs[0] = NULL;
+
+        char fmode = 0;
         for (i = 1; i < argc; i++) {
                 char *carg = argv[i];
                 if (olstrcmp(carg, "-e")) {
@@ -97,9 +104,19 @@ args_t parse_args(int argc, char **argv)
                         if (i < argc - 1)
                                 retval.config = argv[++i];
                 } else {
-                        retval.file = carg;
+                        if (!fmode) {
+                                retval.file = carg;
+                                fmode = 1;
+                        } else {
+                                fargs[fargc++] = carg;
+                                fargs[fargc] = NULL;
+                        }
                 }
         }
+
+        retval.fargs = malloc(sizeof(fargs));
+        memcpy (retval.fargs, fargs, sizeof(fargs));
+
         return retval;
 }
 
@@ -126,6 +143,17 @@ int main (int argc, char **argv)
         atexit (free_env);
 
         if (args.file != NULL) {
+                int i;
+                for (i = 0; args.fargs[i] != NULL; i++) {
+                        char idx[5];
+                        snprintf (idx, 5, "_%d", i+1);
+                        set_var (idx, args.fargs[i]);
+                }
+                char idx[4];
+                snprintf (idx, 4, "%d", i);
+                set_var ("_n", idx);
+                set_var ("_", args.file);
+
                 parse_file (args.file);
                 return 0;
         } else if (args.cmd != NULL) {
