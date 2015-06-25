@@ -47,8 +47,7 @@ void color_line (int argc, const char **argv)
 
 void color_line_s (const char *line)
 {
-        char *nline = malloc((strlen(line)+1) * sizeof(char));
-        strcpy(nline, line);
+        char *nline = strdup (line);
         char *nnline = trim_str(nline);
         free (nline);
         nline = nnline;

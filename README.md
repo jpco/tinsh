@@ -2,7 +2,8 @@
 Worse than bash! ~~Better than csh!~~
 
 _guided by the need to be at least okay_
-(we gotta beat [http://harmful.cat-v.org/software/csh](csh) at least!)
+
+(we gotta beat [csh](http://harmful.cat-v.org/software/csh) at least!)
 
 ### Syntax
  - Builtins:
@@ -24,7 +25,7 @@ _guided by the need to be at least okay_
            outputs to a file given in the next word, appending if `+` is
            present, overwriting
            otherwise.
-    - Input redirection is given by `<[<]-`
+    - Input redirection is given by `<-` so far. In to stdin. Not interesting.
 
 ### Done
  - Aliasing
@@ -74,7 +75,8 @@ CURRENT: memory errors on subshells!
     more robust than just forgetting about the job after the fact
  - builtins aren't right. those things need to be rejiggered to support
     redirection before flow control can happen.
- - string manipulation will need to come at some point soon
+ - string manipulation will need to come at some point...
+ - move subshelling to after job formationn
  - subtleties
      - masking is not quite right; interactions of ', ", \\
         - and newline! interaction of ' and newline!
@@ -82,4 +84,4 @@ CURRENT: memory errors on subshells!
 
 ##### Bugs
  - long buffers don't quite work....
- - subshells are pretty broken.
+ - multiple subshells in a line don't seem to be working

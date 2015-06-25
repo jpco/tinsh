@@ -74,8 +74,7 @@ char *hist_up (void)
                 }
         }
 
-        char *ret = malloc ((strlen(retval)+1) * sizeof(char));
-        strcpy (ret, retval);
+        char *ret = strdup (retval);
 
         return ret;
 }

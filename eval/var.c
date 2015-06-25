@@ -100,9 +100,7 @@ void var_eval (job_t *job)
                 char *value;
                 if ((value = get_var (lparen+1)) != NULL) {
                 } else if ((value = getenv (lparen+1)) != NULL) {
-                        char *nvalue = malloc((strlen(value)+1)
-                                        * sizeof(char));
-                        strcpy (nvalue, value);
+                        char *nvalue = strdup (value);
                         value = nvalue;
                 }
                 char *nwd = NULL;

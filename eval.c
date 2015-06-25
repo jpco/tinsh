@@ -76,8 +76,7 @@ void eval_m (char *cmd, char *mask)
         jobs = q_make();
         atexit (free_ceval);
 
-        char *ncmd = malloc((strlen(cmd)+1) * sizeof(char));
-        strcpy(ncmd, cmd);
+        char *ncmd = strdup(cmd);
         free (cmd);
 
         q_push(ejob_res, ncmd);

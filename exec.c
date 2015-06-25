@@ -60,16 +60,16 @@ void free_cchain (void)
 
 char *subshell (char *cmd, char *mask)
 {
-        char *ncmd = malloc((strlen(cmd)+1) * sizeof(char));
-        strcpy (ncmd, cmd);
-        cmd = ncmd;
+        cmd = strdup (cmd);
 
         int fds[2];
         pipe (fds);
 
         pid = fork();
-        if (pid < 0) print_err_wno ("Fork error.", errno);
-        else if (pid == 0) {
+        if (pid < 0) {
+                print_err_wno ("Fork error.", errno);
+                return NULL;
+        } else if (pid == 0) {
                 close (fds[0]);
                 dup2 (fds[1], STDOUT_FILENO);
                 eval_m (cmd, mask);
@@ -83,12 +83,12 @@ char *subshell (char *cmd, char *mask)
                         exit (1);
                 }
 
-                char *output = malloc((SUBSH_LEN+1) * sizeof(char));
+                char *output = calloc((SUBSH_LEN+1), sizeof(char));
                 while (read (fds[0], output, SUBSH_LEN) > 0);
 
+                close (fds[0]);
                 return output;
         }
-        return NULL;
 }
 
 void fork_exec (job_t *job)

@@ -58,7 +58,7 @@ char *w_compl (char *owd, int first)
 {
         // TODO: bash autocompletion 
         // TODO: make mesh with current eval system
-        // TODO: implicit var expansion
+        // TODO: var completion/expansion
         char *wd = vcombine_str (0, 1, owd);
 
         // Cut out backslashes from word
@@ -201,18 +201,15 @@ char *f_compl (char *wd, int exec)
         errno = 0;
 
         // malloc madness just to get dirname & basename
-        char *wdcpy = malloc((strlen(wd)+1)*sizeof(char));
-        strcpy(wdcpy, wd);
+        char *wdcpy = strdup(wd);
 
         // get dirname & make a copy we own
         char *dirpath_ = dirname(wdcpy);
-        char *dirpath = malloc((strlen(dirpath_)+1)*sizeof(char));
-        strcpy(dirpath, dirpath_);
+        char *dirpath = strdup (dirpath_);
         // get basename & make a copy we own
         strcpy(wdcpy, wd);
         char *base_ = basename(wdcpy);
-        char *base = malloc((strlen(base_)+1)*sizeof(char));
-        strcpy(base, base_);
+        char *base = strdup (base_);
 
         // other variables
         int baselen = strlen(base);
