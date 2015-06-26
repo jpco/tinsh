@@ -84,6 +84,11 @@ void eval_m (char *cmd, char *mask)
                 q_push(ejobs, mask_eval);
         } else {
                 char *nmask = calloc((strlen(ncmd)+1), sizeof(char));
+                if (nmask == NULL && errno == ENOMEM) {
+                        print_err ("Could not allocate memory for evaluation.");
+                        return;
+                }
+
                 memcpy(nmask, mask, strlen(ncmd));
 
                 q_push(ejob_res, nmask);

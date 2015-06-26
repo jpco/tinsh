@@ -36,6 +36,10 @@ void add_element (char **argv, char **argm,
 {
         if (nm == NULL) {
                 nm = calloc(strlen(na)+1, sizeof(char));
+                if (nm == NULL && errno == ENOMEM) {
+                        print_err ("Could not allocate memory in add_element.");
+                        return;
+                }
         }
         int i;
         for (i = *argc; i > idx; i--) {
@@ -58,13 +62,23 @@ void masked_trim_str (const char *s, const char *m, char **ns, char **nm)
 
         if (*buf == '\0') {
                 *ns = calloc(1, sizeof(char));
+                if (ns == NULL && errno == ENOMEM) {
+                        print_err ("Could not allocate ns in masked_trim_str.");
+                        return;
+                }
+
                 *nm = calloc(1, sizeof(char));
+                if (nm == NULL && errno == ENOMEM) {
+                        print_err ("Could not allocate nm in masked_trim_str.");
+                        return;
+                }
+
                 return;
         }
 
-        *ns = calloc((strlen(buf) + 1), sizeof(char));
+        *ns = strdup (buf);
         *nm = calloc((strlen(buf) + 1), sizeof(char));
-        strcpy (*ns, buf);
+
         memcpy (*nm, m+(buf-s), strlen(buf));
 
         for (i = strlen(buf) - 1; i >= 0 && i < strlen(buf) &&

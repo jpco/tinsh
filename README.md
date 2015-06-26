@@ -47,10 +47,10 @@ _guided by the need to be at least okay_
     - environment variables and aliases always have global scope
  - subshells (kind of broken)
  - Input/output redirection
+    - `-(fd|&)?>(fd|+)?` and `<-`
 
 ### Todo (in no particular order)
-CURRENT: memory errors on subshells!
- - e.g., try 'echo `foo`'
+CURRENT: error code checking & propagation!
 
 ##### Interactive
  - Tab completion (more/better)
@@ -69,7 +69,7 @@ CURRENT: memory errors on subshells!
 
 ##### Non-interactive
  - redirection modes `->*`, `->^`, `~>` (and `<~`, and `<<-`)
-    - goal: `(-|~)[(fd|&)]>[(fd|+|*|^)]` and `<[fd]~`
+    - goal: `(-|~)(fd|&)?>(fd|+|*|^)?` and `<<?(-|~)`
  - `:` / `{ }` support, then we can start with control flow \& `with`
     - goal: `with`, `if`, `else`, `while`, `for`, `cfor`, `fn`
  - `int`, `bool`, and `path` vars
