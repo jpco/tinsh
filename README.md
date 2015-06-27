@@ -50,7 +50,9 @@ _guided by the need to be at least okay_
     - `-(fd|&)?>(fd|+)?` and `<-`
 
 ### Todo (in no particular order)
-CURRENT: error code checking & propagation!
+CURRENT:
+ - error code checking & propagation! (MALLOC)
+ - `hist_get()`
 
 ##### Interactive
  - Tab completion (more/better)
@@ -62,7 +64,7 @@ CURRENT: error code checking & propagation!
     - clean up... the code is pretty messy
  - Redo line coloration... that didn't last long
  - Preview functionality!
- - `^` / `^^n`
+ - `^` / `^^n` (use `hist_get()`)
  - `__jpsh_prompt`
  - Broaden .jpshrc location support
  - Readline/config support? (maybe long-term goal)

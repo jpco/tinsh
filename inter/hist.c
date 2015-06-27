@@ -44,13 +44,34 @@ void hist_add (const char *line)
                 hist[nbase_pos] = hline;
 
                 base_pos = nbase_pos;
-                pos = len;
+                pos = len;      // is this right? it doesn't seem it
         } else {                // non-full history
                 if (len != 0) base_pos++;
                 len++;
                 hist[base_pos] = hline;
                 pos = len;
         }
+}
+
+char *hist_get (int i)
+{
+        char *retval = NULL;
+
+        if (len == LEN_HIST) {
+                int gpos = i;
+                if (pos < pos - i) {
+                        gpos = 
+                }
+        } else {
+                if (pos < i) {
+                        if (len == 0) retval = "";
+                        else retval = hist[0];
+                } else {
+                        retval = hist[pos-i];
+                }
+        }
+
+        return strdup (retval);
 }
 
 char *hist_up (void)
@@ -74,9 +95,7 @@ char *hist_up (void)
                 }
         }
 
-        char *ret = strdup (retval);
-
-        return ret;
+        return strdup (retval);
 }
 
 char *hist_down (void)
