@@ -91,4 +91,4 @@ CURRENT:
 ##### Bugs
  - long buffers don't quite work....
  - multiple subshells in a line don't seem to be working
- - segfault on `(not_set_var)`
+ - tab-completion on files with parens doesn't work right

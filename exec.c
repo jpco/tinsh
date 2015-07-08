@@ -114,6 +114,8 @@ void fork_exec (job_t *job)
 
 void try_exec (job_t *job)
 {
+        if (job->argc == 0) return;
+
         const char **argv = (const char **)job->argv;
 
         if (job->p_prev == NULL) {

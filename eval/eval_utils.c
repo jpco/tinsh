@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <errno.h>
 
 // local includes
 #include "queue.h"
@@ -146,6 +147,7 @@ void spl_cmd (const char *s, const char *m, char ***argv, char ***argm,
 
 char *masked_strchr (const char *s, const char *m, char c)
 {
+        if (s == NULL) return NULL;
         size_t len = strlen(s);
         size_t i;
         for (i = 0; i < len; i++) {

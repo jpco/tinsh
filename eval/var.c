@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+// #include <stdio.h>
 
 // local includes
 #include "eval_utils.h"
@@ -147,7 +148,8 @@ void var_eval (job_t *job)
                 }
 
                 rm_element (job->argv, job->argm, i, &len);
-                i -= 2;
+                i-=2;
+                if (i < 0) i = 0;
 
                 job->argc = len;
         }

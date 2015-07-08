@@ -53,7 +53,7 @@ void hist_add (const char *line)
         }
 }
 
-char *hist_get (int i)
+/* char *hist_get (int i)
 {
         char *retval = NULL;
 
@@ -72,7 +72,7 @@ char *hist_get (int i)
         }
 
         return strdup (retval);
-}
+} */
 
 char *hist_up (void)
 {
