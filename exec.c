@@ -63,17 +63,27 @@ char *subshell (char *cmd, char *mask)
         cmd = strdup (cmd);
 
         int fds[2];
-        pipe (fds);
+        if (pipe (fds) < 0) {
+                print_err_wno ("Could not set up pipe (subshell)",
+                                errno);
+                return NULL;
+        }
 
         pid = fork();
         if (pid < 0) {
                 print_err_wno ("Fork error.", errno);
                 return NULL;
         } else if (pid == 0) {
-                close (fds[0]);
+                do {
+                        close (fds[0]);
+                } while (errno == EINTR);
+
                 dup2 (fds[1], STDOUT_FILENO);
                 eval_m (cmd, mask);
-                close (fds[1]);
+
+                do {
+                        close (fds[1]);
+                } while (errno == EINTR);
                 exit (0);
         } else {
                 close (fds[1]);
@@ -84,7 +94,16 @@ char *subshell (char *cmd, char *mask)
                 }
 
                 char *output = calloc((SUBSH_LEN+1), sizeof(char));
+                if (output == NULL) {
+                        print_err_wno ("Calloc failure (subshell)", errno);
+                        return NULL;
+                }
+
+                errno = 0;
                 while (read (fds[0], output, SUBSH_LEN) > 0);
+                if (errno != 0) {
+                        print_err_wno ("Read failure (subshell)", errno);
+                }
 
                 close (fds[0]);
                 return output;
@@ -122,6 +141,11 @@ void try_exec (job_t *job)
                 job_t *cjob = job;
                 while (cjob->p_next != NULL) {
                         int *fds = malloc(2 * sizeof(int));
+                        if (fds == NULL && errno == ENOMEM) {
+                                print_err_wno ("Malloc failure (try_exec)",
+                                                errno);
+                                return;
+                        }
                         pipe (fds);
 
                         cjob->p_out = fds;
