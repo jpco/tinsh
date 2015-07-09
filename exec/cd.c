@@ -12,6 +12,20 @@
 // self-include
 #include "cd.h"
 
+int cd (const char *arg);
+
+// TODO: kill this helper function
+
+int func_cd (job_t *job)
+{
+        if (job->argv[1] == NULL) { // going HOME
+                if (cd (getenv("HOME")) > 0) return 2;
+        }
+        if (cd (job->argv[1]) > 0) return 2;
+
+        return 1;
+}
+
 int cd (const char *arg)
 {
         // "cd with no args" is handled elsewhere.

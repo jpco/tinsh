@@ -135,8 +135,6 @@ void try_exec (job_t *job)
 {
         if (job->argc == 0) return;
 
-        const char **argv = (const char **)job->argv;
-
         if (job->p_prev == NULL) {
                 job_t *cjob = job;
                 while (cjob->p_next != NULL) {
@@ -163,7 +161,7 @@ void try_exec (job_t *job)
         int dup_in = dup (STDIN_FILENO);
         int dup_out = dup (STDOUT_FILENO);
 
-        if (!func(job->argc, argv)) {
+        if (!func(job)) {
                 pid = fork();
                 if (pid < 0) print_err_wno ("fork() error.", errno);
                 else if (pid == 0) fork_exec(job);

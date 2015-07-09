@@ -51,7 +51,6 @@ _guided by the need to be at least okay_
 
 ### Todo (in no particular order)
 CURRENT:
- - error code checking & propagation! (MALLOC)
  - `hist_get()`
 
 ##### Interactive
@@ -81,14 +80,20 @@ CURRENT:
     more robust than just forgetting about the job after the fact
  - builtins aren't right. those things need to be rejiggered to support
     redirection before flow control can happen.
- - string manipulation will need to come at some point...
+ - string manipulation commands will need to come at some point...
  - move subshelling to after job formationn
  - subtleties
      - masking is not quite right; interactions of ', ", \\
         - and newline! interaction of ' and newline!
      - bash can do `time <aliased cmd>`; how to determine?
+        - we know more about builtins than other functions
 
 ##### Bugs
  - long buffers don't quite work....
  - multiple subshells in a line don't seem to be working
  - tab-completion on files with parens doesn't work right
+
+##### General
+ - don't include header files in header files!!!!
+ - sort out `char **` vs `const char **` in exec/\* files
+ - define func table for increased zoominesss
