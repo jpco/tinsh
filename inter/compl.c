@@ -92,10 +92,12 @@ char *w_compl (char *owd, int first)
         if (complwd != NULL) {
                 buf = complwd;
                 for (; *buf != '\0' && *(buf+1) != '\0'; buf++) {
-                        if (*buf == ' ') {
+                        if (*buf == ' ' || *buf == '(') {
+                                char tmpbuf[2] = {0};
+                                *tmpbuf = *buf;
                                 *buf = '\0';
-                                char *ncomplwd = vcombine_str(0, 3,
-                                                complwd, "\\ ",
+                                char *ncomplwd = vcombine_str(0, 4,
+                                                complwd, "\\", tmpbuf,
                                                 buf+1);
                                 free (complwd);
                                 buf = buf+1-complwd+ncomplwd;

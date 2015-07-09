@@ -78,8 +78,6 @@ CURRENT:
     - this is connected to compl.c so don't re-invent the wheel
  - `job->bg` is deactivated because background job handling needs to be
     more robust than just forgetting about the job after the fact
- - builtins aren't right. those things need to be rejiggered to support
-    redirection before flow control can happen.
  - string manipulation commands will need to come at some point...
  - move subshelling to after job formationn
  - subtleties
@@ -91,7 +89,6 @@ CURRENT:
 ##### Bugs
  - long buffers don't quite work....
  - multiple subshells in a line don't seem to be working
- - tab-completion on files with parens doesn't work right
 
 ##### General
  - don't include header files in header files!!!!
