@@ -1,3 +1,50 @@
+PLAN: 3 stages: inter, eval, exec (plus jpsh.c, which routes things)
+ - jpsh.c parses args and:
+    1. loads any necessary config (if `-c` is passed, always
+        loads a config no matter what)
+    2. if `-e` is passed, calls `eval_lines` on the next arg
+        and exits.
+    3. if passed file is a .jpc, constructs the job queue from
+        the .jpc file and execs it.
+    4. otherwise, if passed file is .jpsh, loads the lines of the
+        file and evals it.
+    5. if it did not get a file or `-e` command, runs the interactive
+        shell.
+ - inter only in interactive shell (hence the name). exclusively
+    calls eval_lines() in eval/eval.c, passing array of lines and
+    destination of lines (to .jpc file?)
+ - eval can output to a .jpc file, if instructed; reads & loads full
+    file and deps before calling exec at all (if it even does).
+    constructs a job queue and populates the function table. then either
+    outputs to a .jpc or executes.
+    - loosely, the compilation stage. if anyone expects to run a .jpsh
+        script and have two different results occur, it must happen in
+        the exec stage.
+ - exec evaluates a job queue, modifying and repopulating the queue as
+    functions and blocks are called and entered.
+
+TYPES:
+ - job
+ - scope
+ - block
+ - job queue
+ - function
+ - (plus hashtable, linkedlist, queue, and stack)
+
+DATA BLOCKS (all in exec):
+ - global scope
+ - scope stack
+ - var table
+ - alias table
+ - fn table
+
+FS STRUCTURE:
+/       = root
+/eval   = the functions & data for the eval stage.
+/exec   = the functions & data for the exec stage.
+/jpcf   = the functions for .jpc I/O
+/types  = common datatypes to be used (linkedlist, queue, stack, etc.)
+/util   = common definitions, debug functions, etc.
 # jpsh
 Worse than bash! ~~Better than csh!~~
 

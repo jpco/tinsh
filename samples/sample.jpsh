@@ -1,0 +1,14 @@
+#!/home/jpco/bin/jpsh
+
+echo "no fns loaded yet"
+
+fn mv2: srcli ... , dest {
+    for src in srcli {
+        
+    }
+}
+
+echo "fn loaded now"
+mv2 foo bar baz ..
+
+
