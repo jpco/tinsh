@@ -63,13 +63,15 @@ void reprint (void)
         */
 
         int width = term_width();
-        width++;
         if (width == 0) width = INT_MAX;
-        int nlines = (prompt_length + length) / width;
-        int horiz = nlines + (prompt_length + idx) % width;
+        int nlines = (prompt_length + length - 2) / width;
+        int vert = (prompt_length + idx) / width;
+        int horiz = (prompt_length + idx) % width;
 
-        printf("[%dA[%dG%s[K[%dG", nlines, prompt_length, buf,
-                        horiz);
+        // print
+        printf("[%dG%s[%dA[%dG", prompt_length, buf, nlines, prompt_length);
+        // relocate
+        printf("[%dA[%dB[%dG", nlines, vert, horiz);
 }
 
 void rewd (void)
