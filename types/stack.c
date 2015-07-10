@@ -5,36 +5,22 @@
 // self-include
 #include "stack.h"
 
-struct stack_str {
-        void *elts[MAX_STACK];
-        size_t idx;
-};
-
 stack *s_make (void)
 {
-        stack *new_s = malloc(sizeof(stack));
-        new_s->idx = 0;
-
-        return new_s;
+        return ll_make();
 }
 
 void s_push (stack *s, void *ptr)
 {
-        s->elts[s->idx] = ptr;
-        if (s->idx < MAX_STACK - 1) {
-                s->idx++;
-        }
+        ll_prepend ((linkedlist *)s, ptr);
 }
 
 void s_pop (stack *s, void **ptr)
 {
-        if (s->idx > 0) {
-                s->idx--;
-        }
-        *ptr = (void *)s->elts[s->idx];
+        ll_rmhead ((linkedlist *)s, ptr);
 }
 
 size_t s_len (stack *s)
 {
-        return s->idx;
+        return ll_len ((linkedlist *)s);
 }

@@ -5,46 +5,33 @@
 // self-include
 #include "queue.h"
 
-struct queue_str {
-        void *elts[MAX_QUEUE];
-        size_t q_last;
-        size_t q_first;
-};
-
 queue *q_make (void)
 {
-        queue *new_q = malloc(sizeof(queue));
-        new_q->q_last = 0;
-        new_q->q_first = 0;
-
+        queue *new_q = ll_make();
         return new_q;
 }
 
 void q_push (queue *q, void *ptr)
 {
-        q->elts[q->q_last] = ptr;
-        if (q->q_last < MAX_QUEUE - 1) {
-                q->q_last++;
-        } else {
-                q->q_last = 0;
-        }
+        ll_append ((linkedlist *)q, ptr);
 }
 
 void q_pop (queue *q, void **ptr)
 {
-        *ptr = (void *)q->elts[q->q_first];
-        if (q->q_first < MAX_QUEUE - 1) {
-                q->q_first++;
-        } else {
-                q->q_first = 0;
+        ll_rmhead ((linkedlist *)q, ptr);
+}
+
+void q_preempt (queue *q, queue *new)
+{
+        linkedlist *ll_new = (linkedlist *)new;
+
+        void *elt = NULL;
+        while ((ll_rmtail(new, elt)) == 0) {
+                ll_prepend ((linkedlist *)q, elt);
         }
 }
 
 size_t q_len (queue *q)
 {
-        if (q->q_last >= q->q_first) {
-                return q->q_last - q->q_first;
-        } else {
-                return MAX_QUEUE - q->q_first + q->q_last;
-        }
+        return ll_len ((linkedlist *)q);
 }
