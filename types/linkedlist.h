@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 typedef struct linkedlist_str linkedlist;
+typedef struct ll_inter_str ll_iter;
 
 linkedlist *ll_make();
 
@@ -29,5 +30,10 @@ int ll_gethead(linkedlist *ll, void **elt);
 int ll_gettail(linkedlist *ll, void **elt);
 
 size_t ll_len(linkedlist *ll);
+
+ll_iter *ll_makeiter(linkedlist *ll);
+void *ll_iter_next (ll_iter *lli);
+int ll_iter_hasnext (ll_iter *lli);
+void ll_iter_rm (ll_iter *lli);
 
 #endif

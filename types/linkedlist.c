@@ -14,7 +14,12 @@ struct linkedlist_str {
         ll_elt *head;
         ll_elt *tail;
         size_t len;
-}
+};
+
+struct ll_iter_str {
+        linkedlist *list;
+        ll_elt *celt;
+};
 
 linkedlist *ll_make (void)
 {
@@ -256,4 +261,44 @@ void ll_gettail (linkedlist *ll, void **elt)
 size_t ll_len (linkedlist *ll)
 {
         return ll->len;
+}
+
+// ll_iter functions
+
+ll_iter *ll_makeiter (linkedlist *ll)
+{
+        ll_iter *nlli = malloc(sizeof(ll_iter));
+        if (nlli == NULL) return NULL;
+        
+        nlli->list = ll;
+        nlli->celt = ll->head;
+
+        return nlli;
+}
+
+void *ll_iter_next (ll_iter *lli)
+{
+        if (lli == NULL) return NULL;
+        if (nlli->celt != NULL) nlli->celt = nlli->celt->next;
+        return nlli->celt->data;
+}
+
+int ll_iter_hasnext (ll_iter *lli)
+{
+        if (lli == NULL) return 0;
+        if (lli->celt == NULL) return 0;
+        if (lli->celt->next == NULL) return 0;
+        return 1;
+}
+
+void ll_iter_rm (ll_iter *lli)
+{
+        if (lli == NULL) return;
+        if (lli->list == NULL) return;
+        if (lli->celt == NULL) return;
+
+        if (lli->celt->prev != NULL) lli->celt->prev->next = lli->celt->next;
+        if (lli->celt->next->prev != NULL) lli->celt->next->prev = lli->celt->prev;
+        lli->celt = lli->celt->next;
+        free (lli->celt);
 }
