@@ -39,12 +39,12 @@ DATA BLOCKS (all in exec):
  - fn table
 
 FS STRUCTURE:
-/       = root
-/eval   = the functions & data for the eval stage.
-/exec   = the functions & data for the exec stage.
-/jpcf   = the functions for .jpc I/O
-/types  = common datatypes to be used (linkedlist, queue, stack, etc.)
-/util   = common definitions, debug functions, etc.
+/       =  root
+/eval   =  the functions & data for the eval stage.
+/exec   =  the functions & data for the exec stage.
+/jpcf   =  the functions for .jpc I/O
+/types  =x common datatypes to be used (linkedlist, queue, stack, etc.)
+/util   =x common definitions, debug functions, etc.
 # jpsh
 Worse than bash! ~~Better than csh!~~
 
