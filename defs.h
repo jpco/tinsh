@@ -15,9 +15,6 @@
 // Maximum number of variables (at a time).
 #define MAX_VARS        1000
 
-// Maximum number of jobs allowed per eval.
-#define MAX_JOBS        50
-
 #define MAX_SPLIT       100
 
 // Length of the history.
