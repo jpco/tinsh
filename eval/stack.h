@@ -2,10 +2,11 @@
 #define JPSH_STACK_H
 
 #include <unistd.h>
+#include "linkedlist.h"
 
 #define MAX_STACK 100
 
-typedef struct stack_str stack;
+typedef struct linkedlist_str stack;
 
 // Creates a new stack.
 stack *s_make();
