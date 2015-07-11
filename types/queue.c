@@ -23,8 +23,6 @@ void q_pop (queue *q, void **ptr)
 
 void q_preempt (queue *q, queue *new)
 {
-        linkedlist *ll_new = (linkedlist *)new;
-
         void *elt = NULL;
         while ((ll_rmtail(new, elt)) == 0) {
                 ll_prepend ((linkedlist *)q, elt);

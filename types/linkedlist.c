@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <errno.h>
+#include <stdlib.h>
 
 // self-include
 #include "linkedlist.h"
@@ -141,7 +142,7 @@ int ll_prepend (linkedlist *ll, void *elt)
         return 0;
 }
 
-void ll_rm (linkedlist *ll, void **elt, size_t idx)
+int ll_rm (linkedlist *ll, void **elt, size_t idx)
 {
         // this >= is correct.
         if (ll == NULL || idx >= ll->len) {
@@ -231,7 +232,7 @@ int ll_get (linkedlist *ll, void **elt, size_t idx)
         return 0;
 }
 
-void ll_gethead (linkedlist *ll, void **elt)
+int ll_gethead (linkedlist *ll, void **elt)
 {
         if (ll == NULL || ll->head == NULL) {
                 errno = EINVAL;
@@ -244,7 +245,7 @@ void ll_gethead (linkedlist *ll, void **elt)
         return 0;
 }
 
-void ll_gettail (linkedlist *ll, void **elt)
+int ll_gettail (linkedlist *ll, void **elt)
 {
         if (ll == NULL || ll->tail == NULL) {
                 errno = EINVAL;
@@ -279,8 +280,8 @@ ll_iter *ll_makeiter (linkedlist *ll)
 void *ll_iter_next (ll_iter *lli)
 {
         if (lli == NULL) return NULL;
-        if (nlli->celt != NULL) nlli->celt = nlli->celt->next;
-        return nlli->celt->data;
+        if (lli->celt != NULL) lli->celt = lli->celt->next;
+        return lli->celt->data;
 }
 
 int ll_iter_hasnext (ll_iter *lli)

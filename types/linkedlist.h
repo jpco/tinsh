@@ -4,7 +4,7 @@
 #include <stddef.h>
 
 typedef struct linkedlist_str linkedlist;
-typedef struct ll_inter_str ll_iter;
+typedef struct ll_iter_str ll_iter;
 
 linkedlist *ll_make();
 
