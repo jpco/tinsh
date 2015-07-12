@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// local includes
+#include "linkedlist.h"
+
 // self-include
 #include "queue.h"
 
@@ -9,6 +12,11 @@ queue *q_make (void)
 {
         queue *new_q = ll_make();
         return new_q;
+}
+
+void q_destroy (queue *q)
+{
+        ll_destroy (q);
 }
 
 void q_push (queue *q, void *ptr)

@@ -10,6 +10,7 @@ typedef struct linkedlist_str queue;
 
 // Creates a new queue.
 queue *q_make();
+void q_destroy (queue *q);
 
 void q_push (queue *q, void *ptr);
 

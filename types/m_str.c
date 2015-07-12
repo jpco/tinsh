@@ -118,6 +118,10 @@ void dquote_pass (char **cmdline_ptr, char **cmdmask_ptr)
 }
 
 // TODO: Redo mask logic!
+//
+// HEY! | and ; in `` get masked!
+// HEY! \ at the end of a line kills a newline!
+//
 m_str *ms_mask (char *str)
 {
         m_str *nms = malloc (sizeof(m_str));
@@ -264,4 +268,11 @@ char ms_rmchar (m_str *ms)
 void ms_updatelen (m_str *ms)
 {
         ms->len = strlen(ms->str);
+}
+
+void ms_free (m_str *ms)
+{
+        free (ms->str);
+        free (ms->mask);
+        free (ms);
 }

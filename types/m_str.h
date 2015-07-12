@@ -28,4 +28,6 @@ char ms_rmchar (m_str *ms);
 
 void ms_updatelen (m_str *ms);
 
+void ms_free (m_str *ms);
+
 #endif
