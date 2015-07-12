@@ -13,13 +13,13 @@ m_str *ms_make (size_t len)
         m_str *nms = malloc (sizeof(m_str));
         if (nms == NULL) return NULL;
 
-        nms->str = calloc (len);
+        nms->str = calloc (len + 1, sizeof(char));
         if (nms->str == NULL) {
                 free (nms);
                 return NULL;
         }
 
-        nms->mask = calloc (len);
+        nms->mask = calloc (len + 1, sizeof(char));
         if (nms->mask == NULL) {
                 free (nms->str);
                 free (nms);
@@ -134,6 +134,27 @@ m_str *ms_mask (char *str)
 
         nms->str = str;
         nms->mask = mask;
+        nms->len = strlen(str);
+
+        return nms;
+}
+
+m_str *ms_dup (m_str *oms)
+{
+        m_str *nms = malloc (sizeof(m_str));
+        if (nms == NULL) return NULL;
+
+        nms->str = strdup (oms->str);
+        nms->mask = calloc (ms_len(oms));
+        memcpy (nms->mask, oms->mask, ms_len(oms));
+
+        if (nms->str == NULL || nms->mask == NULL) {
+                if (nms->str != NULL) free (nms->str);
+                if (nms->mask != NULL) free (nms->mask);
+                free (nms);
+
+                return NULL;
+        }
 
         return nms;
 }
@@ -161,61 +182,70 @@ char *ms_unmask (m_str *ms)
         return nstr;
 }
 
-char *ms_strchr (m_str *ms)
+char *ms_strchr (const m_str *ms)
 {
-        // TODO: this
+        if (ms == NULL) return NULL;
+        size_t len = ms->len;
+        size_t i;
+        for (i = 0; i < len; i++) {
+                if (ms->mask[i]) continue;
+                if (ms->str[i] == c) return (char *)(ms->str+i)
+        }
+
+        return NULL;
 }
 
-int ms_mstrcmp (m_str *first, m_str *second)
+int ms_mstrcmp (const m_str *first, const m_str *second)
 {
-        // TODO: this
+        int i;
+        for (i = 0; first->str[i] != '\0'; i++)
+                if (first->str[i] != second->str[i]) return 0;
+                if (first->mask[i] && !second->mask[i] ||
+                    !first->mask[i] && second->mask[i]) return 0;
+        return (second->str[i] == '\0');
 }
 
-int ms_ustrcmp (m_str *first, m_str *second)
+int ms_ustrcmp (const m_str *first, const m_str *second)
 {
         return olstrcmp(first->str, second->str);
 }
 
-size_t ms_len (m_str *ms)
+size_t ms_len (const m_str *ms)
 {
-        return strlen (ms->str);
+        return ms->len;
 }
 
-void ms_trim (m_str **ms)
+void ms_trim (m_str **ms_ptr)
 {
-        const char *buf = s;
+        m_str *ms = *ms_ptr;
+        const char *buf = ms->str;
+
         size_t i;
-        for (i = 0; !m[i] && (s[i] == ' ' || s[i] == '\t'); i++) {
+        for (i = 0; !ms->mask[i] &&
+                        (ms->str[i] == ' ' || ms->str[i] == '\t'); i++) {
                 buf++;
         }
 
         if (*buf == '\0') {
-                *ns = calloc(1, sizeof(char));
-                if (ns == NULL && errno == ENOMEM) {
-                        return;
-                }
-
-                *nm = calloc(1, sizeof(char));
-                if (nm == NULL && errno == ENOMEM) {
-                        return;
-                }
-
+                *ms_ptr = ms_make (0);
                 return;
         }
+        m_str *nms = malloc (sizeof(m_str));
+        if (nms == NULL) return;
 
-        *ns = strdup (buf);
-        *nm = calloc((strlen(buf) + 1), sizeof(char));
+        nms->str = strdup (buf);
+        nms->mask = calloc (strlen(buf)+1, sizeof(char));
+        memcpy (nms->mask, ms->mask + (buf - ms->str), strlen (buf));
 
-        memcpy (*nm, m+(buf-s), strlen(buf));
-
-        for (i = strlen(buf) - 1; i >= 0 && i < strlen(buf) &&
-                                !(*nm)[i] &&
-                                ((*ns)[i] == '\n' ||
-                                (*ns)[i] == ' '); i--) {
-                (*ns)[i] = '\0';
-                (*nm)[i] = '\0';
+        for (i = strlen(buf) - 1; i >= 0 && i < strlen (buf) &&
+                        !(nms->mask[i]) &&
+                        (nms->str[i] == '\n' || nms->str[i] == ' '); i--) {
+                nms->str[i] = '\0';
+                nms->mask[i] = '\0';
         }
 
+        ms_updatelen (nms);
+        *ms_ptr = nms;
 }
 
 char ms_rmchar (m_str *ms)
@@ -229,4 +259,9 @@ char ms_rmchar (m_str *ms)
         }
 
         return tr;
+}
+
+void ms_updatelen (m_str *ms)
+{
+        ms->len = strlen(ms->str);
 }

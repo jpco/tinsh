@@ -11,6 +11,7 @@ typedef struct {
 
 m_str *ms_make (size_t len);
 m_str *ms_mask (char *str);
+m_str *ms_dup (m_str *oms);
 
 char *ms_strip (m_str *ms);
 char *ms_unmask (m_str *ms);
@@ -24,5 +25,7 @@ size_t ms_len (m_str *ms);
 void ms_trim (m_str **ms);
 
 char ms_rmchar (m_str *ms);
+
+void ms_updatelen (m_str *ms);
 
 #endif
