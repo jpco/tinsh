@@ -2,13 +2,21 @@
 
 echo "no fns loaded yet"
 
-fn mv2: srcli ... , dest {
-    for src in srcli {
-        
+fn mvmany - srcli ... , dest {
+    for src in (srcli) {
+        if -e (src): mv src dest
     }
 }
 
 echo "fn loaded now"
-mv2 foo bar baz ..
+mvmany foo bar baz ..
 
+with root_dir = `su -i & pwd` {
+    if (root_dir) == '': break
 
+    fn getrootlibs - dirs ... {
+        for dir in (dirs) {
+            
+        }
+    }
+}

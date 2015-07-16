@@ -10,6 +10,7 @@ typedef enum {
         BJ_FOR,
         BJ_CFOR,
         BJ_WHILE,
+        BJ_ELSE,
         BJ_WITH
 } bj_type;
 
@@ -21,5 +22,7 @@ typedef struct {
 // returns 1 if we are to enter the block,
 // 0 otherwise
 char bj_test (block_job *bj);
+
+block_job *bj_make(m_str *stmt);
 
 #endif

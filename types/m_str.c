@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 // local includes
 #include "../util/str.h"
@@ -186,7 +187,7 @@ char *ms_unmask (m_str *ms)
         return nstr;
 }
 
-char *ms_strchr (const m_str *ms)
+char *ms_strchr (const m_str *ms, char c)
 {
         if (ms == NULL) return NULL;
         size_t len = ms->len;
@@ -264,6 +265,109 @@ char ms_rmchar (m_str *ms)
 
         return tr;
 }
+
+char ms_startswith (m_str *ms, char *pre)
+{
+        size_t len = strlen(pre);
+        if (ms->len < len) return 0;
+
+        int i;
+        for (i = 0; i < len; i++) {
+                if (ms->mask[i] || ms->str[i] != pre[i])
+                        return 0;
+        }
+
+        return 1;
+}
+
+// TODO: make this one ms-native as well
+m_str **ms_spl_cmd (const m_str *ms)
+{
+        char *s = ms->str;
+        char *m = ms->mask;
+
+        m_str **argv = calloc((1+strlen(s)), sizeof(m_str *));
+        char null_m = 0;
+        if (m == NULL) {
+                m = calloc((1+strlen(s)), sizeof(char));
+                null_m = 1;
+        }
+
+        size_t wdcount = 0;
+        char wdflag = 0;
+        char *wdbuf = calloc(strlen(s)+1, sizeof(char));
+        char *wmbuf = calloc(strlen(s)+1, sizeof(char));
+        size_t wblen = 0;
+        for (const char *buf = s; buf != NULL && *buf != '\0'; buf++) {
+                if (!m[buf-s]) {
+                        if (*buf == ' ') {
+                                continue;
+                        }        
+                }
+
+                if (!m[buf-s+1]) {
+                        if (buf[1] == ' ') {
+                                wdflag = 1;
+                        }
+                }
+                wdbuf[wblen] = *buf;
+                wmbuf[wblen++] = m[buf-s];
+
+                if (wdflag) {
+                        argv[wdcount] = malloc(sizeof(m_str));
+                        argv[wdcount]->str = wdbuf;
+                        argm[wdcount++]->mask = wmbuf;
+
+                        wdbuf = calloc(strlen(s)+1, sizeof(char));
+                        wmbuf = calloc(strlen(s)+1, sizeof(char));
+                        wblen = 0;
+
+                        wdflag = 0;
+                }
+        }
+
+        if (strlen(wdbuf) > 0) {
+                argv[wdcount] = malloc(sizeof(m_str));
+                argv[wdcount]->str = wdbuf;
+                argm[wdcount++]->mask = wmbuf;
+        }
+
+        if (null_m) {
+                free ((char *)m);
+        }
+
+        return argv;
+}
+
+m_str *ms_dup_at (m_str *ms, char *s)
+{
+        if (s - ms->str < 0 || s - ms->str >= ms->len) {
+                return NULL;
+        }
+
+        m_str *nms = malloc(sizeof(m_str));
+        nms->str = strdup(s);
+        nms->mask = calloc(strlen(s)+1, sizeof(char));
+        memcpy(nms->mask, ms->mask+(s-(ms->str)), strlen(s));
+        ms_updatelen(nms);
+
+        return nms;
+}
+m_str *ms_advance (m_str *ms, size_t idx)
+{
+        if (idx >= ms->len) {
+                return NULL;
+        }
+
+        m_str *nms = malloc(sizeof(m_str));
+        nms->str = strdup((ms->str) + idx);
+        nms->mask = calloc(strlen(nms->str) + 1, sizeof(char));
+        memcpy(nms->mask, (ms->mask)+idx, strlen(nms->str));
+        ms_updatelen(nms);
+
+        return nms;
+}
+
 
 void ms_updatelen (m_str *ms)
 {

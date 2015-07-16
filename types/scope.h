@@ -6,6 +6,7 @@
 typedef struct {
         scope_j *parent;
         hashtable *vars;
+        hashtable *fns;
 } scope_j;
 
 void new_scope();

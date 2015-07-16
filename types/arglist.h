@@ -12,4 +12,6 @@ typedef struct {
         linkedlist *args;  // of arg_j elts
 } arglist_j;
 
+arglist_j *al_make(m_str *list);
+
 #endif

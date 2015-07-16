@@ -10,4 +10,6 @@ typedef struct {
         block_j block;
 } fn_j;
 
+fn_j *fn_form(queue *lines);
+
 #endif

@@ -17,7 +17,6 @@
 // self-include
 #include "eval.h"
 
-queue *ejob_res;
 queue *ejobs;
 queue *elines;
 
@@ -28,12 +27,10 @@ job_queue *jobs;
 job_queue *eval (char **lines)
 {
         // initialize eval data
-        ejob_res = q_make();
         ejobs = q_make();
         elines = q_make();
 
-        if (ejob_res == NULL || ejobs == NULL || elines == NULL) {
-                if (ejob_res != NULL) free (ejob_res);
+        if (ejobs == NULL || elines == NULL) {
                 if (ejobs != NULL) free (ejobs);
                 if (elines != NULL) free (elines);
                 return NULL;
@@ -53,7 +50,6 @@ job_queue *eval (char **lines)
         }
 
         // free eval data
-        ll_destroy (ejob_res);
         ll_destroy (ejobs);
         ll_destroy (elines);
 

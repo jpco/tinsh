@@ -140,4 +140,5 @@ CURRENT:
 ##### General
  - don't include header files in header files!!!!
  - sort out `char **` vs `const char **` in exec/\* files
- - define func table for increased zoominesss
+ - define func table for increased zoominess
+ - get `m_str` iterator fns for `spl_line_eval` and `spl_pipe_eval`
