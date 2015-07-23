@@ -1,8 +1,9 @@
-
+#include <stdlib.h>
 
 // local includes
 #include "../types/m_str.h"
 #include "../types/queue.h"
+#include "../types/linkedlist.h"
 #include "../types/block.h"
 
 #include "../util/debug.h"
@@ -11,8 +12,6 @@
 #include "comment.h"
 #include "spl_line.h"
 #include "spl_pipe.h"
-#include "job_form.h"
-#include "block_form.h"
 
 // self-include
 #include "eval.h"

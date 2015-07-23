@@ -2,16 +2,19 @@
 #define JPSH_TYPES_JOB_QUEUE_H
 
 #include "linkedlist.h"
-#include "block.h"
 #include "job.h"
+#include "block.h"
+#include "queue.h"
 
-typedef struct {
+typedef struct job_queue_str {
         linkedlist *jobs;  // of struct jq_elts;
 } job_queue;
 
-job_queue *jq_make(queue *jobs);
-job_queue *jq_singleton(job_j *job);
-void jq_add_block(job_queue *jq, block_j *block);
+struct block_str;
+
+job_queue *jq_make(queue *lines);
+job_queue *jq_singleton(queue *lines);
 void jq_add_job(job_queue *jq, job_j *job);
+void jq_add_block(struct job_queue_str *jq, struct block_str *block);
 
 #endif

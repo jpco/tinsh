@@ -16,12 +16,13 @@ m_str *ms_dup (m_str *oms);
 char *ms_strip (m_str *ms);
 char *ms_unmask (m_str *ms);
 
-char *ms_strchr (m_str *ms, char c);
+char *ms_strchr (const m_str *ms, char c);
+int mbuf_strchr(m_str *mbuf, char d);
 
-int ms_mstrcmp (m_str *first, m_str *second);
-int ms_ustrcmp (m_str *first, m_str *second);
+int ms_mstrcmp (const m_str *first, const m_str *second);
+int ms_ustrcmp (const m_str *first, const m_str *second);
 
-size_t ms_len (m_str *ms);
+size_t ms_len (const m_str *ms);
 void ms_trim (m_str **ms);
 
 char ms_rmchar (m_str *ms);

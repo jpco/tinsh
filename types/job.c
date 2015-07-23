@@ -5,11 +5,14 @@
 
 #include "m_str.h"
 #include "../util/vector.h"
+#include "../util/debug.h"
+#include "../util/str.h"
 
 // self-include
 #include "job.h"
 
 static job_j *prev_job;
+static job_j *job_out;
 
 int redirect (job_j *job, int i)
 {
@@ -152,14 +155,13 @@ job_j *job_form (m_str *line)
         job->argc = i;
 
         // Background job?
-        if (ms_strcmp(job->argv[job->argc-1], "&")) {
+        if (olstrcmp(job->argv[job->argc-1]->str, "&")) {
                 job->bg = 1;
                 rm_element(job->argv, (job->argc)-1,
                         &(job->argc));
         }
 
         // File redirection
-        int i;
         for (i = 0; i < job->argc; i++) {
                 char *cstr = job->argv[i]->str;
                 char *cmask = job->argv[i]->mask;

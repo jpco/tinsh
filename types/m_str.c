@@ -5,6 +5,7 @@
 // local includes
 #include "../util/str.h"
 #include "../util/debug.h"
+#include "../util/defs.h"
 
 // self-include
 #include "m_str.h"
@@ -30,92 +31,99 @@ m_str *ms_make (size_t len)
         return nms;
 }
 
-void bs_pass (char **cmdline_ptr, char **cmdmask_ptr)
+void bs_pass (m_str *ms)
 {
-        char *cmdline = *cmdline_ptr;
-        char *cmdmask = *cmdmask_ptr;
-
-        char *buf = cmdline;
-        char *mbuf = cmdmask;
-        while ((buf = masked_strchr(buf, mbuf, '\\'))) {
-                ptrdiff_t diff = buf - cmdline;
-                mbuf = cmdmask + diff;
-                rm_char (buf);
-                arm_char (mbuf, strlen(cmdline) - diff + 1);
-                *mbuf = '\\';
+        m_str *mbuf = malloc(sizeof(m_str));
+        mbuf->str = ms->str;
+        mbuf->mask = ms->mask;
+        while ((mbuf_strchr(mbuf, '\\'))) {
+                ms_rmchar(mbuf);
+                *(mbuf->mask) = '\\';
         }
+
+        free (mbuf);
+        ms_updatelen (ms);
 }
 
-void squote_pass (char **cmdline_ptr, char **cmdmask_ptr)
+void squote_pass (m_str *ms)
 {
-        char *cmdline = *cmdline_ptr;
-        char *cmdmask = *cmdmask_ptr;
+        m_str *mbuf = malloc(sizeof(m_str));
+        m_str *mnextbuf = malloc(sizeof(m_str));
 
-        char *buf = cmdline;
-        char *mbuf = cmdmask;
-        while ((buf = masked_strchr(buf, mbuf, '\''))) {
-                ptrdiff_t diff = buf - cmdline;
-                mbuf = cmdmask + diff;
+        mbuf->str = ms->str;
+        mbuf->mask = ms->mask;
 
-                rm_char (buf);
-                arm_char (mbuf, strlen(cmdline) - diff + 1);
-                char *end = masked_strchr(buf, mbuf, '\'');
-                ptrdiff_t ediff = end - buf;
+        while ((mbuf_strchr(mbuf, '\''))) {
+                ms_rmchar (mbuf);
+                ms_updatelen(mbuf);
 
-                if (end == NULL) {
+                mnextbuf->str = mbuf->str;
+                mnextbuf->mask = mbuf->mask;
+                int ends = mbuf_strchr(mnextbuf, '\'');
+                ptrdiff_t ediff = 0;
+
+                if (ends) {
                         print_err ("Unmatched ' in command.");
-                        end = buf + strlen(buf);
-                        ediff = end - buf;
+                        mnextbuf->str = mbuf->str + mbuf->len;
+                        mnextbuf->mask = mbuf->mask + mbuf->len;
+                        ediff = mbuf->len;
                 } else {
-                        rm_char (end);
-                        arm_char (mbuf + ediff,
-                                        strlen(cmdline) - ediff - diff);
+                        ms_rmchar (mnextbuf);
+                        ediff = mnextbuf->str - mbuf->str;
                 }
 
-                memset (mbuf, '\'', ediff);
-                buf = end;
-                mbuf = ediff + mbuf;
+                memset (mbuf->mask, '\'', ediff);
+                mbuf->str = mnextbuf->str;
+                mbuf->mask = mnextbuf->mask;
         }
+
+        free (mbuf);
+        free (mnextbuf);
+        ms_updatelen (ms);
 }
 
-void dquote_pass (char **cmdline_ptr, char **cmdmask_ptr)
+void dquote_pass (m_str *ms)
 {
-        char *cmdline = *cmdline_ptr;
-        char *cmdmask = *cmdmask_ptr;
+        m_str *mbuf = malloc(sizeof(m_str));
+        m_str *mnextbuf = malloc(sizeof(m_str));
 
-        char *buf = cmdline;
-        char *mbuf = cmdmask;
-        while ((buf = masked_strchr(buf, mbuf, '"'))) {
-                ptrdiff_t diff = buf - cmdline;
-                mbuf = cmdmask + diff;
+        mbuf->str = ms->str;
+        mbuf->mask = ms->mask;
 
-                rm_char (buf);
-                arm_char (mbuf, strlen(cmdline) - diff + 1);
-                char *end = masked_strchr(buf, mbuf, '"');
-                ptrdiff_t ediff = end - buf;
+        while ((mbuf_strchr(mbuf, '"'))) {
+                ms_rmchar (mbuf);
+                ms_updatelen(mbuf);
 
-                if (end == NULL) {
+                mnextbuf->str = mbuf->str;
+                mnextbuf->mask = mbuf->mask;
+                int ends = mbuf_strchr(mnextbuf, '"');
+
+                if (ends) {
                         print_err ("Unmatched \" in command.");
-                        end = buf + strlen(buf);
-                        ediff = end - buf;
+                        mnextbuf->str = mbuf->str + mbuf->len;
+                        mnextbuf->mask = mbuf->mask + mbuf->len;
                 } else {
-                        rm_char (end);
-                        arm_char (mbuf + ediff,
-                                        strlen(cmdline) - ediff - diff);
+                        ms_rmchar (mnextbuf);
                 }
 
                 char *sbuf;
-                for (sbuf = buf; sbuf < end; sbuf++) {
+                for (sbuf = mbuf->str; sbuf < mnextbuf->str; sbuf++) {
                         char cb = *sbuf;
                         if (is_separator(cb) && cb != '(' &&
-                                cb != ')' && cb != '~' && cb != ';' && cb != '>' && cb != '<') {
-                                ptrdiff_t sdiff = sbuf - cmdline;
-                                cmdmask[sdiff] = '"';
+                                        cb != ')' && cb != '~' && cb != ';'
+                                        && cb != '>' && cb != '<') {
+                                ptrdiff_t sdiff = sbuf - ms->str;
+                                ms->mask[sdiff] = '"';
                         }
                 }
-                buf = end;
-                mbuf = ediff + mbuf;
+
+                mbuf->str = mnextbuf->str;
+                mbuf->mask = mnextbuf->mask;
         }
+
+        free (mbuf);
+        free (mnextbuf);
+        ms_updatelen(ms);
 }
 
 // TODO: Redo mask logic!
@@ -128,18 +136,14 @@ m_str *ms_mask (char *str)
         m_str *nms = malloc (sizeof(m_str));
         if (nms == NULL) return NULL;
 
-        char *mask = calloc (strlen(str)+1);
-        if (mask == NULL) {
+        nms->mask = calloc (strlen(str)+1, sizeof(char));
+        if (nms->mask == NULL) {
                 free (nms);
                 return NULL;
         }
-        bs_pass (&str, &mask);
-        squote_pass (&str, &mask);
-        dquote_pass (&str, &mask);
-
-        nms->str = str;
-        nms->mask = mask;
-        nms->len = strlen(str);
+        bs_pass (nms);
+        squote_pass (nms);
+        dquote_pass (nms);
 
         return nms;
 }
@@ -150,7 +154,7 @@ m_str *ms_dup (m_str *oms)
         if (nms == NULL) return NULL;
 
         nms->str = strdup (oms->str);
-        nms->mask = calloc (ms_len(oms));
+        nms->mask = calloc (ms_len(oms)+1, sizeof(char));
         memcpy (nms->mask, oms->mask, ms_len(oms));
 
         if (nms->str == NULL || nms->mask == NULL) {
@@ -166,7 +170,7 @@ m_str *ms_dup (m_str *oms)
 
 char *ms_strip (m_str *ms)
 {
-        return strdup (m_str->str);
+        return strdup (ms->str);
 }
 
 char *ms_unmask (m_str *ms)
@@ -194,10 +198,26 @@ char *ms_strchr (const m_str *ms, char c)
         size_t i;
         for (i = 0; i < len; i++) {
                 if (ms->mask[i]) continue;
-                if (ms->str[i] == c) return (char *)(ms->str+i)
+                if (ms->str[i] == c) return (char *)(ms->str+i);
         }
 
         return NULL;
+}
+
+int mbuf_strchr(m_str *mbuf, char d)
+{
+        if (mbuf == NULL) return 0;
+        size_t len = mbuf->len;
+        size_t i;
+        for (i = 0; i < len; i++) {
+                if (mbuf->mask[i]) continue;
+                if (mbuf->str[i] == d) {
+                        mbuf->str += i;
+                        mbuf->mask += i;
+                        return 1;
+                }
+        }
+        return 0;
 }
 
 int ms_mstrcmp (const m_str *first, const m_str *second)
@@ -205,8 +225,8 @@ int ms_mstrcmp (const m_str *first, const m_str *second)
         int i;
         for (i = 0; first->str[i] != '\0'; i++)
                 if (first->str[i] != second->str[i]) return 0;
-                if (first->mask[i] && !second->mask[i] ||
-                    !first->mask[i] && second->mask[i]) return 0;
+                if ((first->mask[i] && !second->mask[i]) ||
+                    (!first->mask[i] && second->mask[i])) return 0;
         return (second->str[i] == '\0');
 }
 
@@ -316,7 +336,7 @@ m_str **ms_spl_cmd (const m_str *ms)
                 if (wdflag) {
                         argv[wdcount] = malloc(sizeof(m_str));
                         argv[wdcount]->str = wdbuf;
-                        argm[wdcount++]->mask = wmbuf;
+                        argv[wdcount++]->mask = wmbuf;
 
                         wdbuf = calloc(strlen(s)+1, sizeof(char));
                         wmbuf = calloc(strlen(s)+1, sizeof(char));
@@ -329,7 +349,7 @@ m_str **ms_spl_cmd (const m_str *ms)
         if (strlen(wdbuf) > 0) {
                 argv[wdcount] = malloc(sizeof(m_str));
                 argv[wdcount]->str = wdbuf;
-                argm[wdcount++]->mask = wmbuf;
+                argv[wdcount++]->mask = wmbuf;
         }
 
         if (null_m) {
@@ -367,7 +387,6 @@ m_str *ms_advance (m_str *ms, size_t idx)
 
         return nms;
 }
-
 
 void ms_updatelen (m_str *ms)
 {

@@ -4,9 +4,9 @@
 #include "block_job.h"
 #include "job_queue.h"
 
-typedef struct {
+typedef struct block_str {
         block_job *bjob;
-        job_queue *jobs;
+        struct job_queue_str *jobs;
 } block_j;
 
 block_j *block_form(queue *lines);

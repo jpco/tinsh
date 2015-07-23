@@ -16,7 +16,7 @@ void comment_eval (void)
                 m_str *line;
                 q_pop (elines, (void **)&line);
 
-                char *comment = ms_strchr (line);
+                char *comment = ms_strchr (line, '#');
                 if (comment != NULL) {
                         *comment = '\0';
                         ms_updatelen (line);

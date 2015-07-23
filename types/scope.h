@@ -3,13 +3,15 @@
 
 #include "hashtable.h"
 
-typedef struct {
-        scope_j *parent;
+typedef struct scope_str {
+        struct scope_str *parent;
         hashtable *vars;
         hashtable *fns;
 } scope_j;
 
-void new_scope();
-void leave_scope();
+// p is parent scope
+scope_j *new_scope(scope_j *p);
+// returned is new base scope
+scope_j *leave_scope(scope_j *curr);
 
 #endif

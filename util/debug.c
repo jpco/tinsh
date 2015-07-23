@@ -5,7 +5,7 @@
 // self-include
 #include "debug.h"
 
-extern int debug_line_no;
+int debug_line_no = 0;
 
 void print_err (const char *errmsg)
 {

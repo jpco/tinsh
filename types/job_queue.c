@@ -1,16 +1,30 @@
+#include <stdlib.h>
+#include <string.h>
+
 // local includes
 #include "block.h"
+#include "m_str.h"
+#include "fn.h"
+#include "hashtable.h"
+#include "stack.h"
+
+#include "../exec/env.h"
 
 // self-include
 #include "job_queue.h"
 
+extern scope_j *cscope;
+
 typedef struct jq_elt_str {
         char is_block;
-        union dat {
+        union {
                 block_j *bl;
                 job_j *job;
-        };
+        } dat;
 } jq_elt;
+
+void jq_add_block (job_queue *jq, block_j *block);
+void jq_add_job (job_queue *jq, job_j *job);
 
 job_queue *jq_make (queue *lines)
 {
@@ -58,7 +72,7 @@ job_queue *jq_make (queue *lines)
                                 // fn!
                                 fn_j *new_fn = fn_form(lines);
                                 // TODO: check for null
-                                ht_add(fn_tab, new_fn->name, new_fn);
+                                ht_add(cscope->fns, new_fn->name, new_fn);
                         } else {
                                 // block
                                 block_j *new_bl = block_form(lines);
@@ -96,7 +110,7 @@ job_queue *jq_singleton (queue *lines)
                         // fn!
                         fn_j *new_fn = fn_form(lines);
                         // TODO: check for null
-                        ht_add(fn_tab, new_fn->name, new_fn);
+                        ht_add(cscope->fns, new_fn->name, new_fn);
                 } else {
                         // block
                         block_j *new_bl = block_form(lines);
@@ -117,22 +131,14 @@ void jq_add_block (job_queue *jq, block_j *block)
 {
         jq_elt *nelt = malloc(sizeof(jq_elt));
         nelt->is_block = 1;
-        nelt->dat->bl = block;
-        ll_append(jq, nelt);
+        nelt->dat.bl = block;
+        ll_append((linkedlist *)jq, nelt);
 }
 
 void jq_add_job (job_queue *jq, job_j *job)
 {
         jq_elt *nelt = malloc(sizeof(jq_elt));
         nelt->is_block = 0;
-        nelt->dat->job = job;
-        ll_append(jq, nelt);
+        nelt->dat.job = job;
+        ll_append((linkedlist *)jq, nelt);
 }
-
-typedef struct jq_elt_str {
-        char is_block;
-        union dat {
-                block_j bl;
-                job_j job;
-        };
-} jq_elt;

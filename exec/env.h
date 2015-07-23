@@ -1,8 +1,10 @@
 #ifndef JPSH_EXEC_ENV_H
 #define JPSH_EXEC_ENV_H
 
+#include "../types/scope.h"
+
 hashtable *alias_tab;
-stack *gstack;
-stack *cstack;  // defines full scope stack within stack type as well
+scope_j *gscope;
+scope_j *cscope;  // defines full scope stack within scope type as well
 
 #endif

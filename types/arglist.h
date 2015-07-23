@@ -2,6 +2,7 @@
 #define JPSH_TYPES_ARGLIST_H
 
 #include "linkedlist.h"
+#include "m_str.h"
 
 typedef struct {
         char *name;

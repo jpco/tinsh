@@ -43,16 +43,16 @@ block_job *bj_make (m_str *stmt)
         }
 
         if (new_bj->type != BJ_ENTER) {
-                m_str *new_ms = malloc(sizeof(m_string));
+                m_str *new_ms = malloc(sizeof(m_str));
                 char *pt = ms_strchr(stmt, ' ');
                 new_ms->str = strdup(pt+1);
                 new_ms->mask = calloc(strlen(new_ms->str), sizeof(char));
                 memcpy(new_ms->mask, stmt->mask+(pt-(stmt->str))+1,
                         strlen(new_ms->str));
 
-                block_job->stmt = new_ms;
+                new_bj->stmt = new_ms;
         } else {
-                block_job->stmt = ms_dup (stmt);
+                new_bj->stmt = ms_dup (stmt);
         }
 
         return new_bj;

@@ -19,15 +19,12 @@ void spl_line_eval (void)
         m_str *line;
         q_pop (elines, (void **)&line);
 
-        char *cmdline = line->str;
-        char *cmdmask = line->mask;
+        size_t cmdlen = ms_len(line);
 
-        size_t cmdlen = strlen(cmdline);
+        char *buf = line->str;
+        char *nbuf = ms_strchr(line, ';');
 
-        char *buf = cmdline;
-        char *nbuf = masked_strchr(buf, cmdmask, ';');
-
-        while (buf != NULL && buf - cmdline < cmdlen && *buf != '\0') {
+        while (buf != NULL && buf - line->str < cmdlen && *buf != '\0') {
                 if (nbuf != NULL) {
                         *nbuf = '\0';
                 } else {
@@ -35,24 +32,16 @@ void spl_line_eval (void)
                 }
                 if (buf == '\0') continue;
 
-                ptrdiff_t bdiff = buf - cmdline;
-                ptrdiff_t nbdiff = nbuf - buf;
-
-                char *ncmd = malloc ((nbdiff+1) * sizeof(char));
-                strcpy (ncmd, buf);
-
-                char *nmask = calloc (nbdiff+1, sizeof(char));
-                memcpy (nmask, cmdmask + bdiff, nbdiff + 1);
+                m_str *nline = ms_dup_at(line, nbuf);
 
                 buf = nbuf + 1;
-                if (buf - cmdline < cmdlen) {
-                        nbuf = masked_strchr(buf, cmdmask+nbdiff, ';');
+                if (buf - line->str < cmdlen) {
+                        m_str *bufms = ms_dup_at(line, buf);
+                        nbuf = ms_strchr(bufms, ';');
+                        ms_free (bufms);
                 }
 
-                m_str *nms = malloc(sizeof(m_str));
-                nms->str = ncmd;
-                nms->mask = nmask;
-                q_push(ejob_res, nms);
+                q_push(elines, nline);
                 q_push(ejobs, spl_pipe_eval);
         }
 

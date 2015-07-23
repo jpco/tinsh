@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <errno.h>
 
 // local includes
@@ -20,11 +21,11 @@ scope_j *new_scope (scope_j *p)
         return nscope;
 }
 
-scope_j *leave_scope (void)
+scope_j *leave_scope (scope_j *scope)
 {
-        scope_j *upscope = nscope->parent;
-        ht_destroy (nscope->vars);
-        free (nscope);
+        scope_j *upscope = scope->parent;
+        ht_destroy (scope->vars);
+        free (scope);
 
         return upscope;
 }

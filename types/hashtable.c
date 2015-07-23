@@ -30,8 +30,8 @@ size_t ht_hash (const char *in, size_t max)
         if (in == NULL) return 0;
 
         const char *buf;
-        size_t out;
-        while (buf = in; buf != '\0'; buf++) {
+        size_t out = 0;
+        for (buf = in; buf != '\0'; buf++) {
                 out += *buf;
         }
 
@@ -50,8 +50,8 @@ hashtable *ht_make (void)
 
         new_ht->size = 0;
         new_ht->num_buckets = DEFAULT_HT_BUCKETS;
-        buckets = malloc(sizeof(hashtable *) * new_ht->num_buckets);
-        if (buckets == NULL && errno == ENOMEM) {
+        new_ht->buckets = malloc(sizeof(hashtable *) * new_ht->num_buckets);
+        if (new_ht->buckets == NULL && errno == ENOMEM) {
                 free (new_ht);
                 return NULL;
         }
@@ -60,6 +60,8 @@ hashtable *ht_make (void)
         for (i = 0; i < new_ht->num_buckets; i++) {
                 new_ht->buckets[i] = NULL;
         }
+
+        return new_ht;
 }
 
 void ht_destroy (hashtable *ht)
@@ -131,7 +133,7 @@ int ht_get (hashtable *ht, const char *key, void **elt)
         ll_iter *bucket_iter = ll_makeiter (bucket);
         keyval *ckv = NULL;
         *elt = NULL;
-        while ((ckv = (keyval *)ll_iter_next (cbucket_iter)) != NULL) {
+        while ((ckv = (keyval *)ll_iter_next (bucket_iter)) != NULL) {
                 // TODO: olstrcmp here too
                 if (strcmp(ckv->key, key) == 0) {
                         *elt = ckv->value;
@@ -155,7 +157,7 @@ int ht_rm (hashtable *ht, const char *key, void **elt)
         ll_iter *bucket_iter = ll_makeiter (bucket);
         keyval *ckv = NULL;
         *elt = NULL;
-        while ((ckv = (keyval *)ll_iter_next (cbucket_iter)) != NULL) {
+        while ((ckv = (keyval *)ll_iter_next (bucket_iter)) != NULL) {
                 // TODO: olstrcmp here too
                 if (strcmp(ckv->key, key) == 0) {
                         *elt = ckv->value;

@@ -30,7 +30,7 @@ void mask_eval (void)
                                 return;
                         }
                         char *nextline;
-                        q_pop (elines, &nextline);
+                        q_pop (elines, (void **)&nextline);
                         line = vcombine_str (0, 2, line, nextline);
 
                         lbs = strrchr (line, '\\');

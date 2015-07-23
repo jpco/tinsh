@@ -6,8 +6,8 @@
 
 typedef struct {
         char *name;
-        arglist_j args;
-        block_j block;
+        arglist_j *args;
+        job_queue *jq;
 } fn_j;
 
 fn_j *fn_form(queue *lines);
