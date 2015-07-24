@@ -13,14 +13,16 @@ void comment_eval (void)
 {
         queue *nqueue = q_make();
         while (q_len (elines) > 0) {
-                m_str *line;
+                m_str *line = NULL;
                 q_pop (elines, (void **)&line);
 
+                if (line == NULL) continue;
                 char *comment = ms_strchr (line, '#');
                 if (comment != NULL) {
                         *comment = '\0';
                         ms_updatelen (line);
                 }
+                if (line->str == NULL) continue;
                 if (*(line->str) != '\0') {
                         q_push (nqueue, line);
                 }

@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
 
 // local includes
 #include "linkedlist.h"
@@ -28,11 +29,13 @@ typedef struct keyval_str {
 
 size_t ht_hash (const char *in, size_t max)
 {
-        if (in == NULL) return 0;
+        if (in == NULL) {
+                return 0;
+        }
 
         const char *buf;
         size_t out = 0;
-        for (buf = in; buf != '\0'; buf++) {
+        for (buf = in; *buf != '\0'; buf++) {
                 out += *buf;
         }
 
@@ -88,8 +91,8 @@ void ht_destroy (hashtable *ht)
 // TODO: resizability
 void ht_add (hashtable *ht, const char *key, void *elt)
 {
+        if (ht == NULL) return;
         size_t knum = ht_hash(key, ht->num_buckets);
-
         if (ht->buckets[knum] == NULL) {
                 ht->buckets[knum] = ll_make();
         }
@@ -104,7 +107,7 @@ void ht_add (hashtable *ht, const char *key, void *elt)
                 }
         }
         free (cbucket_iter);
-        
+
         if (ckv == NULL) {
                 char *lstr = strdup (key);
                 keyval *nkv = malloc (sizeof(keyval));

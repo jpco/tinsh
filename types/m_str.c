@@ -27,6 +27,7 @@ m_str *ms_make (size_t len)
                 free (nms);
                 return NULL;
         }
+        nms->len = 0;
 
         return nms;
 }
@@ -36,6 +37,7 @@ void bs_pass (m_str *ms)
         m_str *mbuf = malloc(sizeof(m_str));
         mbuf->str = ms->str;
         mbuf->mask = ms->mask;
+        mbuf->len = ms->len;
         while ((mbuf_strchr(mbuf, '\\'))) {
                 ms_rmchar(mbuf);
                 *(mbuf->mask) = '\\';
@@ -52,6 +54,7 @@ void squote_pass (m_str *ms)
 
         mbuf->str = ms->str;
         mbuf->mask = ms->mask;
+        mbuf->len = ms->len;
 
         while ((mbuf_strchr(mbuf, '\''))) {
                 ms_rmchar (mbuf);
@@ -89,6 +92,7 @@ void dquote_pass (m_str *ms)
 
         mbuf->str = ms->str;
         mbuf->mask = ms->mask;
+        mbuf->len = ms->len;
 
         while ((mbuf_strchr(mbuf, '"'))) {
                 ms_rmchar (mbuf);
@@ -133,8 +137,10 @@ void dquote_pass (m_str *ms)
 //
 m_str *ms_mask (const char *str)
 {
-        m_str *nms = malloc (sizeof(m_str));
+        m_str *nms = calloc (sizeof(m_str), 1);
         if (nms == NULL) return NULL;
+
+        if (str == NULL) return nms;
 
         nms->mask = calloc (strlen(str)+1, sizeof(char));
         if (nms->mask == NULL) {
@@ -145,6 +151,7 @@ m_str *ms_mask (const char *str)
         squote_pass (nms);
         dquote_pass (nms);
 
+        ms_updatelen (nms);
         return nms;
 }
 
@@ -165,12 +172,14 @@ m_str *ms_dup (m_str *oms)
                 return NULL;
         }
 
+        ms_updatelen (nms);
         return nms;
 }
 
 char *ms_strip (m_str *ms)
 {
-        return strdup (ms->str);
+        if (ms == NULL) return NULL;
+        else return strdup (ms->str);
 }
 
 char *ms_unmask (m_str *ms)
@@ -214,6 +223,7 @@ int mbuf_strchr(m_str *mbuf, char d)
                 if (mbuf->str[i] == d) {
                         mbuf->str += i;
                         mbuf->mask += i;
+                        ms_updatelen (mbuf);
                         return 1;
                 }
         }
@@ -283,6 +293,7 @@ char ms_rmchar (m_str *ms)
                 ms->mask[i] = ms->mask[i+1];
         }
 
+        ms_updatelen (ms);
         return tr;
 }
 
@@ -349,7 +360,8 @@ m_str **ms_spl_cmd (const m_str *ms)
         if (strlen(wdbuf) > 0) {
                 argv[wdcount] = malloc(sizeof(m_str));
                 argv[wdcount]->str = wdbuf;
-                argv[wdcount++]->mask = wmbuf;
+                argv[wdcount]->mask = wmbuf;
+                ms_updatelen(argv[wdcount++]);
         }
 
         if (null_m) {
@@ -373,6 +385,7 @@ m_str *ms_dup_at (m_str *ms, char *s)
 
         return nms;
 }
+
 m_str *ms_advance (m_str *ms, size_t idx)
 {
         if (idx >= ms->len) {
@@ -390,12 +403,18 @@ m_str *ms_advance (m_str *ms, size_t idx)
 
 void ms_updatelen (m_str *ms)
 {
-        ms->len = strlen(ms->str);
+        if (ms == NULL) return;
+        if (ms->str == NULL) {
+                ms->len = 0;
+        } else {
+                ms->len = strlen(ms->str);
+        }
 }
 
 void ms_free (m_str *ms)
 {
-        free (ms->str);
-        free (ms->mask);
+        if (ms == NULL) return;
+        if (ms->str != NULL) free (ms->str);
+        if (ms->mask != NULL) free (ms->mask);
         free (ms);
 }

@@ -16,9 +16,11 @@ extern queue *ejobs;
 // TODO: make this work with m_str natively
 void spl_line_eval (void)
 {
-        m_str *line;
+        m_str *line = NULL;
         q_pop (elines, (void **)&line);
 
+        if (line == NULL) return;
+        ms_updatelen(line);
         size_t cmdlen = ms_len(line);
 
         char *buf = line->str;

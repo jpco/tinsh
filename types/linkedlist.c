@@ -280,8 +280,12 @@ ll_iter *ll_makeiter (linkedlist *ll)
 void *ll_iter_next (ll_iter *lli)
 {
         if (lli == NULL) return NULL;
-        if (lli->celt != NULL) lli->celt = lli->celt->next;
-        return lli->celt->data;
+        if (lli->celt != NULL) {
+                lli->celt = lli->celt->next;
+                return lli->celt->data;
+        } else {
+                return NULL;
+        }
 }
 
 int ll_iter_hasnext (ll_iter *lli)

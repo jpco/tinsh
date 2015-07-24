@@ -28,8 +28,10 @@ int has_var(const char *key)
         scope_j *csc = cscope;
         while (csc != NULL) {
                 if (ht_get (csc->vars, key, (void **)&trash)) return 1;
+                printf ("nope\n");
                 csc = csc->parent;
         }
+        printf ("final nope\n");
         return 0;
 }
 
@@ -58,6 +60,7 @@ void unset_var (const char *key)
                 if (ht_rm (cscope->vars, key, (void **)&trash)) {
                         break;
                 }
+                csc = csc->parent;
         }
         ms_free (trash);
 }
@@ -70,6 +73,7 @@ m_str *get_var (const char *key)
                 if (ht_rm (cscope->vars, key, (void **)&retval)) {
                         break;
                 }
+                csc = csc->parent;
         }
         return retval;
 }

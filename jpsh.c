@@ -10,6 +10,7 @@
 #include "inter/buffer.h"
 
 #include "eval/eval.h"
+#include "exec/exec.h"
 
 #include "types/var.h"
 #include "types/queue.h"
@@ -177,7 +178,8 @@ int main (int argc, char **argv)
                         // blocks/lines
                         queue *smq = q_make();
                         q_push (smq, line);
-                        eval (smq);
+                        job_queue *jq = eval (smq);
+                        exec (jq);
                 }
                 term_unprep();
         }
