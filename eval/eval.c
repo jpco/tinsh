@@ -23,11 +23,11 @@ queue *elines;
 // what is to be returned.
 job_queue *jobs;
 
-job_queue *eval (char **lines)
+job_queue *eval (queue *lines)
 {
         // initialize eval data
         ejobs = q_make();
-        elines = q_make();
+        elines = lines;
 
         if (ejobs == NULL || elines == NULL) {
                 if (ejobs != NULL) free (ejobs);
@@ -35,11 +35,6 @@ job_queue *eval (char **lines)
                 return NULL;
         }
 
-        size_t i;
-        char *cline;
-        for (i = 0; (cline = lines[i]) != NULL; i++) {
-                q_push (elines, lines[i]);
-        }
         q_push (ejobs, mask_eval);
 
         while (q_len (ejobs) > 0) {

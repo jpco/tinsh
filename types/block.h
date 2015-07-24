@@ -3,6 +3,7 @@
 
 #include "block_job.h"
 #include "job_queue.h"
+#include "queue.h"
 
 typedef struct block_str {
         block_job *bjob;

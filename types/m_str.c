@@ -131,7 +131,7 @@ void dquote_pass (m_str *ms)
 // HEY! | and ; in `` get masked!
 // HEY! \ at the end of a line kills a newline!
 //
-m_str *ms_mask (char *str)
+m_str *ms_mask (const char *str)
 {
         m_str *nms = malloc (sizeof(m_str));
         if (nms == NULL) return NULL;

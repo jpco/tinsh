@@ -7,6 +7,7 @@
 #include "fn.h"
 #include "hashtable.h"
 #include "stack.h"
+#include "scope.h"
 
 #include "../exec/env.h"
 

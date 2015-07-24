@@ -5,6 +5,7 @@
 
 // local includes
 #include "linkedlist.h"
+#include "../util/str.h"
 
 // self-include
 #include "hashtable.h"
@@ -85,7 +86,7 @@ void ht_destroy (hashtable *ht)
 }
 
 // TODO: resizability
-int ht_add (hashtable *ht, const char *key, void *elt)
+void ht_add (hashtable *ht, const char *key, void *elt)
 {
         size_t knum = ht_hash(key, ht->num_buckets);
 
@@ -97,8 +98,7 @@ int ht_add (hashtable *ht, const char *key, void *elt)
         keyval *ckv = NULL;
         ll_iter *cbucket_iter = ll_makeiter (cbucket);
         while ((ckv = (keyval *)ll_iter_next (cbucket_iter)) != NULL) {
-                // TODO: use olstrcmp on this
-                if (strcmp(ckv->key, key) == 0) {
+                if (olstrcmp(ckv->key, key)) {
                         ckv->value = elt;
                         break;
                 }
@@ -109,19 +109,17 @@ int ht_add (hashtable *ht, const char *key, void *elt)
                 char *lstr = strdup (key);
                 keyval *nkv = malloc (sizeof(keyval));
                 if (nkv == NULL) {
-                        return (int)knum + 1;
+                        return;
                 }
                 nkv->key = lstr;
                 nkv->value = elt;
                 ht->size++;      
         }
-
-        return 0;
 }
 
 int ht_get (hashtable *ht, const char *key, void **elt)
 {
-        if (ht == NULL) return 1;
+        if (ht == NULL) return 0;
         size_t knum = ht_hash(key, ht->num_buckets);
 
         if (ht->buckets[knum] == NULL) {
@@ -134,19 +132,18 @@ int ht_get (hashtable *ht, const char *key, void **elt)
         keyval *ckv = NULL;
         *elt = NULL;
         while ((ckv = (keyval *)ll_iter_next (bucket_iter)) != NULL) {
-                // TODO: olstrcmp here too
-                if (strcmp(ckv->key, key) == 0) {
+                if (olstrcmp(ckv->key, key)) {
                         *elt = ckv->value;
                         break;
                 }
         }
         free (bucket_iter);
-        return 0;
+        return (elt != NULL);
 }
 
 int ht_rm (hashtable *ht, const char *key, void **elt)
 {
-        if (ht == NULL) return 1;
+        if (ht == NULL) return 0;
         size_t knum = ht_hash(key, ht->num_buckets);
         if (ht->buckets[knum] == NULL) {
                 *elt = NULL;
@@ -158,8 +155,7 @@ int ht_rm (hashtable *ht, const char *key, void **elt)
         keyval *ckv = NULL;
         *elt = NULL;
         while ((ckv = (keyval *)ll_iter_next (bucket_iter)) != NULL) {
-                // TODO: olstrcmp here too
-                if (strcmp(ckv->key, key) == 0) {
+                if (olstrcmp(ckv->key, key)) {
                         *elt = ckv->value;
                         free (ckv->key);
                         free (ckv);
@@ -168,7 +164,7 @@ int ht_rm (hashtable *ht, const char *key, void **elt)
                 }
         }
         free (bucket_iter);
-        return 0;
+        return 1;
 }
 
 size_t ht_size (hashtable *ht)

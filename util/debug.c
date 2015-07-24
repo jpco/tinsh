@@ -5,8 +5,6 @@
 // self-include
 #include "debug.h"
 
-int debug_line_no = 0;
-
 void print_err (const char *errmsg)
 {
         if (debug_line_no) fprintf (stderr, "Line %d: ", debug_line_no);

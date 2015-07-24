@@ -1,5 +1,5 @@
-#ifndef JPSH_DEFS_H
-#define JPSH_DEFS_H
+#ifndef JPSH_UTIL_DEFS_H
+#define JPSH_UTIL_DEFS_H
 
 // Definitions for preventing
 // magic numbers. These numbers
@@ -28,6 +28,11 @@
 // Maximum length of subshell output.
 #define SUBSH_LEN       1000
 
+// TODO: fix this
+#define NUM_BUILTINS    0
+
+char **builtins;
+
 // Environment variables.
 extern char **environ;
 
@@ -38,24 +43,5 @@ const char separators[NUM_SEPARATORS];
 // char is a separator. (Keeps from writing too
 // many for() loops!
 int is_separator(char c);
-
-// out = (-|~)[fd|&]>[fd|+|*|^]
-// e.g.,
-// "cmd -&>+ log" appends stdout & stderr to a log
-// "cmd -3>* log" prepends whatever is at fd 3 to a log
-// "cmd -3>^ log" prepends to the log in reverse order
-// "cmd -2>1" pipes all stderr output to stdout
-// "cmd ~> parseoutput.sh ~2> logerrs.sh"
-//
-// in = <([<]-|[fd|&]~)
-
-typedef enum {RD_FIFO, RD_APP, RD_PRE, RD_REV, RD_OW, RD_LIT, RD_RD, RD_REP} rdm;
-
-typedef struct rd_struct {
-        int loc_fd;
-        rdm mode;       // type of redirection to be done
-        int fd;
-        char *name;
-} rd_t;
 
 #endif

@@ -10,7 +10,7 @@ typedef struct {
 } m_str;
 
 m_str *ms_make (size_t len);
-m_str *ms_mask (char *str);
+m_str *ms_mask (const char *str);
 m_str *ms_dup (m_str *oms);
 
 char *ms_strip (m_str *ms);
