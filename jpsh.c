@@ -10,7 +10,6 @@
 #include "inter/buffer.h"
 
 #include "eval/eval.h"
-#include "exec/exec.h"
 
 #include "types/var.h"
 #include "types/queue.h"

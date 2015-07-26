@@ -35,6 +35,8 @@ m_str *ms_advance(m_str *ms, size_t idx);
 
 void ms_updatelen (m_str *ms);
 
+void ms_print (m_str *ms, int nl);
+
 void ms_free (m_str *ms);
 
 #endif

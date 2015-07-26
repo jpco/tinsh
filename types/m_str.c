@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdio.h>
 
 // local includes
 #include "../util/str.h"
@@ -32,104 +33,6 @@ m_str *ms_make (size_t len)
         return nms;
 }
 
-void bs_pass (m_str *ms)
-{
-        m_str *mbuf = malloc(sizeof(m_str));
-        mbuf->str = ms->str;
-        mbuf->mask = ms->mask;
-        mbuf->len = ms->len;
-        while ((mbuf_strchr(mbuf, '\\'))) {
-                ms_rmchar(mbuf);
-                *(mbuf->mask) = '\\';
-        }
-
-        free (mbuf);
-        ms_updatelen (ms);
-}
-
-void squote_pass (m_str *ms)
-{
-        m_str *mbuf = malloc(sizeof(m_str));
-        m_str *mnextbuf = malloc(sizeof(m_str));
-
-        mbuf->str = ms->str;
-        mbuf->mask = ms->mask;
-        mbuf->len = ms->len;
-
-        while ((mbuf_strchr(mbuf, '\''))) {
-                ms_rmchar (mbuf);
-                ms_updatelen(mbuf);
-
-                mnextbuf->str = mbuf->str;
-                mnextbuf->mask = mbuf->mask;
-                int ends = mbuf_strchr(mnextbuf, '\'');
-                ptrdiff_t ediff = 0;
-
-                if (ends) {
-                        print_err ("Unmatched ' in command.");
-                        mnextbuf->str = mbuf->str + mbuf->len;
-                        mnextbuf->mask = mbuf->mask + mbuf->len;
-                        ediff = mbuf->len;
-                } else {
-                        ms_rmchar (mnextbuf);
-                        ediff = mnextbuf->str - mbuf->str;
-                }
-
-                memset (mbuf->mask, '\'', ediff);
-                mbuf->str = mnextbuf->str;
-                mbuf->mask = mnextbuf->mask;
-        }
-
-        free (mbuf);
-        free (mnextbuf);
-        ms_updatelen (ms);
-}
-
-void dquote_pass (m_str *ms)
-{
-        m_str *mbuf = malloc(sizeof(m_str));
-        m_str *mnextbuf = malloc(sizeof(m_str));
-
-        mbuf->str = ms->str;
-        mbuf->mask = ms->mask;
-        mbuf->len = ms->len;
-
-        while ((mbuf_strchr(mbuf, '"'))) {
-                ms_rmchar (mbuf);
-                ms_updatelen(mbuf);
-
-                mnextbuf->str = mbuf->str;
-                mnextbuf->mask = mbuf->mask;
-                int ends = mbuf_strchr(mnextbuf, '"');
-
-                if (ends) {
-                        print_err ("Unmatched \" in command.");
-                        mnextbuf->str = mbuf->str + mbuf->len;
-                        mnextbuf->mask = mbuf->mask + mbuf->len;
-                } else {
-                        ms_rmchar (mnextbuf);
-                }
-
-                char *sbuf;
-                for (sbuf = mbuf->str; sbuf < mnextbuf->str; sbuf++) {
-                        char cb = *sbuf;
-                        if (is_separator(cb) && cb != '(' &&
-                                        cb != ')' && cb != '~' && cb != ';'
-                                        && cb != '>' && cb != '<') {
-                                ptrdiff_t sdiff = sbuf - ms->str;
-                                ms->mask[sdiff] = '"';
-                        }
-                }
-
-                mbuf->str = mnextbuf->str;
-                mbuf->mask = mnextbuf->mask;
-        }
-
-        free (mbuf);
-        free (mnextbuf);
-        ms_updatelen(ms);
-}
-
 // TODO: Redo mask logic!
 //
 // HEY! | and ; in `` get masked!
@@ -140,17 +43,95 @@ m_str *ms_mask (const char *str)
         m_str *nms = calloc (sizeof(m_str), 1);
         if (nms == NULL) return NULL;
 
-        if (str == NULL) return nms;
+        if (str == NULL) {
+                return nms;
+        }
 
+        nms->str = strdup(str);
         nms->mask = calloc (strlen(str)+1, sizeof(char));
         if (nms->mask == NULL) {
                 free (nms);
                 return NULL;
         }
-        bs_pass (nms);
-        squote_pass (nms);
-        dquote_pass (nms);
 
+        // masking
+        size_t len = strlen(nms->str);
+        int i;
+        char squote = 0;
+        char dquote = 0;
+        char tick = 0;
+        for (i = 0; i < len; i++) {
+                // dquote mask:
+                // space, backslash, {, }, :,
+                // squote mask: everything
+                // bs mask: this char
+                // tick: pipe
+                if (nms->mask[i]) continue;
+
+                if (squote) {
+                        if (nms->str[i] == '\'') {
+                                // TODO: allow for \' not to end
+                                // squotes
+                                rm_char (nms->str + i);
+                                arm_char (nms->mask + i, len - i);
+                                squote = 0;
+                                i--;
+                        } else {
+                                nms->mask[i] = '\'';
+                        }
+                } else {
+                        if (dquote) {
+                                if (nms->str[i] == '"' && !nms->mask[i]) {
+                                        rm_char (nms->str + i);
+                                        arm_char (nms->mask + i, len - i);
+                                        dquote = 0;
+                                        i--;
+                                        continue;
+                                }
+                                char cchar = nms->str[i];
+                                if (cchar == ' ' ||
+                                    cchar == '|' || cchar == '{' ||
+                                    cchar == '}' || cchar == ':') {
+                                        nms->mask[i] = '"';
+                                        continue;
+                                }
+                        }
+
+                        if (tick) {
+                                if (nms->str[i] == '`') {
+                                        tick = 0;
+                                        continue;
+                                } else if (nms->str[i] == '|') {
+                                        nms->mask[i] = '`';
+                                        continue;
+                                }
+                        }
+
+                        if (nms->str[i] == '\\') {
+                                rm_char (nms->str + i);
+                                arm_char (nms->mask + i, len - i);
+                                nms->mask[i] = '\\';
+                                i--;
+                        } else if (nms->str[i] == '\'') {
+                                rm_char (nms->str + i);
+                                arm_char (nms->mask + i, len - i);
+                                squote = 1;
+                                i--;
+                        } else if (nms->str[i] == '"') {
+                                rm_char (nms->str + i);
+                                arm_char (nms->mask + i, len - i);
+                                dquote = 1;
+                                i--;
+                        } else if (nms->str[i] == '`') {
+                                tick = 1;
+                        }
+                }
+        }
+        if (squote || dquote || tick) {
+                print_err ("Unclosed quote or tick");
+        }
+
+        // finished
         ms_updatelen (nms);
         return nms;
 }
@@ -326,8 +307,8 @@ m_str **ms_spl_cmd (const m_str *ms)
 
         size_t wdcount = 0;
         char wdflag = 0;
-        char *wdbuf = calloc(strlen(s)+1, sizeof(char));
-        char *wmbuf = calloc(strlen(s)+1, sizeof(char));
+        char *wdbuf = calloc((ms->len)+1, sizeof(char));
+        char *wmbuf = calloc((ms->len)+1, sizeof(char));
         size_t wblen = 0;
         for (const char *buf = s; buf != NULL && *buf != '\0'; buf++) {
                 if (!m[buf-s]) {
@@ -347,7 +328,8 @@ m_str **ms_spl_cmd (const m_str *ms)
                 if (wdflag) {
                         argv[wdcount] = malloc(sizeof(m_str));
                         argv[wdcount]->str = wdbuf;
-                        argv[wdcount++]->mask = wmbuf;
+                        argv[wdcount]->mask = wmbuf;
+                        argv[wdcount++]->len = wblen;
 
                         wdbuf = calloc(strlen(s)+1, sizeof(char));
                         wmbuf = calloc(strlen(s)+1, sizeof(char));
@@ -407,8 +389,25 @@ void ms_updatelen (m_str *ms)
         if (ms->str == NULL) {
                 ms->len = 0;
         } else {
-                ms->len = strlen(ms->str);
+                int i;
+                for (i = 0; ms->str[i] != '\0'; i++);
+                ms->len = i;
         }
+}
+
+void ms_print (m_str *ms, int nl)
+{
+        size_t i;
+        for (i = 0; i < ms->len; i++) {
+                if (ms->mask[i]) {
+                        printf ("[7m%c[0m", ms->str[i]);
+                } else {
+                        printf ("%c", ms->str[i]);
+                }
+        }
+
+        if (nl) printf ("\n");
+
 }
 
 void ms_free (m_str *ms)

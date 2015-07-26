@@ -1,12 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdio.h>
 
 // local includes
 #include "../types/m_str.h"
 #include "../types/queue.h"
-
-#include "jq_form.h"
 
 // self-include
 #include "spl_pipe.h"
@@ -20,6 +19,9 @@ void spl_pipe_eval (void)
         m_str *line;
         q_pop(elines, (void **)&line);
 
+        if (line == NULL) {
+                return;
+        }
         char *buf = line->str;
         char *nbuf = ms_strchr(line, '|');
 
@@ -38,7 +40,7 @@ void spl_pipe_eval (void)
                         continue;
                 }
 
-                m_str *nline = ms_dup_at(line, nbuf);
+                m_str *nline = ms_dup_at(line, buf);
 
                 buf = nbuf + 1;
                 if (!lflag) {
@@ -50,5 +52,4 @@ void spl_pipe_eval (void)
         }
 
         ms_free (line);
-        q_push(ejobs, jq_form);
 }

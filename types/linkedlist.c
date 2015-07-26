@@ -82,7 +82,7 @@ int ll_insert (linkedlist *ll, void *elt, size_t idx)
                 c_elt->next = n_elt;
         }
 
-        ll->len++;
+        (ll->len)++;
         return 0;
 }
 
@@ -99,7 +99,7 @@ int ll_append (linkedlist *ll, void *elt)
         }
         n_elt->data = elt;
         n_elt->next = NULL;
-        
+
         if (ll->len == 0) {
                 ll->tail = n_elt;
                 ll->head = n_elt;
@@ -110,7 +110,7 @@ int ll_append (linkedlist *ll, void *elt)
                 ll->tail = n_elt;
         }
 
-        ll->len++;
+        (ll->len)++;
         return 0;
 }
 
@@ -138,7 +138,7 @@ int ll_prepend (linkedlist *ll, void *elt)
                 ll->head = n_elt;
         }
 
-        ll->len++;
+        (ll->len)++;
         return 0;
 }
 
@@ -165,9 +165,9 @@ int ll_rm (linkedlist *ll, void **elt, size_t idx)
                         c_elt->next->prev = c_elt->prev;
 
                 free (c_elt);
-                ll->len--;
         }
 
+        (ll->len)--;
         return 0;
 }
 
@@ -183,7 +183,7 @@ int ll_rmtail (linkedlist *ll, void **elt)
         ll->tail = rm_elt->prev;
         if (ll->tail != NULL) ll->tail->next = NULL;
 
-        ll->len--;
+        (ll->len)--;
         *elt = rm_elt->data;
         free (rm_elt);
         
@@ -202,7 +202,7 @@ int ll_rmhead (linkedlist *ll, void **elt)
         ll->head = rm_elt->next;
         if (ll->head != NULL) ll->head->prev = NULL;
 
-        ll->len--;
+        (ll->len)--;
         *elt = rm_elt->data;
         free (rm_elt);
         
@@ -277,14 +277,24 @@ ll_iter *ll_makeiter (linkedlist *ll)
         return nlli;
 }
 
+void *ll_iter_get (ll_iter *lli)
+{
+        if (lli == NULL) return NULL;
+        if (lli->celt == NULL) return NULL;
+        return lli->celt->data;
+}
+
 void *ll_iter_next (ll_iter *lli)
 {
         if (lli == NULL) return NULL;
-        if (lli->celt != NULL) {
+        if (lli->celt == NULL) {
+                return NULL;
+        } else if (lli->celt->next == NULL) {
+                lli->celt = NULL;
+                return NULL;
+        } else {
                 lli->celt = lli->celt->next;
                 return lli->celt->data;
-        } else {
-                return NULL;
         }
 }
 
@@ -296,6 +306,29 @@ int ll_iter_hasnext (ll_iter *lli)
         return 1;
 }
 
+void ll_iter_insert (ll_iter *lli, void *elt)
+{
+        if (lli == NULL) return;
+        if (lli->list == NULL) return;
+        if (lli->celt == NULL) return;
+
+        ll_elt *nelt = malloc(sizeof(ll_elt));
+        nelt->data = elt;
+        nelt->next = NULL;
+        nelt->prev = NULL;
+
+        if (lli->celt->prev == NULL) {
+                lli->list->head = nelt;
+        } else {
+                lli->celt->prev->next = nelt;
+                nelt->prev = lli->celt->prev;
+        }
+        nelt->next = lli->celt;
+        lli->celt->prev = nelt;
+        lli->celt = nelt;
+        lli->list->len++;
+}
+
 void ll_iter_rm (ll_iter *lli)
 {
         if (lli == NULL) return;
@@ -305,5 +338,6 @@ void ll_iter_rm (ll_iter *lli)
         if (lli->celt->prev != NULL) lli->celt->prev->next = lli->celt->next;
         if (lli->celt->next->prev != NULL) lli->celt->next->prev = lli->celt->prev;
         lli->celt = lli->celt->next;
+        lli->list->len--;
         free (lli->celt);
 }

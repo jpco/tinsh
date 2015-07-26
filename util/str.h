@@ -96,4 +96,6 @@ char *vcombine_str(char delim, int ct, ...);
  */
 char rm_char (char *line);
 
+char arm_char (char *line, size_t len);
+
 #endif

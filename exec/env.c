@@ -28,10 +28,8 @@ int has_var(const char *key)
         scope_j *csc = cscope;
         while (csc != NULL) {
                 if (ht_get (csc->vars, key, (void **)&trash)) return 1;
-                printf ("nope\n");
                 csc = csc->parent;
         }
-        printf ("final nope\n");
         return 0;
 }
 

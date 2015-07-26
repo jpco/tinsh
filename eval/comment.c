@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 // local includes
 #include "../types/queue.h"
 #include "../types/m_str.h"
@@ -17,12 +19,17 @@ void comment_eval (void)
                 q_pop (elines, (void **)&line);
 
                 if (line == NULL) continue;
+                if (line->str == NULL) {
+                        continue;
+                }
                 char *comment = ms_strchr (line, '#');
                 if (comment != NULL) {
                         *comment = '\0';
                         ms_updatelen (line);
                 }
-                if (line->str == NULL) continue;
+                if (line->str == NULL) {
+                        continue;
+                }
                 if (*(line->str) != '\0') {
                         q_push (nqueue, line);
                 }

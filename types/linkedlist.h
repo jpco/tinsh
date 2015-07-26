@@ -32,7 +32,10 @@ int ll_gettail(linkedlist *ll, void **elt);
 size_t ll_len(linkedlist *ll);
 
 ll_iter *ll_makeiter(linkedlist *ll);
+void *ll_iter_get (ll_iter *lli);
 void *ll_iter_next (ll_iter *lli);
+void ll_iter_insert (ll_iter *lli, void *elt);
+
 int ll_iter_hasnext (ll_iter *lli);
 void ll_iter_rm (ll_iter *lli);
 

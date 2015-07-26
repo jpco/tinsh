@@ -5,6 +5,7 @@
 #include "../types/queue.h"
 #include "../types/linkedlist.h"
 #include "../types/block.h"
+#include "../types/job_queue.h"
 
 #include "../util/debug.h"
 
@@ -18,10 +19,6 @@
 
 queue *ejobs;
 queue *elines;
-
-// essentially the global block;
-// what is to be returned.
-job_queue *jobs;
 
 job_queue *eval (queue *lines)
 {
@@ -43,10 +40,12 @@ job_queue *eval (queue *lines)
                 ejob();
         }
 
+        job_queue *jq = jq_make (elines);
+
         // free eval data
         ll_destroy (ejobs);
         ll_destroy (elines);
 
         // return
-        return jobs;
+        return jq;
 }

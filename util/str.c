@@ -39,6 +39,17 @@ char rm_char (char *line)
         return tr;
 }
 
+char arm_char (char *line, size_t len)
+{
+        char tr = *line;
+        int i;
+        for (i = 0; i < len; i++) {
+                line[i] = line[i+1];
+        }
+
+        return tr;
+}
+
 char **split_str (char *line, char delim)
 {
         char *nline = malloc ((1+strlen(line))*sizeof(char));

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdio.h>
 
 // local includes
 #include "../types/m_str.h"
@@ -34,7 +35,7 @@ void spl_line_eval (void)
                 }
                 if (buf == '\0') continue;
 
-                m_str *nline = ms_dup_at(line, nbuf);
+                m_str *nline = ms_dup_at(line, buf);
 
                 buf = nbuf + 1;
                 if (buf - line->str < cmdlen) {

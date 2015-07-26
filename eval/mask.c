@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 // local includes
 #include "../types/m_str.h"
@@ -19,7 +20,7 @@ void mask_eval (void)
 {
         queue *mlines = q_make();
         while (q_len (elines) > 0) {
-                char *line;
+                char *line = NULL;
                 q_pop (elines, (void **)&line);
 
                 char *lbs = strrchr(line, '\\');
