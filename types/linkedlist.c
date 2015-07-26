@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 // self-include
 #include "linkedlist.h"
@@ -268,6 +269,7 @@ size_t ll_len (linkedlist *ll)
 
 ll_iter *ll_makeiter (linkedlist *ll)
 {
+        if (ll == NULL) return NULL;
         ll_iter *nlli = malloc(sizeof(ll_iter));
         if (nlli == NULL) return NULL;
         

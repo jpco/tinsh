@@ -31,6 +31,8 @@
 // TODO: fix this
 #define NUM_BUILTINS    0
 
+#define PIPE_MARKER     ((void *)0xFEFE)
+
 char **builtins;
 
 // Environment variables.

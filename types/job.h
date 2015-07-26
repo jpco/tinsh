@@ -25,6 +25,6 @@ typedef struct job_str {
         stack *rd_stack;
 } job_j;
 
-job_j *job_form(m_str *line);
+job_j *job_form(m_str *line, job_j *prev_job);
 
 #endif

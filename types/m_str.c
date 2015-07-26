@@ -55,18 +55,26 @@ m_str *ms_mask (const char *str)
         }
 
         // masking
-        size_t len = strlen(nms->str);
         int i;
         char squote = 0;
         char dquote = 0;
         char tick = 0;
-        for (i = 0; i < len; i++) {
+        for (i = 0; i < strlen(nms->str); i++) {
                 // dquote mask:
                 // space, backslash, {, }, :,
                 // squote mask: everything
                 // bs mask: this char
                 // tick: pipe
+                size_t len = strlen(nms->str);
+
                 if (nms->mask[i]) continue;
+
+                        if (nms->str[i] == '\\') {
+                                rm_char (nms->str + i);
+                                arm_char (nms->mask + i, len - i);
+                                nms->mask[i] = '\\';
+                                i--;
+                        }
 
                 if (squote) {
                         if (nms->str[i] == '\'') {
@@ -107,12 +115,7 @@ m_str *ms_mask (const char *str)
                                 }
                         }
 
-                        if (nms->str[i] == '\\') {
-                                rm_char (nms->str + i);
-                                arm_char (nms->mask + i, len - i);
-                                nms->mask[i] = '\\';
-                                i--;
-                        } else if (nms->str[i] == '\'') {
+                        if (nms->str[i] == '\'') {
                                 rm_char (nms->str + i);
                                 arm_char (nms->mask + i, len - i);
                                 squote = 1;

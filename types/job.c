@@ -11,9 +11,6 @@
 // self-include
 #include "job.h"
 
-static job_j *prev_job;
-static job_j *job_out;
-
 int redirect (job_j *job, int i)
 {
         int retval = i;
@@ -125,8 +122,7 @@ int redirect (job_j *job, int i)
         return retval;
 }
 
-
-job_j *job_form (m_str *line)
+job_j *job_form (m_str *line, job_j *prev_job)
 {
         // for memory safety
         m_str *ol = line;
@@ -191,13 +187,6 @@ job_j *job_form (m_str *line)
         if (prev_job != NULL) {
                 job->p_prev = prev_job;
                 job->p_prev->p_next = job;
-        }
-
-        // pipe to next job?
-        if (job_out != NULL) {
-                prev_job = job;
-        } else {
-                prev_job = NULL;
         }
 
         return job;

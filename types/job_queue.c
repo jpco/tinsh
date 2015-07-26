@@ -14,6 +14,8 @@
 
 #include "../exec/env.h"
 
+#include "../util/defs.h"
+
 // self-include
 #include "job_queue.h"
 
@@ -29,7 +31,23 @@ typedef struct jq_elt_str {
 
 job_j *jq_next (job_queue *jq)
 {
-        return NULL;
+        if (jq == NULL) return NULL;
+
+        if (jq->cjob == NULL) {
+                jq->cjob = ll_makeiter (jq->jobs);
+        }
+
+        jq_elt *cjqe = ll_iter_get (jq->cjob);
+        ll_iter_next (jq->cjob);
+
+        if (cjqe == NULL) {
+                return NULL;
+        }
+
+        if (cjqe->is_block) return NULL;
+        else {
+                return cjqe->dat.job;
+        }
 }
 
 void jq_add_block (job_queue *jq, block_j *block);
@@ -37,50 +55,52 @@ void jq_add_job (job_queue *jq, job_j *job);
 
 job_queue *jq_make (queue *lines)
 {
-        m_str *foo;
+        job_queue *njq = malloc(sizeof(job_queue));
+        njq->jobs = ll_make();
+        if (njq->jobs == NULL) printf ("WHY this?\n");
+
+        m_str *cline;
+        char pipe = 0;
+        job_j *ljob = NULL;
         while (q_len (lines) > 0) {
-                q_pop (lines, (void **)&foo);
-                ms_print (foo, 1);
+                q_pop (lines, (void **)&cline);
+                if (cline == PIPE_MARKER) {
+                        pipe = 1;
+                } else {
+                        // TODO: test for blocks
+                        if (!pipe) {
+                                // add previous pipe chain to the job queue
+                                job_j *pjob = ljob;
+                                if (pjob) {
+                                        while (pjob->p_prev != NULL) {
+                                                pjob = pjob->p_prev;
+                                        }
+
+                                        jq_add_job (njq, pjob);
+                                }
+
+                                ljob = NULL;
+                        }
+                        ljob = job_form (cline, ljob);
+                        pipe = 0;
+                }
         }
-        return NULL;
+
+        job_j *pjob = ljob;
+        if (pjob) {
+                while (pjob->p_prev != NULL) {
+                        pjob = pjob->p_prev;
+                }
+                jq_add_job (njq, pjob);
+        }
+
+        njq->cjob = NULL;
+        return njq;
 }
 
 job_queue *jq_singleton (queue *lines)
 {
-        job_queue *jq = malloc(sizeof(job_queue));
-        if (jq == NULL) return NULL;
-        jq->jobs = ll_make();
-        if (jq->jobs == NULL) {
-                free (jq);
-                return NULL;
-        }
-        jq->cjob = NULL;
-
-        m_str *cline;
-        q_pop (lines, (void **)&cline);
-
-        if (ms_strchr(cline, '{') != NULL
-                        || ms_strchr(cline, ':') != NULL) {
-                // block/fn!
-                if (ms_startswith(cline, "fn")) {
-                        // fn!
-                        fn_j *new_fn = fn_form(lines);
-                        // TODO: check for null
-                        ht_add(cscope->fns, new_fn->name, new_fn);
-                } else {
-                        // block
-                        block_j *new_bl = block_form(lines);
-                        // TODO: check for null
-                        jq_add_block(jq, new_bl);
-                }
-        } else {
-                // job
-                job_j *new_job = job_form(cline);
-                // TODO: check for null
-                jq_add_job(jq, new_job);
-        }
-
-        return jq;
+        return NULL;
 }
 
 void jq_add_block (job_queue *jq, block_j *block)
