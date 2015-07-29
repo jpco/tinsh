@@ -88,29 +88,23 @@ m_str *ms_mask (const char *str)
                                 nms->mask[i] = '\'';
                         }
                 } else {
-                        if (dquote) {
-                                if (nms->str[i] == '"' && !nms->mask[i]) {
+                        if (dquote || tick) {
+                                if (nms->str[i] == '"') {
                                         rm_char (nms->str + i);
                                         arm_char (nms->mask + i, len - i);
                                         dquote = 0;
                                         i--;
                                         continue;
+                                } else if (nms->str[i] == '`') {
+                                        tick = 0;
+                                        continue;
                                 }
+
                                 char cchar = nms->str[i];
                                 if (cchar == ' ' ||
                                     cchar == '|' || cchar == '{' ||
                                     cchar == '}' || cchar == ':') {
                                         nms->mask[i] = '"';
-                                        continue;
-                                }
-                        }
-
-                        if (tick) {
-                                if (nms->str[i] == '`') {
-                                        tick = 0;
-                                        continue;
-                                } else if (nms->str[i] == '|') {
-                                        nms->mask[i] = '`';
                                         continue;
                                 }
                         }

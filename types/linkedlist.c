@@ -194,7 +194,7 @@ int ll_rmtail (linkedlist *ll, void **elt)
 int ll_rmhead (linkedlist *ll, void **elt)
 {
         if (ll == NULL || ll->head == NULL) {
-                elt = NULL;
+                *elt = NULL;
                 errno = EINVAL;
                 return 1;
         }
