@@ -160,6 +160,7 @@ void init_env_wfp (FILE *fp)
 {
         gscope = new_scope(NULL);
         cscope = gscope;
+        alias_tab = ht_make();
 
         size_t n = MAX_LINE;
         char *rline = malloc((1+n)*sizeof(char));

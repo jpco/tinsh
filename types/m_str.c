@@ -225,11 +225,13 @@ int ms_ustrcmp (const m_str *first, const m_str *second)
 
 size_t ms_len (const m_str *ms)
 {
+        if (ms == NULL) return 0;
         return ms->len;
 }
 
 void ms_trim (m_str **ms_ptr)
 {
+        if (ms_ptr == NULL || *ms_ptr == NULL) return;
         m_str *ms = *ms_ptr;
         const char *buf = ms->str;
 
@@ -394,6 +396,11 @@ void ms_updatelen (m_str *ms)
 
 void ms_print (m_str *ms, int nl)
 {
+        if (ms == NULL) {
+                if (nl) printf ("\n");
+                return;
+        }
+
         size_t i;
         for (i = 0; i < ms->len; i++) {
                 if (ms->mask[i]) {

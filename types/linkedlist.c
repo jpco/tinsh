@@ -291,12 +291,10 @@ void *ll_iter_next (ll_iter *lli)
         if (lli == NULL) return NULL;
         if (lli->celt == NULL) {
                 return NULL;
-        } else if (lli->celt->next == NULL) {
-                lli->celt = NULL;
-                return NULL;
         } else {
+                void *dat = lli->celt->data;
                 lli->celt = lli->celt->next;
-                return lli->celt->data;
+                return dat;
         }
 }
 

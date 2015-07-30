@@ -19,6 +19,7 @@ void comment_eval (void)
                 q_pop (elines, (void **)&line);
 
                 if (line == NULL) continue;
+
                 if (line->str == NULL) {
                         continue;
                 }
@@ -35,8 +36,12 @@ void comment_eval (void)
                 }
         }
 
-        q_destroy (elines);
-        elines = nqueue;
+        while (q_len (nqueue) != 0) {
+                m_str *line;
+                q_pop (nqueue, (void **)&line);
+                q_push (elines, line);
+                q_push (ejobs, spl_line_eval);
+        }
 
-        q_push (ejobs, spl_line_eval);
+        q_destroy (nqueue);
 }

@@ -7,6 +7,7 @@ typedef struct scope_str {
         struct scope_str *parent;
         hashtable *vars;
         hashtable *fns;
+        size_t depth;
 } scope_j;
 
 // p is parent scope

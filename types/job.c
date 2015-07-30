@@ -124,6 +124,7 @@ int redirect (job_j *job, int i)
 
 job_j *job_form (m_str *line, job_j *prev_job)
 {
+        if (line == NULL) return NULL;
         // for memory safety
         m_str *ol = line;
 

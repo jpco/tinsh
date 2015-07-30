@@ -18,47 +18,10 @@
 
 // self-include
 #include "job_queue.h"
+// (kind of self-include)
+#include "jq_elt.h"
 
 extern scope_j *cscope;
-
-typedef struct jq_elt_str {
-        char is_block;
-        union {
-                block_j *bl;
-                job_j *job;
-        } dat;
-} jq_elt;
-
-job_j *jq_next (job_queue *jq)
-{
-        if (jq == NULL) return NULL;
-
-        if (jq->cjob == NULL) {
-                jq->cjob = ll_makeiter (jq->jobs);
-        }
-
-        jq_elt *cjqe = ll_iter_get (jq->cjob);
-
-        if (cjqe == NULL) {
-                return NULL;
-        }
-
-        if (cjqe->is_block) {
-                if (ll_iter_get (cjqe->dat.bl->jobs->cjob) != NULL ||
-                                bj_test (cjqe->dat.bl->bjob)) {
-                        printf ("   ");
-                        return jq_next (cjqe->dat.bl->jobs);
-                } else {
-                        free (cjqe->dat.bl->jobs->cjob);
-                        cjqe->dat.bl->jobs->cjob = NULL;
-                        ll_iter_next (jq->cjob);
-                        return jq_next (jq);
-                }
-        } else {
-                ll_iter_next (jq->cjob);
-                return cjqe->dat.job;
-        }
-}
 
 void jq_add_block (job_queue *jq, block_j *block);
 void jq_add_job (job_queue *jq, job_j *job);
@@ -67,7 +30,6 @@ job_queue *jq_make (queue *lines)
 {
         job_queue *njq = malloc(sizeof(job_queue));
         njq->jobs = ll_make();
-        if (njq->jobs == NULL) printf ("WHY this?\n");
 
         m_str *cline;
         char pipe = 0;
@@ -149,5 +111,5 @@ void jq_add_job (job_queue *jq, job_j *job)
         jq_elt *nelt = malloc(sizeof(jq_elt));
         nelt->is_block = 0;
         nelt->dat.job = job;
-        ll_append(jq->jobs, nelt);
+        ll_append((linkedlist *)jq->jobs, nelt);
 }

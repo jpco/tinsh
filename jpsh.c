@@ -60,7 +60,8 @@ void parse_file (char *fstr)
         }
         fclose (fp);
 
-        eval (lines);
+        job_queue *jq = eval (lines);
+        exec (jq);
 }
 
 typedef struct {
@@ -160,7 +161,8 @@ int main (int argc, char **argv)
         } else if (args.cmd != NULL) {
                 queue *smq = q_make();
                 q_push(smq, args.cmd);
-                eval (smq);
+                job_queue *jq = eval (smq);
+                exec (jq);
                 return 0;
         }
 

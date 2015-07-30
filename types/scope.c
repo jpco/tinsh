@@ -18,6 +18,11 @@ scope_j *new_scope (scope_j *p)
         nscope->vars = ht_make();
         nscope->fns = ht_make();
         nscope->parent = p;
+        if (p == NULL) {
+                nscope->depth = 0;
+        } else {
+                nscope->depth = nscope->parent->depth + 1;
+        }
 
         return nscope;
 }

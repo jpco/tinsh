@@ -37,9 +37,12 @@ void mask_eval (void)
                         lbs = strrchr (line, '\\');
                 }
                 m_str *mline = ms_mask (line);
+                ms_trim (&mline);
                 free (line);
 
-                q_push (mlines, mline);
+                if (mline != NULL && *(mline->str) != 0) {
+                        q_push (mlines, mline);
+                }
         }
 
         q_destroy (elines);
