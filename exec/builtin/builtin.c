@@ -52,12 +52,17 @@ int func_set (job_j *job)
                 print_err ("Too few args.\n");
                 return 2;
         } else {
-                char *keynval = ms_strip(ms_combine(argv+1, argc-1, '\0'));
+                char *keynval = ms_strip(ms_combine(argv+1, argc-1, ' '));
                 if (strchr(keynval, '=') == NULL) {
                         set_var (keynval, NULL);
                 } else {
                         char **key_val = split_str (keynval, '=');
+                        int len = 0;
+                        for (len = 0; key_val[len] != NULL; len++);
+                        key_val[1] = combine_str ((const char **)key_val+1, len-1, '=');
 
+                        key_val[0] = trim_str (key_val[0]);
+                        key_val[1] = trim_str (key_val[1]);
                         if (key_val[0] != NULL) {
                                 set_var (key_val[0], key_val[1]);
                                 free (key_val[0]);
@@ -74,26 +79,36 @@ int func_set (job_j *job)
 
 int func_setenv (job_j *job)
 {
-        const char **argv = (const char **)job->argv;
-        int argc = job->argc;
+        const m_str **argv = (const m_str **)job->argv;
+        size_t argc = job->argc;
 
         if (argc == 1) {
                 print_err ("Too few args.\n");
                 return 2;
         } else {
-                char *keynval = combine_str(argv+1, argc-1, '\0');
-                if (strchr(keynval, '=') == NULL) {
-                        print_err ("Malformed \"setenv\".");
-                } else {
+                char *keynval = ms_strip(ms_combine(argv+1, argc-1, ' '));
+                if (strchr(keynval, '=') != NULL) {
                         char **key_val = split_str (keynval, '=');
-                        free (keynval);
+                        int len = 0;
+                        for (len = 0; key_val[len] != NULL; len++);
+                        key_val[1] = combine_str ((const char **)key_val+1, len-1, '=');
 
-                        setenv (key_val[0], key_val[1], 1);
+                        key_val[0] = trim_str (key_val[0]);
+                        key_val[1] = trim_str (key_val[1]);
+                        if (key_val[0] != NULL) {
+                                setenv (key_val[0], key_val[1], 1);
+                                free (key_val[0]);
+                                free (key_val);
+                        } else {
+                                print_err ("Malformed 'setenv' syntax.");
+                        }
                 }
+                free (keynval);
         }
 
         return 1;
 }
+
 
 int func_unset (job_j *job)
 {
@@ -126,15 +141,36 @@ int func_unenv (job_j *job)
 
 int func_alias (job_j *job)
 {
-        if (job->argc < 3) {
+        const m_str **argv = (const m_str **)job->argv;
+        size_t argc = job->argc;
+
+        if (argc == 1) {
                 print_err ("Too few args.\n");
                 return 2;
         } else {
-                set_msalias (ms_strip(job->argv[1]), job->argv[2]);
+                char *keynval = ms_strip(ms_combine(argv+1, argc-1, ' '));
+                if (strchr(keynval, '=') != NULL) {
+                        char **key_val = split_str (keynval, '=');
+                        int len = 0;
+                        for (len = 0; key_val[len] != NULL; len++);
+                        key_val[1] = combine_str ((const char **)key_val+1, len-1, '=');
+
+                        key_val[0] = trim_str (key_val[0]);
+                        key_val[1] = trim_str (key_val[1]);
+                        if (key_val[0] != NULL) {
+                                set_alias (key_val[0], key_val[1]);
+                                free (key_val[0]);
+                                free (key_val);
+                        } else {
+                                print_err ("Malformed 'alias' syntax.");
+                        }
+                }
+                free (keynval);
         }
 
         return 1;
 }
+
 
 int func_unalias (job_j *job)
 {

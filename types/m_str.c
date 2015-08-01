@@ -166,6 +166,7 @@ char *ms_strip (m_str *ms)
 
 char *ms_unmask (m_str *ms)
 {
+        ms_updatelen (ms);
         char *nstr = calloc((2*ms_len(ms)+1), sizeof(char));
         if (nstr == NULL) return NULL;
 
