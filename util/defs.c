@@ -10,7 +10,7 @@ char *cmd_builtins[NUM_CMD_BIS] = {"cd", "pwd", "lsvars", "lsalias", "set", "set
 char **bis = NULL;
 
 char **get_builtins() {
-        if (!bis) bis = (char **)combine ((void **)flow_builtins, (void **)cmd_builtins, 6, 11);
+        if (!bis) bis = (char **)combine ((void **)flow_builtins, (void **)cmd_builtins, NUM_FLOW_BIS, NUM_CMD_BIS);
 
         return bis;
 }
