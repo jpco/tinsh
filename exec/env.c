@@ -122,7 +122,7 @@ void unset_alias (const char *key)
 m_str *get_alias (const char *key)
 {
         m_str *retval;
-        ht_rm (alias_tab, key, (void **)&retval);
+        ht_get (alias_tab, key, (void **)&retval);
         return retval;
 }
 

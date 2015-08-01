@@ -68,13 +68,21 @@ void reprint (void)
         int width = term_width();
         if (width == 0) width = INT_MAX;
         int nlines = (prompt_length + length - 2) / width;
-        int vert = (prompt_length + idx) / width;
-        int horiz = (prompt_length + idx) % width;
+        int vert = (prompt_length + idx - 1) / width;
+        int horiz = (prompt_length + idx - 1) % width;
 
+        // position for print
+        printf("[%dA[%dG", vert, prompt_length);
         // print
-        printf("[%dG%s[%dA[%dG", prompt_length, buf, nlines, prompt_length);
-        // relocate
-        printf("[%dA[%dB[%dG", nlines, vert, horiz);
+        printf("%s", buf);
+        // clean up and relocate
+        if (vert > nlines && horiz == 0) {
+                // at end and hit new line
+                printf ("\n");
+        } else {
+                printf ("[K");
+                printf("[%dA[%dB[%dG", nlines, vert, horiz + 1);
+        }
 }
 
 void rewd (void)

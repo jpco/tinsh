@@ -331,13 +331,22 @@ void ll_iter_insert (ll_iter *lli, void *elt)
 
 void ll_iter_rm (ll_iter *lli)
 {
+        printf ("%p, %p, %p\n", lli, lli->list, lli->celt);
         if (lli == NULL) return;
         if (lli->list == NULL) return;
         if (lli->celt == NULL) return;
 
-        if (lli->celt->prev != NULL) lli->celt->prev->next = lli->celt->next;
-        if (lli->celt->next->prev != NULL) lli->celt->next->prev = lli->celt->prev;
+        if (lli->celt->prev != NULL) {
+                lli->celt->prev->next = lli->celt->next;
+        } else {
+                lli->list->head = lli->list->head->next;
+        }
+        if (lli->celt->next != NULL) {
+                lli->celt->next->prev = lli->celt->prev;
+        } else {
+                lli->list->tail = lli->list->tail->prev;
+        }
         lli->celt = lli->celt->next;
         lli->list->len--;
-        free (lli->celt);
+        printf ("len now %lu\n", lli->list->len);
 }
