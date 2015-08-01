@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <errno.h>
+#include <stdarg.h>
 
 // local includes
 #include "../util/str.h"
@@ -135,6 +137,8 @@ m_str *ms_mask (const char *str)
 
 m_str *ms_dup (m_str *oms)
 {
+        if (oms == NULL || oms->str == NULL || oms->mask == NULL)
+                return NULL;
         m_str *nms = malloc (sizeof(m_str));
         if (nms == NULL) return NULL;
 
@@ -392,6 +396,55 @@ void ms_updatelen (m_str *ms)
                 for (i = 0; ms->str[i] != '\0'; i++);
                 ms->len = i;
         }
+}
+
+m_str *ms_combine (const m_str **strs, int arrlen, char delim)
+{
+        int len = 0;
+        int i;
+        for (i = 0; i < arrlen; i++) {
+                if (strs[i] == NULL || *(strs[i]->str) == '\0') continue;
+                len += ms_len(strs[i]);
+        }
+
+        m_str *comb = ms_make (len+1);
+        if (delim != '\0') {
+                ms_free (comb);
+                comb = ms_make (arrlen+len+1);
+        }
+        if (errno == ENOMEM) {
+                print_err ("Could not malloc to combine m_str");
+                return NULL;
+        }
+
+        int ctotal = 0;
+        for (i = 0; i < arrlen; i++) {
+                if (strs[i] == NULL) continue;
+                int j;
+                for (j = 0; strs[i]->str[j] != '\0'; j++) {
+                        comb->str[ctotal+j] = strs[i]->str[j];
+                        comb->mask[ctotal+j] = strs[i]->mask[j];
+                }
+                ctotal += j;
+                if (delim != '\0' && i < arrlen-1) {
+                        comb->str[ctotal] = delim;
+                        comb->mask[ctotal++] = 0;
+                }
+        }
+        return comb;
+}
+
+m_str *ms_vcombine (char delim, int ct, ...)
+{
+        va_list argl;
+        const m_str *strarr[ct];
+
+        va_start (argl, ct);
+        int i;
+        for (i = 0; i < ct; i++) {
+                strarr[i] = va_arg(argl, const m_str *);
+        }
+        return ms_combine (strarr, ct, delim);
 }
 
 void ms_print (m_str *ms, int nl)

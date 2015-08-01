@@ -95,7 +95,39 @@ job_queue *jq_make (queue *lines)
 
 job_queue *jq_singleton (queue *lines)
 {
-        return NULL;
+        job_queue *njq = malloc(sizeof(job_queue));
+        njq->jobs = ll_make();
+
+        m_str *cline;
+        job_j *ljob = NULL;
+        do {
+                q_pop (lines, (void **)&cline);
+
+                // here is where we handle blocks
+                if (ms_strchr (cline, '{') != NULL ||
+                        ms_strchr (cline, ':') != NULL) {
+                        // nasty
+                        ll_prepend ((linkedlist *)lines, cline);
+                        block_j *cblock = block_form(lines);
+                        jq_add_block (njq, cblock);
+                } else {
+                        ljob = job_form (cline, ljob);
+                }
+                q_pop (lines, (void **)&cline);
+
+        } while (cline == PIPE_MARKER);
+        ll_prepend ((linkedlist *)lines, cline);
+
+        job_j *pjob = ljob;
+        if (pjob) {
+                while (pjob->p_prev != NULL) {
+                        pjob = pjob->p_prev;
+                }
+                jq_add_job (njq, pjob);
+        }
+
+        njq->cjob = NULL;
+        return njq;
 }
 
 void jq_add_block (job_queue *jq, block_j *block)

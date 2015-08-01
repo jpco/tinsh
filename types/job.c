@@ -144,6 +144,8 @@ job_j *job_form (m_str *line, job_j *prev_job)
         job->bg = 0;
         job->p_prev = NULL;
         job->p_next = NULL;
+        job->p_in = NULL;
+        job->p_out = NULL;
         job->rd_stack = s_make();
 
         job->argv = ms_spl_cmd (line);

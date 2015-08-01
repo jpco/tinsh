@@ -33,10 +33,21 @@ int has_var(const char *key)
         return 0;
 }
 
-// TODO: this
+/*
+typedef struct scope_str {
+        struct scope_str *parent;
+        hashtable *vars;
+        hashtable *fns;
+        size_t depth;
+} scope_j;
+ */
+
 void ls_vars (void)
 {
-        return;
+        scope_j *lscope = cscope;
+        for (; lscope != NULL; lscope = lscope->parent) {
+                
+        }
 }
 
 void set_var (const char *key, const char *value)

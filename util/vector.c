@@ -7,7 +7,6 @@
 
 void rm_element (m_str **argv, size_t idx, size_t *argc)
 {
-        ms_free (argv[idx]);
         int i;
         for (i = idx; i < *argc-1; i++) {
                argv[i] = argv[i+1];

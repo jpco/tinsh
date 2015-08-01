@@ -12,10 +12,18 @@ char bj_test (block_job *bj)
         switch (bj->type) {
                 case BJ_CONT:
                         return 0;
-/*                case BJ_IF:
+                case BJ_IF:
+                        bj->type = BJ_CONT;
+                        return 1;
                 case BJ_WHILE:
+                        bj->type = BJ_IF;
+                        return 1;
                 case BJ_FOR:
-                case BJ_CFOR: */
+                        bj->type = BJ_IF;
+                        return 1;
+                case BJ_CFOR:
+                        bj->type = BJ_IF;
+                        return 1;
                 default:        // BJ_WITH
                         bj->type = BJ_CONT;
                         return 1;

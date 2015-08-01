@@ -39,4 +39,7 @@ void ms_print (m_str *ms, int nl);
 
 void ms_free (m_str *ms);
 
+m_str *ms_combine (const m_str **strs, int len, char delim);
+m_str *ms_vcombine (char delim, int ct, ...);
+
 #endif

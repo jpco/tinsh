@@ -22,6 +22,9 @@ typedef struct job_str {
         struct job_str *p_prev;
         struct job_str *p_next;
 
+        int *p_in;      // used during the exec stage
+        int *p_out;
+
         stack *rd_stack;
 } job_j;
 
