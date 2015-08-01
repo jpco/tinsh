@@ -159,11 +159,8 @@ int ht_rm (hashtable *ht, const char *key, void **elt)
         ll_iter *bucket_iter = ll_makeiter (bucket);
         keyval *ckv = NULL;
         *elt = NULL;
-        printf ("looking for %s\n", key);
         while ((ckv = (keyval *)ll_iter_get (bucket_iter)) != NULL) {
-                printf ("is it %s?\n", ckv->key);
                 if (strcmp(ckv->key, key) == 0) {
-                        printf ("yes\n");
                         *elt = ckv->value;
                         ll_iter_rm (bucket_iter);
                         free (ckv->key);
