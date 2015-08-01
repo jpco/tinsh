@@ -331,7 +331,6 @@ void ll_iter_insert (ll_iter *lli, void *elt)
 
 void ll_iter_rm (ll_iter *lli)
 {
-        printf ("%p, %p, %p\n", lli, lli->list, lli->celt);
         if (lli == NULL) return;
         if (lli->list == NULL) return;
         if (lli->celt == NULL) return;
@@ -348,5 +347,4 @@ void ll_iter_rm (ll_iter *lli)
         }
         lli->celt = lli->celt->next;
         lli->list->len--;
-        printf ("len now %lu\n", lli->list->len);
 }
