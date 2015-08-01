@@ -56,6 +56,9 @@ void prompt (void)
         if (cursor_pos (&row, &prompt_length)) prompt_length = 25;
 }
 
+static int last_vert = 0;
+static int last_nlines = 0;
+
 void reprint (void)
 {
         /* For reference because I know I'm going to forget:
@@ -71,8 +74,15 @@ void reprint (void)
         int vert = (prompt_length + idx - 1) / width;
         int horiz = (prompt_length + idx - 1) % width;
 
+        // clear last buffer
+        printf ("[%dA[%dG[K[0G", last_vert, prompt_length);
+        int i;
+        for (i = 0; i < last_nlines; i++) {
+                printf ("[B[K");
+        }
+
         // position for print
-        printf("[%dA[%dG", vert, prompt_length);
+        printf("[%dA[%dG", last_nlines, prompt_length); 
         // print
         printf("%s", buf);
         // clean up and relocate
@@ -80,9 +90,10 @@ void reprint (void)
                 // at end and hit new line
                 printf ("\n");
         } else {
-                printf ("[K");
                 printf("[%dA[%dB[%dG", nlines, vert, horiz + 1);
         }
+        last_vert = vert;
+        last_nlines = nlines;
 }
 
 void rewd (void)
