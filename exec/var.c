@@ -63,14 +63,14 @@ void var_eval (job_j *job)
                 m_str *lparen = arg;
                 if (!mbuf_strchr (lparen, '(')) continue;
 
-                m_str *rparen = lparen;
-                if (!mbuf_strchr (rparen, ')')) {
+                char *rparen = lparen->str;
+                if ((rparen = ms_strchr(lparen, ')')) == NULL) {
                         dbg_print_err ("Mismatched parentheses.");
                         continue;
                 }
 
                 *(lparen->str) = '\0';
-                *(rparen->str) = '\0';
+                *rparen = '\0';
                 size_t len = job->argc;
 
                 m_str *value;
@@ -81,9 +81,9 @@ void var_eval (job_j *job)
                 }
                 m_str *nwd = NULL;
                 if (value != NULL) {
-                        nwd = ms_vcombine (0, 3, arg, value, ms_advance (rparen, 1));
+                        nwd = ms_vcombine (0, 3, arg, value, ms_advance (lparen, rparen-(lparen->str)));
                 } else {
-                        nwd = ms_vcombine (0, 2, arg, ms_advance (rparen, 1));
+                        nwd = ms_vcombine (0, 2, arg, ms_advance (lparen, (rparen-(lparen->str))));
                 }
 
                 if (nwd != NULL) {

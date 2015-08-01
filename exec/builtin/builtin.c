@@ -45,14 +45,14 @@ int func_lsalias (job_j *job)
 
 int func_set (job_j *job)
 {
-        const char **argv = (const char **)job->argv;
-        int argc = job->argc;
+        const m_str **argv = (const m_str **)job->argv;
+        size_t argc = job->argc;
 
         if (argc == 1) {
                 print_err ("Too few args.\n");
                 return 2;
         } else {
-                char *keynval = combine_str(argv+1, argc-1, '\0');
+                char *keynval = ms_strip(ms_combine(argv+1, argc-1, '\0'));
                 if (strchr(keynval, '=') == NULL) {
                         set_var (keynval, NULL);
                 } else {

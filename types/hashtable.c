@@ -6,7 +6,6 @@
 
 // local includes
 #include "linkedlist.h"
-#include "../util/str.h"
 
 // self-include
 #include "hashtable.h"
@@ -54,7 +53,7 @@ hashtable *ht_make (void)
 
         new_ht->size = 0;
         new_ht->num_buckets = DEFAULT_HT_BUCKETS;
-        new_ht->buckets = malloc(sizeof(hashtable *) * new_ht->num_buckets);
+        new_ht->buckets = calloc(sizeof(hashtable *), new_ht->num_buckets);
         if (new_ht->buckets == NULL && errno == ENOMEM) {
                 free (new_ht);
                 return NULL;
@@ -93,6 +92,7 @@ void ht_add (hashtable *ht, const char *key, void *elt)
 {
         if (ht == NULL) return;
         size_t knum = ht_hash(key, ht->num_buckets);
+
         if (ht->buckets[knum] == NULL) {
                 ht->buckets[knum] = ll_make();
         }
@@ -101,7 +101,7 @@ void ht_add (hashtable *ht, const char *key, void *elt)
         keyval *ckv = NULL;
         ll_iter *cbucket_iter = ll_makeiter (cbucket);
         while ((ckv = (keyval *)ll_iter_next (cbucket_iter)) != NULL) {
-                if (olstrcmp(ckv->key, key)) {
+                if (strcmp(ckv->key, key) == 0) {
                         ckv->value = elt;
                         break;
                 }
@@ -116,7 +116,8 @@ void ht_add (hashtable *ht, const char *key, void *elt)
                 }
                 nkv->key = lstr;
                 nkv->value = elt;
-                ht->size++;      
+                ll_prepend(cbucket, nkv);
+                ht->size++;
         }
 }
 
@@ -128,6 +129,7 @@ int ht_get (hashtable *ht, const char *key, void **elt)
         if (ht->buckets[knum] == NULL) {
                 *elt = NULL;
                 return 0;
+        } else {
         }
 
         linkedlist *bucket = ht->buckets[knum];
@@ -135,7 +137,7 @@ int ht_get (hashtable *ht, const char *key, void **elt)
         keyval *ckv = NULL;
         *elt = NULL;
         while ((ckv = (keyval *)ll_iter_next (bucket_iter)) != NULL) {
-                if (olstrcmp(ckv->key, key)) {
+                if (strcmp(ckv->key, key) == 0) {
                         *elt = ckv->value;
                         break;
                 }
@@ -158,7 +160,7 @@ int ht_rm (hashtable *ht, const char *key, void **elt)
         keyval *ckv = NULL;
         *elt = NULL;
         while ((ckv = (keyval *)ll_iter_next (bucket_iter)) != NULL) {
-                if (olstrcmp(ckv->key, key)) {
+                if (strcmp(ckv->key, key) == 0) {
                         *elt = ckv->value;
                         free (ckv->key);
                         free (ckv);

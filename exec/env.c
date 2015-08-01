@@ -27,7 +27,9 @@ int has_var(const char *key)
         m_str *trash;
         scope_j *csc = cscope;
         while (csc != NULL) {
-                if (ht_get (csc->vars, key, (void **)&trash)) return 1;
+                if (ht_get (csc->vars, key, (void **)&trash)) {
+                        return 1;
+                }
                 csc = csc->parent;
         }
         return 0;
@@ -63,7 +65,7 @@ void set_msvar (const char *key, m_str *value)
 
 void unset_var (const char *key)
 {
-        m_str *trash;
+        m_str *trash = NULL;
         scope_j *csc = cscope;
         while (csc != NULL) {
                 if (ht_rm (cscope->vars, key, (void **)&trash)) {
@@ -79,7 +81,7 @@ m_str *get_var (const char *key)
         m_str *retval = NULL;
         scope_j *csc = cscope;
         while (csc != NULL) {
-                if (ht_rm (cscope->vars, key, (void **)&retval)) {
+                if (ht_get (cscope->vars, key, (void **)&retval)) {
                         break;
                 }
                 csc = csc->parent;
@@ -232,20 +234,21 @@ void init_env_wfp (FILE *fp)
                         spline[1]++;
                 }
 
+                char *tr_spline0 = trim_str(spline[0]);
+                char *tr_spline1 = trim_str(spline[1]);
+
                 if (sect == ENV) {
                         if (!spline[1]) {
                                 free (line);
                                 continue;
                         }
-                        char *tr_spline0 = trim_str(spline[0]);
-                        char *tr_spline1 = trim_str(spline[1]);
                         setenv (tr_spline0, tr_spline1, 1);
                         free (tr_spline0);
                         free (tr_spline1);
                 } else if (sect == ALIAS) {
-                        set_alias (spline[0], spline[1]);
+                        set_alias (tr_spline0, tr_spline1);
                 } else if (sect == VARS) {
-                        set_var (spline[0], spline[1]);
+                        set_var (tr_spline0, tr_spline1);
                 }
                 free (line);
         }
@@ -287,7 +290,7 @@ void init_env (void)
 
         if (fp == NULL) {
                 print_err_wno ("Could not open config file.", err);
-                printf("Using default settings...");
+                print_err ("Using default settings...");
                 init_env_defaults();
                 return;
         }
