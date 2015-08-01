@@ -1,7 +1,19 @@
 // self-include
-#include "defs.h"
+#include <stdio.h>
 
-char **builtins = 0;
+#include "defs.h"
+#include "vector.h"
+
+char *flow_builtins[NUM_FLOW_BIS] = {"if", "for", "cfor", "while", "else", "with"};
+char *cmd_builtins[NUM_CMD_BIS] = {"cd", "pwd", "lsvars", "lsalias", "set", "setenv", "unset", "unenv", "alias", "unalias", "color"};
+
+char **bis = NULL;
+
+char **get_builtins() {
+        if (!bis) bis = (char **)combine ((void **)flow_builtins, (void **)cmd_builtins, 6, 11);
+
+        return bis;
+}
 
 const char separators[NUM_SEPARATORS] = {' ', '\'', ':', '{', '}', '|', '&', '>', '<', ';', '`', '(', '~', '\0'};
 

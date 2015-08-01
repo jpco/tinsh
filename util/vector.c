@@ -28,3 +28,19 @@ void add_element (m_str **argv,
         (*argc)++;
 }
 
+void **combine (void **first, void **second, size_t flen, size_t slen)
+{
+        void **to_return = malloc((flen + slen) * sizeof(void *));
+
+        int i;
+        for (i = 0; i < flen; i++) {
+                to_return[i] = first[i];
+        }
+
+        int j;
+        for (j = 0; j < slen; j++) {
+                to_return[i+j] = second[j];
+        }
+
+        return to_return;
+}

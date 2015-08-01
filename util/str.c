@@ -95,6 +95,7 @@ char **split_str (char *line, char delim)
 
 char *trim_str (const char *line)
 {
+        if (line == NULL) return NULL;
         while (*line == ' ' || *line == '\t') line++;
 
         if (*line == '\0') {

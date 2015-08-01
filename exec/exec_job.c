@@ -12,6 +12,7 @@
 
 #include "redirect.h"
 #include "var.h"
+#include "env.h"
 
 #include "builtin/builtin.h"
 
@@ -55,6 +56,15 @@ void exec_single_job (job_j *job)
         int dup_out = dup (STDOUT_FILENO);
 
         var_eval (job);
+
+        if (has_var ("__jpsh_debug")) {
+                int i;
+                for (i = 0; i < job->argc; i++) {
+                        ms_print (job->argv[i], 0);
+                        printf (" ");
+                }
+                printf ("\n");
+        }
 
         if (!builtin(job)) {
                 pid = fork();

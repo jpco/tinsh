@@ -432,6 +432,7 @@ m_str *ms_combine (const m_str **strs, int arrlen, char delim)
                         comb->mask[ctotal++] = 0;
                 }
         }
+        ms_updatelen (comb);
         return comb;
 }
 

@@ -46,11 +46,14 @@ void var_eval (job_j *job)
                                 m_str *home_val = get_var ("__jpsh_~home");
 
                                 while (mbuf_strchr (home_ptr, '~')) {
-                                        *(home_ptr->str) = '\0';
+                                        home_ptr = ms_advance (home_ptr, 1);
+                                        if (ms_strchr (arg, '~')) {
+                                                *(ms_strchr (arg, '~')) = '\0';
+                                        }
                                         m_str *nwd = ms_vcombine (0, 3,
                                                         arg,
                                                         home_val,
-                                                        ms_advance(home_ptr, 1));
+                                                        home_ptr);
 
                                         size_t len = job->argc;
                                         rm_element (job->argv, i, &len);

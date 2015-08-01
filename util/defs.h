@@ -28,12 +28,17 @@
 // Maximum length of subshell output.
 #define SUBSH_LEN       1000
 
-// TODO: fix this
-#define NUM_BUILTINS    0
+#define NUM_FLOW_BIS    6
+
+#define NUM_CMD_BIS     11
+
+#define NUM_BUILTINS    (NUM_FLOW_BIS+NUM_CMD_BIS)
 
 #define PIPE_MARKER     ((void *)0xFEFE)
 
-char **builtins;
+#define builtins (get_builtins())
+
+char **get_builtins();
 
 // Environment variables.
 extern char **environ;
