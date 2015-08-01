@@ -40,20 +40,22 @@ void var_eval (job_j *job)
         for (i = 0; i < job->argc; i++) {
                 m_str *arg = job->argv[i];
                 // ~
-                if (has_var ("__jpsh_~home")) {
-                        m_str *home_ptr = ms_dup (arg);
-                        m_str *home_val = get_var ("__jpsh_~home");
+                if (ms_strchr (arg, '~')) {
+                        if (has_var ("__jpsh_~home")) {
+                                m_str *home_ptr = ms_dup (arg);
+                                m_str *home_val = get_var ("__jpsh_~home");
 
-                        while (mbuf_strchr (home_ptr, '~')) {
-                                *(home_ptr->str) = '\0';
-                                m_str *nwd = ms_vcombine (0, 3,
-                                                arg,
-                                                home_val,
-                                                ms_advance(home_ptr, 1));
+                                while (mbuf_strchr (home_ptr, '~')) {
+                                        *(home_ptr->str) = '\0';
+                                        m_str *nwd = ms_vcombine (0, 3,
+                                                        arg,
+                                                        home_val,
+                                                        ms_advance(home_ptr, 1));
 
-                                size_t len = job->argc;
-                                rm_element (job->argv, i, &len);
-                                add_element (job->argv, nwd, i, &len);
+                                        size_t len = job->argc;
+                                        rm_element (job->argv, i, &len);
+                                        add_element (job->argv, nwd, i, &len);
+                                }
                         }
                 }
 

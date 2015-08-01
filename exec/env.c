@@ -81,7 +81,7 @@ m_str *get_var (const char *key)
         m_str *retval = NULL;
         scope_j *csc = cscope;
         while (csc != NULL) {
-                if (ht_get (cscope->vars, key, (void **)&retval)) {
+                if (ht_get (csc->vars, key, (void **)&retval)) {
                         break;
                 }
                 csc = csc->parent;

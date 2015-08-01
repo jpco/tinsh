@@ -31,11 +31,6 @@ void exec (job_queue *jq)
                         }
                         cscope = leave_scope (cscope);
                 } else {
-                        size_t i;
-                        for (i = 0; i < cscope->depth; i++) {
-                                printf ("   ");
-                        }
-
                         exec_job (celt->dat.job);
                 }
         }
