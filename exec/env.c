@@ -109,8 +109,6 @@ void set_alias (const char *key, const char *value)
 
 void set_msalias (const char *key, m_str *value)
 {
-        printf (" setting '%s' to ", key);
-        ms_print (value, 1);
         ht_add (alias_tab, key, value);
 }
 
