@@ -12,6 +12,7 @@
 #include "../types/m_str.h"
 #include "../types/scope.h"
 #include "../types/queue.h"
+#include "../types/job_queue.h"
 
 #include "../eval/eval.h"
 
@@ -71,9 +72,6 @@ var_j *get_var (const char *key)
 // === === === === === === ===
 // ENVIRONMENT INITIALIZATION
 // === === === === === === ===
-
-// enum to differentiate sections of the config file
-typedef enum {NONE, ENV, VARS, STARTUP} config_section_t;
 
 /*
  * Sets the environment to the defaults, which is pretty much "nothing".

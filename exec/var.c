@@ -5,6 +5,7 @@
 // local includes
 #include "../types/m_str.h"
 #include "../types/job.h"
+#include "../types/var.h"
 
 #include "../util/str.h"
 #include "../util/debug.h"
@@ -55,6 +56,9 @@ void var_eval (job_j *job)
                         dbg_print_err ("Mismatched parentheses.");
                         continue;
                 }
+                *(ms_strchr (arg, ')')) = 0;
+                ms_updatelen (arg);
+                m_str *val = devar (arg);
 
                 m_str *ms_rparen = ms_advance (lparen, 1+rparen-(lparen->str));
                 *(lparen->str) = '\0';
@@ -74,24 +78,6 @@ void var_eval (job_j *job)
                 } else {
                         nwd = ms_vcombine (0, 2, arg, ms_rparen);
                 }
-
-                if (nwd != NULL) {
-                        m_str **spl_val = ms_spl_cmd (nwd);
-                        ms_free (nwd);
-
-                        int k;
-                        for (k = 0; spl_val[k] != NULL; k++) {
-                                add_element (job->argv,
-                                                spl_val[k], k+i, &len);
-                        }
-                        i += k;
-                }
-
-                rm_element (job->argv, i, &len);
-                i-=2;
-                if (i < 0) i = 0;
-
-                job->argc = len;
         }
 }
 

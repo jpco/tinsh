@@ -60,7 +60,7 @@ m_str *ms_mask (const char *str)
         int i;
         char squote = 0;
         char dquote = 0;
-        char tick = 0;
+        char var = 0;
         for (i = 0; i < strlen(nms->str); i++) {
                 // dquote mask:
                 // space, backslash, {, }, :,
@@ -71,12 +71,12 @@ m_str *ms_mask (const char *str)
 
                 if (nms->mask[i]) continue;
 
-                        if (nms->str[i] == '\\') {
-                                rm_char (nms->str + i);
-                                arm_char (nms->mask + i, len - i);
-                                nms->mask[i] = '\\';
-                                i--;
-                        }
+                if (nms->str[i] == '\\') {
+                        rm_char (nms->str + i);
+                        arm_char (nms->mask + i, len - i);
+                        nms->mask[i] = '\\';
+                        i--;
+                }
 
                 if (squote) {
                         if (nms->str[i] == '\'') {
@@ -90,22 +90,23 @@ m_str *ms_mask (const char *str)
                                 nms->mask[i] = '\'';
                         }
                 } else {
-                        if (dquote || tick) {
+                        if (dquote || var) {
                                 if (nms->str[i] == '"') {
                                         rm_char (nms->str + i);
                                         arm_char (nms->mask + i, len - i);
                                         dquote = 0;
                                         i--;
                                         continue;
-                                } else if (nms->str[i] == '`') {
-                                        tick = 0;
+                                } else if (nms->str[i] == ')') {
+                                        var = 0;
                                         continue;
                                 }
 
                                 char cchar = nms->str[i];
                                 if (cchar == ' ' ||
                                     cchar == '|' || cchar == '{' ||
-                                    cchar == '}' || cchar == ':') {
+                                    cchar == '}' || cchar == ':' ||
+                                    cchar == '\'') {
                                         nms->mask[i] = '"';
                                         continue;
                                 }
@@ -121,13 +122,13 @@ m_str *ms_mask (const char *str)
                                 arm_char (nms->mask + i, len - i);
                                 dquote = 1;
                                 i--;
-                        } else if (nms->str[i] == '`') {
-                                tick = 1;
+                        } else if (nms->str[i] == '(') {
+                                var = 1;
                         }
                 }
         }
-        if (squote || dquote || tick) {
-                print_err ("Unclosed quote or tick");
+        if (squote || dquote) {
+                print_err ("Unclosed quote");
         }
 
         // finished

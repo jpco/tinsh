@@ -1,6 +1,7 @@
 #ifndef JPSH_EXEC_ENV_H
 #define JPSH_EXEC_ENV_H
 
+#include "../types/var.h"
 #include "../types/m_str.h"
 #include "../types/var.h"
 
