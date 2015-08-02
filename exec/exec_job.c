@@ -9,6 +9,7 @@
 #include "../types/m_str.h"
 
 #include "../util/debug.h"
+#include "../util/vector.h"
 
 #include "redirect.h"
 #include "var.h"
@@ -24,7 +25,7 @@ static job_j *cchain;
 
 extern char **environ;
 
-void fork_exec (job_j *job)
+int fork_exec (job_j *job)
 {
         int redir = setup_redirects (job);
         if (redir == -1) {
@@ -42,9 +43,9 @@ void fork_exec (job_j *job)
         execvpe (args[0], args, environ);
 
         if (errno == 2) {
-                print_err ("Command not found.");
+                return 1;
         } else {
-                print_err_wno ("Could not execute command.", errno);
+                return 2;
         }
 
         exit (1);
@@ -56,6 +57,38 @@ void exec_single_job (job_j *job)
         int dup_out = dup (STDOUT_FILENO);
 
         var_eval (job);
+
+        // aliasing
+        m_str *vval = NULL;
+        m_str *newval = NULL;
+        int newmask = 0;
+        do {
+                newval = NULL;
+                newmask = 0;
+
+                var_j *newcmd;
+                if ((newcmd = get_var (ms_strip (job->argv[0]))) != NULL) {
+                        if (!newcmd->is_fn) {
+                                newval = newcmd->v.value;
+                        }
+                }
+                if (newval != NULL) {
+                        vval = newval;
+                        m_str **cmd = ms_spl_cmd (newval);
+                        // prevent infinite recursion
+                        if (ms_ustrcmp(cmd[0], job->argv[0])) newmask = 1;
+
+                        rm_element (job->argv, 0, &(job->argc));
+                        int i;
+                        for (i = 0; cmd[i] != NULL; i++) {
+                                add_element (job->argv, cmd[i], i,
+                                        &(job->argc));
+                        }
+                        for (i = 0; i < ms_len(job->argv[0]); i++) {
+                                newmask += job->argv[0]->mask[i];
+                        }
+                }
+        } while (newval != NULL && newmask == 0);
 
         if (get_var ("__imp_debug")) {
                 int i;
@@ -69,11 +102,23 @@ void exec_single_job (job_j *job)
                 printf ("\n");
         }
 
+        // function calls
+
         if (!builtin(job)) {
                 pid = fork();
                 if (pid < 0) print_err_wno ("fork() error.", errno);
-                else if (pid == 0) fork_exec (job);
-                else {
+                else if (pid == 0) {
+                        int err = fork_exec (job);
+                        if (err == 1) {
+                                if (vval != NULL) {
+                                        printf ("%s\n", ms_strip (vval));
+                                } else {
+                                        print_err ("Var/command not found.");
+                                }
+                        } else {
+                                print_err ("Could not execute command.");
+                        }
+                } else {
                         int status = 0;
                         if (waitpid (pid, &status, 0) < 0) {
                                 print_err_wno ("waitpid() error.", errno);

@@ -33,14 +33,15 @@ void var_eval (job_j *job)
                                         if (ms_strchr (arg, '~')) {
                                                 *(ms_strchr (arg, '~')) = '\0';
                                         }
+                                        ms_updatelen (arg);
+                                        ms_updatelen (home_ptr);
                                         m_str *nwd = ms_vcombine (0, 3,
                                                         arg,
                                                         home_val,
                                                         home_ptr);
 
-                                        size_t len = job->argc;
-                                        rm_element (job->argv, i, &len);
-                                        add_element (job->argv, nwd, i, &len);
+                                        rm_element (job->argv, i, &(job->argc));
+                                        add_element (job->argv, nwd, i, &(job->argc));
                                 }
                         }
                 }
@@ -56,14 +57,12 @@ void var_eval (job_j *job)
                         dbg_print_err ("Mismatched parentheses.");
                         continue;
                 }
+                m_str *ms_rparen = ms_advance (lparen, 1+rparen-(lparen->str));
                 *(ms_strchr (arg, ')')) = 0;
                 ms_updatelen (arg);
-                m_str *val = devar (arg);
 
-                m_str *ms_rparen = ms_advance (lparen, 1+rparen-(lparen->str));
                 *(lparen->str) = '\0';
                 *rparen = '\0';
-                size_t len = job->argc;
 
                 m_str *value;
                 if ((value = devar (lparen->str+1)) != NULL) {
@@ -71,13 +70,20 @@ void var_eval (job_j *job)
                         m_str *nvalue = ms_dup (value);
                         value = nvalue;
                 }
-                m_str *nwd = NULL;
                 ms_updatelen (lparen);
+                m_str *nwd;
                 if (value != NULL) {
                         nwd = ms_vcombine (0, 3, arg, value, ms_rparen);
                 } else {
                         nwd = ms_vcombine (0, 2, arg, ms_rparen);
                 }
+                m_str **nargs = ms_spl_cmd (nwd);
+                rm_element (job->argv, i, &(job->argc));
+                int j;
+                for (j = 0; nargs[j] != NULL; j++) {
+                        add_element (job->argv, nargs[j], i+j, &(job->argc));
+                }
+                i--;
         }
 }
 
