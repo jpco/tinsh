@@ -24,7 +24,7 @@ void var_eval (job_j *job)
         }
 
         if (!a1mask) {
-                m_str *alias = get_alias (ms_strip(job->argv[0]));
+                m_str *alias = get_var (ms_strip(job->argv[0]));
                 if (alias != NULL) {
                         rm_element (job->argv, 0, &(job->argc));
                         m_str **spl_alias = ms_spl_cmd (alias);
@@ -41,7 +41,7 @@ void var_eval (job_j *job)
                 m_str *arg = job->argv[i];
                 // ~
                 if (ms_strchr (arg, '~')) {
-                        if (has_var ("__jpsh_~home")) {
+                        if (get_var ("__jpsh_~home")) {
                                 m_str *home_ptr = ms_dup (arg);
                                 m_str *home_val = get_var ("__jpsh_~home");
 

@@ -57,7 +57,7 @@ void exec_single_job (job_j *job)
 
         var_eval (job);
 
-        if (has_var ("__jpsh_debug")) {
+        if (get_var ("__jpsh_debug")) {
                 int i;
                 for (i = 0; i < job->argc; i++) {
                         ms_print (job->argv[i], 0);

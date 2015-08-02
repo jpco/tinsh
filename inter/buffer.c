@@ -35,7 +35,7 @@ static int nwds;
  */
 void prompt (void)
 {
-        if (has_var ("prompt")) {
+        if (get_var ("prompt")) {
                 // TODO: parse prompt
                 sprompt = ms_strip (get_var ("__jpsh_prompt"));
         } else {

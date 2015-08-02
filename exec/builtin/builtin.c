@@ -31,18 +31,6 @@ int func_pwd (job_j *job)
         return 1;
 }
 
-int func_lsvars (job_j *job)
-{
-        ls_vars();
-        return 1;
-}
-
-int func_lsalias (job_j *job)
-{
-        ls_alias();
-        return 1;
-}
-
 int func_set (job_j *job)
 {
         const m_str **argv = (const m_str **)job->argv;
@@ -53,9 +41,7 @@ int func_set (job_j *job)
                 return 2;
         } else {
                 char *keynval = ms_strip(ms_combine(argv+1, argc-1, ' '));
-                if (strchr(keynval, '=') == NULL) {
-                        set_var (keynval, NULL);
-                } else {
+                if (strchr(keynval, '=') != NULL) {
                         char **key_val = split_str (keynval, '=');
                         int len = 0;
                         for (len = 0; key_val[len] != NULL; len++);
@@ -70,6 +56,8 @@ int func_set (job_j *job)
                         } else {
                                 print_err ("Malformed 'set' syntax.");
                         }
+                } else {
+                        print_err ("No value to set to.");
                 }
                 free (keynval);
         }
@@ -109,7 +97,6 @@ int func_setenv (job_j *job)
         return 1;
 }
 
-
 int func_unset (job_j *job)
 {
         if (job->argc < 2) {
@@ -139,50 +126,6 @@ int func_unenv (job_j *job)
         return 1;
 }
 
-int func_alias (job_j *job)
-{
-        const m_str **argv = (const m_str **)job->argv;
-        size_t argc = job->argc;
-
-        if (argc == 1) {
-                print_err ("Too few args.\n");
-                return 2;
-        } else {
-                char *keynval = ms_strip(ms_combine(argv+1, argc-1, ' '));
-                if (strchr(keynval, '=') != NULL) {
-                        char **key_val = split_str (keynval, '=');
-                        int len = 0;
-                        for (len = 0; key_val[len] != NULL; len++);
-                        key_val[1] = combine_str ((const char **)key_val+1, len-1, '=');
-
-                        key_val[0] = trim_str (key_val[0]);
-                        key_val[1] = trim_str (key_val[1]);
-                        if (key_val[0] != NULL) {
-                                set_alias (key_val[0], key_val[1]);
-                                free (key_val[0]);
-                                free (key_val);
-                        } else {
-                                print_err ("Malformed 'alias' syntax.");
-                        }
-                }
-                free (keynval);
-        }
-
-        return 1;
-}
-
-
-int func_unalias (job_j *job)
-{
-        if (job->argc < 2) {
-                print_err ("Too few args.\n");
-                return 2;
-        } else {
-                unset_alias (ms_strip(job->argv[1]));
-        }
-
-        return 1;
-}
 
 int func_color (job_j *job)
 {
@@ -210,10 +153,6 @@ int builtin (job_j *job)
                 cfunc = func_cd;
         } else if (olstrcmp (f_arg, "pwd")) {
                 cfunc = func_pwd;
-        } else if (olstrcmp (f_arg, "lsvars")) {
-                cfunc = func_lsvars;
-        } else if (olstrcmp (f_arg, "lsalias")) {
-                cfunc = func_lsalias;
         } else if (olstrcmp (f_arg, "set")) {
                 cfunc = func_set;
         } else if (olstrcmp (f_arg, "setenv")) {
@@ -222,10 +161,6 @@ int builtin (job_j *job)
                 cfunc = func_unset;
         } else if (olstrcmp (f_arg, "unenv")) {
                 cfunc = func_unenv;
-        } else if (olstrcmp (f_arg, "alias")) {
-                cfunc = func_alias;
-        } else if (olstrcmp (f_arg, "unalias")) {
-                cfunc = func_unalias;
         } else if (olstrcmp (f_arg, "color")) {
                 cfunc = func_color;
         }

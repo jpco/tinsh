@@ -18,22 +18,8 @@
 // self-include
 #include "env.h"
 
-hashtable *alias_tab;
 scope_j *gscope;
 scope_j *cscope;  // defines full scope stack within scope type as well
-
-int has_var(const char *key)
-{
-        m_str *trash;
-        scope_j *csc = cscope;
-        while (csc != NULL) {
-                if (ht_get (csc->vars, key, (void **)&trash)) {
-                        return 1;
-                }
-                csc = csc->parent;
-        }
-        return 0;
-}
 
 /*
 typedef struct scope_str {
@@ -43,14 +29,6 @@ typedef struct scope_str {
         size_t depth;
 } scope_j;
  */
-
-void ls_vars (void)
-{
-        scope_j *lscope = cscope;
-        for (; lscope != NULL; lscope = lscope->parent) {
-                
-        }
-}
 
 void set_var (const char *key, const char *value)
 {
@@ -89,55 +67,19 @@ m_str *get_var (const char *key)
         return retval;
 }
 
-int has_alias (const char *key)
-{
-        m_str *trash;
-        return ht_get (alias_tab, key, (void **)&trash);
-}
-
-// TODO: this
-void ls_alias (void)
-{
-        return;
-}
-
-void set_alias (const char *key, const char *value)
-{
-        m_str *mval = ms_mask (value);
-        set_msalias (key, mval);
-}
-
-void set_msalias (const char *key, m_str *value)
-{
-        ht_add (alias_tab, key, value);
-}
-
-void unset_alias (const char *key)
-{
-        m_str *trash;
-        ht_rm (alias_tab, key, (void **)&trash);
-        ms_free (trash);
-}
-
-m_str *get_alias (const char *key)
-{
-        m_str *retval;
-        ht_get (alias_tab, key, (void **)&retval);
-        return retval;
-}
-
 // === === === === === === ===
 // ENVIRONMENT INITIALIZATION
 // === === === === === === ===
 
 // enum to differentiate sections of the config file
-typedef enum {NONE, ENV, VARS, ALIAS, STARTUP} config_section_t;
+typedef enum {NONE, ENV, VARS, STARTUP} config_section_t;
 
 /*
  * Sets the environment to the defaults, which is pretty much "nothing".
  */
 void init_env_defaults (void)
 {
+        set_var ("__jpsh_~home", "(HOME)");
         setenv ("SHELL", "/home/jpco/bin/jpsh", 1);
         setenv ("LS_COLORS", "rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32", 1);
 }
@@ -151,18 +93,15 @@ void init_env_defaults (void)
  *  - lines starting with ; or # are comments.
  *
  *  - sections are defined by [<word>], lower-case. sections are
- *    [env], [vars], [alias], and [startup].
+ *    [env], [vars], and [startup].
  *    - [env] defines environment variables, which affect programs
  *      executed by the shell.
  *    - [vars] defines regular variables, which are used within the
  *      shell instance only.
- *    - [alias] defines aliases, which are essentially variables which
- *      can be dereferenced without special characters used for running
- *      programs
  *    - [startup] is a line-delimited list of commands to be run on
  *      startup
  *
- *  - the [env], [vars], and [alias] sections are "key=value" formatted,
+ *  - the [env] and [vars] sections are "key=value" formatted,
  *    while the [startup] section is any valid jpsh command.
  *    - everything between opening whitespace and the first = is a key.
  *      everything after the first = is a value. No quotes necessary.
@@ -173,7 +112,6 @@ void init_env_wfp (FILE *fp)
 {
         gscope = new_scope(NULL);
         cscope = gscope;
-        alias_tab = ht_make();
 
         size_t n = MAX_LINE;
         char *rline = malloc((1+n)*sizeof(char));
@@ -203,8 +141,6 @@ void init_env_wfp (FILE *fp)
                                 sect = ENV;
                         } else if (olstrcmp(line, "[vars]")) {
                                 sect = VARS;
-                        } else if (olstrcmp(line, "[alias]")) {
-                                sect = ALIAS;
                         } else if (olstrcmp(line, "[startup]")) {
                                 sect = STARTUP;
                         } else sect = NONE;
@@ -245,8 +181,6 @@ void init_env_wfp (FILE *fp)
                         setenv (tr_spline0, tr_spline1, 1);
                         free (tr_spline0);
                         free (tr_spline1);
-                } else if (sect == ALIAS) {
-                        set_alias (tr_spline0, tr_spline1);
                 } else if (sect == VARS) {
                         set_var (tr_spline0, tr_spline1);
                 }
@@ -319,6 +253,4 @@ void free_env (void)
         while (cscope != NULL) {
                 cscope = leave_scope (cscope);
         }
-
-        ht_destroy (alias_tab);
 }
