@@ -23,15 +23,6 @@
 scope_j *gscope;
 scope_j *cscope;  // defines full scope stack within scope type as well
 
-/*
-typedef struct scope_str {
-        struct scope_str *parent;
-        hashtable *vars;
-        hashtable *fns;
-        size_t depth;
-} scope_j;
- */
-
 void set_var (const char *key, const char *value)
 {
         m_str *mval = ms_mask (value);
@@ -40,12 +31,15 @@ void set_var (const char *key, const char *value)
 
 void set_msvar (const char *key, m_str *value)
 {
-        ht_add (cscope->vars, key, value);
+        var_j *nvar = malloc(sizeof(var_j));
+        nvar->is_fn = 0;
+        nvar->v.value = value;
+        ht_add (cscope->vars, key, nvar);
 }
 
 void unset_var (const char *key)
 {
-        m_str *trash = NULL;
+        var_j *trash = NULL;
         scope_j *csc = cscope;
         while (csc != NULL) {
                 if (ht_rm (cscope->vars, key, (void **)&trash)) {
@@ -53,12 +47,17 @@ void unset_var (const char *key)
                 }
                 csc = csc->parent;
         }
-        ms_free (trash);
+        if (trash->is_fn) {
+                // TODO: this
+        } else {
+                ms_free (trash->v.value);
+                free (trash);
+        }
 }
 
-m_str *get_var (const char *key)
+var_j *get_var (const char *key)
 {
-        m_str *retval = NULL;
+        var_j *retval = NULL;
         scope_j *csc = cscope;
         while (csc != NULL) {
                 if (ht_get (csc->vars, key, (void **)&retval)) {

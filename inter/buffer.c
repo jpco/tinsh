@@ -15,7 +15,9 @@
 #include "../util/debug.h"
 
 #include "../exec/env.h"
+#include "../exec/var.h"
 
+#include "../types/var.h"
 #include "../types/m_str.h"
 
 // self-include
@@ -37,9 +39,9 @@ void prompt (void)
 {
         if (get_var ("prompt")) {
                 // TODO: parse prompt
-                sprompt = ms_strip (get_var ("__imp_prompt"));
+                sprompt = ms_strip (devar ("__imp_prompt"));
         } else {
-                char *co = ms_strip (get_var ("__imp_color"));
+                var_j *co = get_var ("__imp_color");
                 if (co) {
                         sprompt = vcombine_str('\0', 3, "\e[1m..",
                                 strrchr (getenv ("PWD"), '/'), "$\e[0m ");
@@ -47,7 +49,6 @@ void prompt (void)
                         sprompt = vcombine_str('\0', 3, "..",
                                 strrchr (getenv ("PWD"), '/'), "$ ");
                 }
-                free (co);
         }
 
         int row = 0;
@@ -402,15 +403,13 @@ char *line_loop (void)
                 status = interp(*cin, status);
                 if (status == -1) break;
         }
-        char *color = ms_strip (get_var("__imp_color"));
+        var_j *color = get_var ("__imp_color");
         if (color != NULL) {
                 printf("[%dG[K", prompt_length);
                 color_line_s(buf);
         } else {
                 printf("\n");
         }
-        free (color);
-        free (sprompt);
 
         hist_add (buf);
         char *rbuf = buf;

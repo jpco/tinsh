@@ -24,7 +24,8 @@ void var_eval (job_j *job)
         }
 
         if (!a1mask) {
-                m_str *alias = get_var (ms_strip(job->argv[0]));
+                m_str *alias = devar (ms_strip (job->argv[0]));
+
                 if (alias != NULL) {
                         rm_element (job->argv, 0, &(job->argc));
                         m_str **spl_alias = ms_spl_cmd (alias);
@@ -41,9 +42,9 @@ void var_eval (job_j *job)
                 m_str *arg = job->argv[i];
                 // ~
                 if (ms_strchr (arg, '~')) {
-                        if (get_var ("__imp_~home")) {
+                        if (devar ("__imp_~home")) {
                                 m_str *home_ptr = ms_dup (arg);
-                                m_str *home_val = get_var ("__imp_~home");
+                                m_str *home_val = devar ("__imp_~home");
 
                                 while (mbuf_strchr (home_ptr, '~')) {
                                         home_ptr = ms_advance (home_ptr, 1);
@@ -79,7 +80,7 @@ void var_eval (job_j *job)
                 size_t len = job->argc;
 
                 m_str *value;
-                if ((value = get_var (lparen->str+1)) != NULL) {
+                if ((value = devar (lparen->str+1)) != NULL) {
                 } else if ((value = ms_mask (getenv (lparen->str+1))) != NULL) {
                         m_str *nvalue = ms_dup (value);
                         value = nvalue;
@@ -111,55 +112,20 @@ void var_eval (job_j *job)
         }
 }
 
-/*
-int devar (char *str, char *mask, char ***nstrs, char ***nmasks, int *strc) {
-        char *lparen = masked_strchr (str, mask, '(');
-        if (lparen == NULL) return -1;
-
-        char *rparen = masked_strchr (lparen,
-                                mask + (lparen - str),
-                                ')');
-        if (rparen == NULL) {
-                dbg_print_err ("Mismatched parenthesis.");
-                return -1;
-        }
-
-        *lparen = '\0';
-        *rparen = '\0';
-
-        char *value;
-        if ((value = get_var (lparen+1)) != NULL) {
-        } else if ((value = getenv (lparen+1)) != NULL) {
-                char *nvalue = malloc((strlen(value)+1)
-                                * sizeof(char));
-                strcpy (nvalue, value);
-                value = nvalue;
-        }
-        char *nwd = NULL;
-        char *nmask = NULL;
-        if (value != NULL) {
-                char *valmask = mask_str(value);
-                nwd = vcombine_str(0, 3, str, value, rparen+1);
-
-                nmask = calloc(strlen(nwd)+1, sizeof(char));
-                memcpy(nmask, mask, strlen(str));
-                memcpy(nmask+strlen(str), valmask, strlen(value));
-                memcpy(nmask+strlen(str)+strlen(value),
-                                mask+(rparen-str)+1,
-                                strlen(rparen+1));
+m_str *devar(char *name)
+{
+        var_j *varval = get_var (name);
+        if (varval != NULL) {
+                if (!varval->is_fn) {
+                        return varval->v.value;
+                }
         } else {
-                nwd = vcombine_str(0, 2, str, rparen+1);
+                char *envval;
+                if ((envval = getenv (name)) != NULL) {
+                        return ms_mask (envval);
+                }
+        }
 
-                nmask = calloc(strlen(nwd)+1, sizeof(char));
-                memcpy(nmask, mask, strlen(str));
-                memcpy(nmask+strlen(str), mask+(rparen-str)+1,
-                                strlen(rparen+1));
-        }
-        if (nwd != NULL) {
-                spl_cmd (nwd, nmask, nstrs, nmasks, strc);
-                free (nwd);
-                return 0;
-        } else {
-                return -1;
-        }
-} */
+        // eval/exec time
+        return NULL;
+}

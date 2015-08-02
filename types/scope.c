@@ -16,7 +16,6 @@ scope_j *new_scope (scope_j *p)
                 return NULL;
         }
         nscope->vars = ht_make();
-        nscope->fns = ht_make();
         nscope->parent = p;
         if (p == NULL) {
                 nscope->depth = 0;
@@ -31,7 +30,6 @@ scope_j *leave_scope (scope_j *scope)
 {
         scope_j *upscope = scope->parent;
         ht_destroy (scope->vars);
-        ht_destroy (scope->fns);
         free (scope);
 
         return upscope;

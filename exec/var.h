@@ -5,9 +5,6 @@
 
 void var_eval(job_j *job);
 
-// A masked version of get_var which will find variables, pull them,
-// mask the values, insert both back into the original string, then
-// split the new string.
-int devar(m_str *line, char ***nstrs, char ***nmask, int *strc);
+m_str *devar(char *name);
 
 #endif

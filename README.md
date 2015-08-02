@@ -14,15 +14,18 @@ _TODO: Rewrite syntax section_
  - Kind-of coloration (though not in-buffer!)
     - can be toggled with `__imp_color` var
  - History
- - a(n as-of-yet unused) notion of scope for variables
-    - environment variables and aliases always have global scope
  - subshells (kind of broken)
  - Input/output redirection
     - `-(fd|&)?>(fd|+)?` and `<-`
 
 ### Todo (in no particular order)
-CURRENT:
- - `hist_get()`
+ - make fns variables, overhaul var resolution/capture,
+    make block_jobs into normal jobs and hook blocks onto
+    those
+
+##### Redo
+ - Tab completion (after variable rejiggery)
+ - coloration (after variable rejiggery)
 
 ##### Interactive
  - Tab completion (more/better)
