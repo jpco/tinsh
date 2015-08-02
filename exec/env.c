@@ -15,6 +15,8 @@
 
 #include "../eval/eval.h"
 
+#include "exec.h"
+
 // self-include
 #include "env.h"
 
@@ -84,6 +86,12 @@ void init_env_defaults (void)
         setenv ("LS_COLORS", "rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32", 1);
 }
 
+void init_env_vars (void)
+{
+        gscope = new_scope(NULL);
+        cscope = gscope;
+}
+
 /**
  * Given the passed config file descriptor, parses the file and sets the
  * shell environment.
@@ -110,8 +118,7 @@ void init_env_defaults (void)
  */
 void init_env_wfp (FILE *fp)
 {
-        gscope = new_scope(NULL);
-        cscope = gscope;
+        init_env_vars();
 
         size_t n = MAX_LINE;
         char *rline = malloc((1+n)*sizeof(char));
@@ -119,78 +126,19 @@ void init_env_wfp (FILE *fp)
                 print_err ("Could not allocate memory for environment parsing.");
                 return;
         }
-        char *line;
-        config_section_t sect = NONE;
         int read;
         queue *envq = q_make();
         read = getline (&rline, &n, fp);
         for (; read >= 0; read = getline (&rline, &n, fp)) {
-                line = trim_str (rline);
-
-                // case: comment or blank line
-                if (*line == ';' || *line == '#' || *line == '\0') {
-                        free (line);
-                        continue;
-                }
-
-                int linelen = strlen(line);
-
-                // case: section line
-                if (*line == '[' && line[linelen-1] == ']') {
-                        if (olstrcmp(line, "[env]")) {
-                                sect = ENV;
-                        } else if (olstrcmp(line, "[vars]")) {
-                                sect = VARS;
-                        } else if (olstrcmp(line, "[startup]")) {
-                                sect = STARTUP;
-                        } else sect = NONE;
-                        free (line);
-                        continue;
-                }
-
-                // if there is no section, nothing else can happen!
-                if (sect == NONE) {
-                        free (line);
-                        continue;
-                }
-
-                // case: startup line
-                if (sect == STARTUP) {
-                        line[linelen] = '\0';
-                        q_push (envq, line);
-                        continue;
-                }
-
-                // case: key-value being set.
-                char *spline[2];
-                spline[0] = line;
-                spline[1] = strchr(line, '=');
-                if (spline[1]) {
-                        *spline[1] = '\0';
-                        spline[1]++;
-                }
-
-                char *tr_spline0 = trim_str(spline[0]);
-                char *tr_spline1 = trim_str(spline[1]);
-
-                if (sect == ENV) {
-                        if (!spline[1]) {
-                                free (line);
-                                continue;
-                        }
-                        setenv (tr_spline0, tr_spline1, 1);
-                        free (tr_spline0);
-                        free (tr_spline1);
-                } else if (sect == VARS) {
-                        set_var (tr_spline0, tr_spline1);
-                }
-                free (line);
+                char *line = strdup (rline);
+                q_push (envq, line);
         }
 
         m_str *cdbg = get_var ("__jpsh_debug");
         unset_var ("debug");
 
-        eval (envq);
+        job_queue *jq = eval (envq);
+        exec (jq);
 
         if (cdbg != NULL) {
                 set_msvar ("__jpsh_debug", cdbg);
@@ -225,6 +173,7 @@ void init_env (void)
         if (fp == NULL) {
                 print_err_wno ("Could not open config file.", err);
                 print_err ("Using default settings...");
+                init_env_vars();
                 init_env_defaults();
                 return;
         }

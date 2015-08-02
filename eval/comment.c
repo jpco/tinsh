@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <errno.h>
 
 // local includes
 #include "../types/queue.h"
@@ -14,11 +15,10 @@ extern queue *elines;
 void comment_eval (void)
 {
         queue *nqueue = q_make();
+        if (elines == NULL) return;
         while (q_len (elines) > 0) {
                 m_str *line = NULL;
                 q_pop (elines, (void **)&line);
-
-                if (line == NULL) continue;
 
                 if (line->str == NULL) {
                         continue;
