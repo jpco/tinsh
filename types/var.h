@@ -4,8 +4,11 @@
 #include "m_str.h"
 
 typedef struct {
-        char *key;
-        m_str *value;
+        char is_fn;
+        union {
+                m_str *val;
+                job_queue *jq;
+        } v;
 } var_j;
 
 #endif

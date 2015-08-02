@@ -12,8 +12,11 @@
 #include "../types/m_str.h"
 #include "../types/scope.h"
 #include "../types/queue.h"
+#include "../types/job_queue.h"
 
 #include "../eval/eval.h"
+
+#include "exec.c"
 
 // self-include
 #include "env.h"
@@ -38,12 +41,15 @@ void set_var (const char *key, const char *value)
 
 void set_msvar (const char *key, m_str *value)
 {
-        ht_add (cscope->vars, key, value);
+        var_j *nvar = malloc (sizeof(var_j));
+        nvar->is_fn = 0;
+        nvar->v.val = value;
+        ht_add (cscope->vars, key, nvar);
 }
 
 void unset_var (const char *key)
 {
-        m_str *trash = NULL;
+        var_j *trash = NULL;
         scope_j *csc = cscope;
         while (csc != NULL) {
                 if (ht_rm (cscope->vars, key, (void **)&trash)) {
@@ -51,10 +57,15 @@ void unset_var (const char *key)
                 }
                 csc = csc->parent;
         }
-        ms_free (trash);
+        if (trash->is_fn) {
+                // TODO: this
+        } else {
+                ms_free (trash->v.val);
+        }
+        free (trash);
 }
 
-m_str *get_var (const char *key)
+var_j *get_var (const char *key)
 {
         m_str *retval = NULL;
         scope_j *csc = cscope;
@@ -71,16 +82,13 @@ m_str *get_var (const char *key)
 // ENVIRONMENT INITIALIZATION
 // === === === === === === ===
 
-// enum to differentiate sections of the config file
-typedef enum {NONE, ENV, VARS, STARTUP} config_section_t;
-
 /*
  * Sets the environment to the defaults, which is pretty much "nothing".
  */
 void init_env_defaults (void)
 {
-        set_var ("__jpsh_~home", "(HOME)");
-        setenv ("SHELL", "/home/jpco/bin/jpsh", 1);
+        set_var ("__imp_~home", "(HOME)");
+        setenv ("SHELL", "/home/jpco/bin/impsh", 1);
         setenv ("LS_COLORS", "rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32", 1);
 }
 
@@ -102,7 +110,7 @@ void init_env_defaults (void)
  *      startup
  *
  *  - the [env] and [vars] sections are "key=value" formatted,
- *    while the [startup] section is any valid jpsh command.
+ *    while the [startup] section is any valid impsh command.
  *    - everything between opening whitespace and the first = is a key.
  *      everything after the first = is a value. No quotes necessary.
  *
@@ -120,80 +128,26 @@ void init_env_wfp (FILE *fp)
                 return;
         }
         char *line;
-        config_section_t sect = NONE;
         int read;
         queue *envq = q_make();
         read = getline (&rline, &n, fp);
         for (; read >= 0; read = getline (&rline, &n, fp)) {
-                line = trim_str (rline);
-
-                // case: comment or blank line
-                if (*line == ';' || *line == '#' || *line == '\0') {
-                        free (line);
-                        continue;
-                }
-
-                int linelen = strlen(line);
-
-                // case: section line
-                if (*line == '[' && line[linelen-1] == ']') {
-                        if (olstrcmp(line, "[env]")) {
-                                sect = ENV;
-                        } else if (olstrcmp(line, "[vars]")) {
-                                sect = VARS;
-                        } else if (olstrcmp(line, "[startup]")) {
-                                sect = STARTUP;
-                        } else sect = NONE;
-                        free (line);
-                        continue;
-                }
-
-                // if there is no section, nothing else can happen!
-                if (sect == NONE) {
-                        free (line);
-                        continue;
-                }
-
-                // case: startup line
-                if (sect == STARTUP) {
-                        line[linelen] = '\0';
-                        q_push (envq, line);
-                        continue;
-                }
-
-                // case: key-value being set.
-                char *spline[2];
-                spline[0] = line;
-                spline[1] = strchr(line, '=');
-                if (spline[1]) {
-                        *spline[1] = '\0';
-                        spline[1]++;
-                }
-
-                char *tr_spline0 = trim_str(spline[0]);
-                char *tr_spline1 = trim_str(spline[1]);
-
-                if (sect == ENV) {
-                        if (!spline[1]) {
-                                free (line);
-                                continue;
-                        }
-                        setenv (tr_spline0, tr_spline1, 1);
-                        free (tr_spline0);
-                        free (tr_spline1);
-                } else if (sect == VARS) {
-                        set_var (tr_spline0, tr_spline1);
-                }
+                q_push (envq, rline);
                 free (line);
         }
 
-        m_str *cdbg = get_var ("__jpsh_debug");
+        var_j *cdbg = get_var ("__imp_debug");
         unset_var ("debug");
 
-        eval (envq);
+        job_queue *jq = eval (envq);
+        exec (jq);
 
         if (cdbg != NULL) {
-                set_msvar ("__jpsh_debug", cdbg);
+                if (cdbg->is_fn) {
+                        // TODO: this
+                } else {
+                        set_msvar ("__imp_debug", cdbg->v.val);
+                }
                 free (cdbg);
         }
 
@@ -211,14 +165,14 @@ void init_env (void)
         int err = -1;
         char *home = getenv("HOME");
         if (home != NULL) {
-                char *epath = vcombine_str('\0', 2, home, "/.jpshrc");
+                char *epath = vcombine_str('\0', 2, home, "/.impshrc");
                 fp = fopen (epath, "r");
                 err = errno;
                 free (epath);
         }
 
         if (fp == NULL) {
-                fp = fopen ("/etc/jpsh.rc", "r");
+                fp = fopen ("/etc/impsh.rc", "r");
                 err = errno;
         }
 
