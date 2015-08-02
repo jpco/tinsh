@@ -59,7 +59,10 @@ void exec_single_job (job_j *job)
 
         if (get_var ("__imp_debug")) {
                 int i;
-                for (i = 0; i < job->argc; i++) {
+                printf("[");
+                ms_print (job->argv[0], 0);
+                printf("] ");
+                for (i = 1; i < job->argc; i++) {
                         ms_print (job->argv[i], 0);
                         printf (" ");
                 }

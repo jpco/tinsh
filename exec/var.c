@@ -15,29 +15,10 @@
 // self-include
 #include "var.h"
 
+// TODO: rewrite this function. it's fucky
 void var_eval (job_j *job)
 {
-        int a1mask = 0;
         int i;
-        for (i = 0; i < ms_len(job->argv[0])+1; i++) {
-                a1mask += job->argv[0]->mask[i];
-        }
-
-        if (!a1mask) {
-                m_str *alias = devar (ms_strip (job->argv[0]));
-
-                if (alias != NULL) {
-                        rm_element (job->argv, 0, &(job->argc));
-                        m_str **spl_alias = ms_spl_cmd (alias);
-
-                        int k;
-                        for (k = 0; spl_alias[k] != NULL; k++) {
-                                add_element (job->argv, spl_alias[k], k,
-                                                &(job->argc));
-                        }
-                }
-        }
-
         for (i = 0; i < job->argc; i++) {
                 m_str *arg = job->argv[i];
                 // ~
@@ -75,6 +56,7 @@ void var_eval (job_j *job)
                         continue;
                 }
 
+                m_str *ms_rparen = ms_advance (lparen, 1+rparen-(lparen->str));
                 *(lparen->str) = '\0';
                 *rparen = '\0';
                 size_t len = job->argc;
@@ -86,10 +68,11 @@ void var_eval (job_j *job)
                         value = nvalue;
                 }
                 m_str *nwd = NULL;
+                ms_updatelen (lparen);
                 if (value != NULL) {
-                        nwd = ms_vcombine (0, 3, arg, value, ms_advance (lparen, rparen-(lparen->str)));
+                        nwd = ms_vcombine (0, 3, arg, value, ms_rparen);
                 } else {
-                        nwd = ms_vcombine (0, 2, arg, ms_advance (lparen, (rparen-(lparen->str))));
+                        nwd = ms_vcombine (0, 2, arg, ms_rparen);
                 }
 
                 if (nwd != NULL) {
