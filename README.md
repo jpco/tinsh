@@ -1,4 +1,4 @@
-# jpsh
+# impsh
 Worse than bash! ~~Better than csh!~~
 
 Hopefully this will eventually become a functional (double entendre)
@@ -12,7 +12,7 @@ _TODO: Rewrite syntax section_
     - files/dirs
     - commands
  - Kind-of coloration (though not in-buffer!)
-    - can be toggled with `__jpsh_color` var
+    - can be toggled with `__imp_color` var
  - History
  - a(n as-of-yet unused) notion of scope for variables
     - environment variables and aliases always have global scope
@@ -26,7 +26,7 @@ CURRENT:
 
 ##### Interactive
  - Tab completion (more/better)
-    - var/alias autocomplete? Esp. `__jpsh_~home`
+    - var/alias autocomplete? Esp. `__imp_~home`
     - deal with s/dquotes
     - deal with parens
     - bash autocomplete files
@@ -35,8 +35,8 @@ CURRENT:
  - Redo line coloration... that didn't last long
  - Preview functionality!
  - `^` / `^^n` (use `hist_get()`)
- - `__jpsh_prompt`
- - Broaden .jpshrc location support
+ - `__imp_prompt`
+ - Broaden .impshrc location support
  - Readline/config support? (maybe long-term goal)
 
 ##### Non-interactive

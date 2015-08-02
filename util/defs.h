@@ -22,7 +22,7 @@
 #define LEN_HIST        400
 
 // Number of separators (defined in defs.c)
-// present in jpsh.
+// present in impsh.
 #define NUM_SEPARATORS  14
 
 // Maximum length of subshell output.

@@ -41,9 +41,9 @@ void var_eval (job_j *job)
                 m_str *arg = job->argv[i];
                 // ~
                 if (ms_strchr (arg, '~')) {
-                        if (get_var ("__jpsh_~home")) {
+                        if (get_var ("__imp_~home")) {
                                 m_str *home_ptr = ms_dup (arg);
-                                m_str *home_val = get_var ("__jpsh_~home");
+                                m_str *home_val = get_var ("__imp_~home");
 
                                 while (mbuf_strchr (home_ptr, '~')) {
                                         home_ptr = ms_advance (home_ptr, 1);
