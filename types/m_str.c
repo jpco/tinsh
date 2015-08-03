@@ -197,21 +197,25 @@ char *ms_strchr (const m_str *ms, char c)
         return NULL;
 }
 
-int mbuf_strchr(m_str *mbuf, char d)
+m_str *mbuf_strchr(const m_str *mbuf, char d)
 {
+        m_str *nmbuf = ms_make (ms_len(mbuf));
         if (mbuf == NULL) return 0;
         size_t len = mbuf->len;
         size_t i;
         for (i = 0; i < len; i++) {
                 if (mbuf->mask[i]) continue;
                 if (mbuf->str[i] == d) {
-                        mbuf->str += i;
-                        mbuf->mask += i;
-                        ms_updatelen (mbuf);
-                        return 1;
+                        nmbuf->str = strdup (mbuf->str + i);
+                        nmbuf->mask = calloc (strlen (nmbuf->str), 1);
+                        memcpy (nmbuf->mask, mbuf->mask + i,
+                                strlen (nmbuf->str));
+
+                        ms_updatelen (nmbuf);
+                        return nmbuf;
                 }
         }
-        return 0;
+        return NULL;
 }
 
 int ms_mstrcmp (const m_str *first, const m_str *second)
@@ -295,6 +299,28 @@ char ms_startswith (m_str *ms, char *pre)
         }
 
         return 1;
+}
+
+m_str **ms_split (m_str *oms, char delim)
+{
+        if (ms_strchr (oms, delim) == NULL) return NULL;
+        m_str *ms = ms_dup(oms);
+
+        m_str **mstrs = calloc(2, sizeof(m_str *));
+
+        m_str *nms = mbuf_strchr (ms, delim);
+        m_str *nnms = ms_advance (nms, 1);
+        ms_free (nms);
+        nms = nnms;
+
+        *(ms_strchr (ms, delim)) = '\0';
+        
+        ms_updatelen (ms);
+        ms_updatelen (nms);
+
+        mstrs[0] = ms;
+        mstrs[1] = nms;
+        return mstrs;
 }
 
 // TODO: make this one ms-native as well

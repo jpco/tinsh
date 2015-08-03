@@ -78,8 +78,8 @@ var_j *get_var (const char *key)
  */
 void init_env_defaults (void)
 {
-        set_var ("__imp_~home", "(HOME)");
-        setenv ("SHELL", "/home/jpco/bin/impsh", 1);
+        set_var ("__tin_home", "(HOME)");
+        setenv ("SHELL", "/home/jpco/bin/tinsh", 1);
         setenv ("LS_COLORS", "rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32", 1);
 }
 
@@ -107,7 +107,7 @@ void init_env_vars (void)
  *      startup
  *
  *  - the [env] and [vars] sections are "key=value" formatted,
- *    while the [startup] section is any valid impsh command.
+ *    while the [startup] section is any valid tinsh command.
  *    - everything between opening whitespace and the first = is a key.
  *      everything after the first = is a value. No quotes necessary.
  *
@@ -148,14 +148,14 @@ void init_env (void)
         int err = -1;
         char *home = getenv("HOME");
         if (home != NULL) {
-                char *epath = vcombine_str('\0', 2, home, "/.impshrc");
+                char *epath = vcombine_str('\0', 2, home, "/.tinshrc");
                 fp = fopen (epath, "r");
                 err = errno;
                 free (epath);
         }
 
         if (fp == NULL) {
-                fp = fopen ("/etc/impsh.rc", "r");
+                fp = fopen ("/etc/tinsh.rc", "r");
                 err = errno;
         }
 

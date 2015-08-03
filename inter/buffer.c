@@ -39,9 +39,9 @@ void prompt (void)
 {
         if (get_var ("prompt")) {
                 // TODO: parse prompt
-                sprompt = ms_strip (devar ("__imp_prompt"));
+                sprompt = ms_strip (devar ("__tin_prompt"));
         } else {
-                var_j *co = get_var ("__imp_color");
+                var_j *co = get_var ("__tin_color");
                 if (co) {
                         sprompt = vcombine_str('\0', 3, "\e[1m..",
                                 strrchr (getenv ("PWD"), '/'), "$\e[0m ");
@@ -403,7 +403,7 @@ char *line_loop (void)
                 status = interp(*cin, status);
                 if (status == -1) break;
         }
-        var_j *color = get_var ("__imp_color");
+        var_j *color = get_var ("__tin_color");
         if (color != NULL) {
                 printf("[%dG[K", prompt_length);
                 color_line_s(buf);

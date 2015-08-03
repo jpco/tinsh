@@ -20,19 +20,14 @@ void comment_eval (void)
                 m_str *line = NULL;
                 q_pop (elines, (void **)&line);
 
-                if (line->str == NULL) {
-                        continue;
-                }
-                char *comment = ms_strchr (line, '#');
-                if (comment != NULL) {
-                        *comment = '\0';
-                        ms_updatelen (line);
-                }
-                if (line->str == NULL) {
-                        continue;
-                }
-                if (*(line->str) != '\0') {
+                m_str **comment_split = ms_split (line, '#');
+
+                if (comment_split == NULL) {
                         q_push (nqueue, line);
+                } else {
+                        ms_free (line);
+                        ms_free (comment_split[1]);
+                        q_push (elines, comment_split[0]);
                 }
         }
 

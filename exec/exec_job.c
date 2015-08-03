@@ -7,15 +7,19 @@
 // local includes
 #include "../types/job.h"
 #include "../types/m_str.h"
+#include "../types/scope.h"
 
 #include "../util/debug.h"
 #include "../util/vector.h"
+#include "../util/str.h"
 
 #include "redirect.h"
 #include "var.h"
 #include "env.h"
 
 #include "builtin/builtin.h"
+
+#include "exec.h"
 
 // self-include
 #include "exec_job.h"
@@ -24,6 +28,7 @@ static int pid;
 static job_j *cchain;
 
 extern char **environ;
+extern scope_j *cscope;
 
 int fork_exec (job_j *job)
 {
@@ -90,7 +95,7 @@ void exec_single_job (job_j *job)
                 }
         } while (newval != NULL && newmask == 0);
 
-        if (get_var ("__imp_debug")) {
+        if (get_var ("__tin_debug")) {
                 int i;
                 printf("[");
                 ms_print (job->argv[0], 0);
@@ -127,6 +132,9 @@ void exec_single_job (job_j *job)
                                 close (job->p_in[0]);
                         if (job->p_out != NULL)
                                 close (job->p_out[1]);
+                        char strstatus[4];
+                        snprintf (strstatus, 3, "%d", status);
+                        set_var ("_?", strstatus);
                 }
         }
 
@@ -143,7 +151,7 @@ void exec_single_job (job_j *job)
 
 void exec_job (job_j *job)
 {
-        if (job == NULL || job->argc == 0) return;
+        set_var ("_?", "0");
 
         // set up piping redirects
         job_j *cjob = job;
@@ -164,7 +172,9 @@ void exec_job (job_j *job)
         cchain = job;
 
         for (; job != NULL; job = job->p_next) {
-                exec_single_job (job);
+                if (job->argc > 0) {
+                        exec_single_job (job);
+                }
         }
 
         pid = 0;

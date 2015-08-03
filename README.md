@@ -1,4 +1,4 @@
-# impsh
+# tinsh
 Worse than bash! ~~Better than csh!~~
 
 Hopefully this will eventually become a functional (double entendre)
@@ -12,7 +12,7 @@ _TODO: Rewrite syntax section_
     - files/dirs
     - commands
  - Kind-of coloration (though not in-buffer!)
-    - can be toggled with `__imp_color` var
+    - can be toggled with `__tin_color` var
  - History
  - subshells (kind of broken)
  - Input/output redirection
@@ -29,7 +29,7 @@ _TODO: Rewrite syntax section_
 
 ##### Interactive
  - Tab completion (more/better)
-    - var/alias autocomplete? Esp. `__imp_~home`
+    - var/alias autocomplete? Esp. `__tin_home`
     - deal with s/dquotes
     - deal with parens
     - bash autocomplete files
@@ -38,8 +38,8 @@ _TODO: Rewrite syntax section_
  - Redo line coloration... that didn't last long
  - Preview functionality!
  - `^` / `^^n` (use `hist_get()`)
- - `__imp_prompt`
- - Broaden .impshrc location support
+ - `__tin_prompt`
+ - Broaden .tinshrc location support
  - Readline/config support? (maybe long-term goal)
 
 ##### Non-interactive

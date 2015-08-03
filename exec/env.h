@@ -14,10 +14,8 @@ void unset_var(const char *key);
 
 var_j *get_var(const char *key);
 
-// Alias utilities. Aliases have no scope!
-
 // environment manipulation. The former uses defaults
-// from .impshrc et al, while the second works with an
+// from .tinshrc et al, while the second works with an
 // arbitrary path.
 void init_env();
 void init_envp(const char *path);

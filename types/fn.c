@@ -4,7 +4,7 @@
 #include "queue.h"
 #include "m_str.h"
 #include "arglist.h"
-#include "block.h"
+#include "job_queue.h"
 
 // self-include
 #include "fn.h"

@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include "m_str.h"
 #include "stack.h"
+#include "job_queue.h"
+
+typedef struct job_queue_str job_queue;
 
 typedef enum {RD_FIFO, RD_APP, RD_PRE, RD_REV, RD_OW, RD_LIT, RD_RD, RD_REP} rdm;
 
@@ -26,6 +29,9 @@ typedef struct job_str {
         int *p_out;
 
         stack *rd_stack;
+
+        // if this job is a block job this will not be null
+        job_queue *block;
 } job_j;
 
 job_j *job_form(m_str *line, job_j *prev_job);

@@ -2,7 +2,8 @@
 #define JPSH_TYPES_FN_H
 
 #include "arglist.h"
-#include "block.h"
+#include "job_queue.h"
+#include "queue.h"
 
 typedef struct {
         char *name;

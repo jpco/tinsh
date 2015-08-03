@@ -3,7 +3,6 @@
 
 // local includes
 #include "../types/job_queue.h"
-#include "../types/jq_elt.h"
 #include "../types/scope.h"
 #include "../types/job.h"
 #include "../types/m_str.h"
@@ -22,16 +21,16 @@ void exec (job_queue *jq)
                 jq->cjob = ll_makeiter (jq->jobs);
         }
 
-        jq_elt *celt;
+        job_j *celt;
         while ((celt = ll_iter_next (jq->cjob)) != NULL) {
-                if (celt->is_block) {
+                if (celt->argc > 0) {
+                        exec_job (celt);
+                }
+                                
+                if (celt->block != NULL) {
                         cscope = new_scope (cscope);
-                        while (bj_test (celt->dat.bl->bjob)) {
-                                exec (celt->dat.bl->jobs);
-                        }
+                        exec (celt->block);
                         cscope = leave_scope (cscope);
-                } else {
-                        exec_job (celt->dat.job);
                 }
         }
 

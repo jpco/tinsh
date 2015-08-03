@@ -3,11 +3,12 @@
 
 #include "linkedlist.h"
 #include "job.h"
-#include "block.h"
 #include "queue.h"
 
+typedef struct job_str job_j;
+
 typedef struct job_queue_str {
-        linkedlist *jobs;  // of struct jq_elts;
+        linkedlist *jobs;  // of job_js
         ll_iter *cjob;
 } job_queue;
 

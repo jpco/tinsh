@@ -6,7 +6,7 @@
 // local includes
 #include "../types/m_str.h"
 #include "../types/queue.h"
-#include "spl_pipe.h"
+#include "spl_block.h"
 
 // self-include
 #include "spl_line.h"
@@ -20,32 +20,13 @@ void spl_line_eval (void)
         m_str *line = NULL;
         q_pop (elines, (void **)&line);
 
-        if (line == NULL) return;
-        ms_updatelen(line);
-
-        m_str *msbuf = line;
-        m_str *nmsbuf = malloc(sizeof(m_str));
-        nmsbuf->str = msbuf->str;
-        nmsbuf->mask = msbuf->mask;
-        nmsbuf->len = msbuf->len;
-        int nline_exists = mbuf_strchr (nmsbuf, ';');
-
-        while (msbuf != NULL) {
-                if (nline_exists) {
-                        *(nmsbuf->str) = '\0';
-                }
-                m_str *nline = ms_dup (msbuf);
-                q_push (elines, nline);
-                q_push (ejobs, spl_pipe_eval);
-
-                if (!nline_exists) {
-                        msbuf = NULL;
-                } else {
-                        msbuf->str = nmsbuf->str + 1;
-                        msbuf->mask = nmsbuf->mask + 1;
-                        ms_updatelen (msbuf);
-                        nline_exists = mbuf_strchr (nmsbuf, ';');
-                }
+        m_str **line_split;
+        while ((line_split = ms_split(line, ';')) != NULL) {
+                ms_free (line);
+                q_push (ejobs, spl_block_eval);
+                q_push (elines, line_split[0]);
+                line = line_split[1];
         }
-        free (nmsbuf);
+        q_push (ejobs, spl_block_eval);
+        q_push (elines, line);
 }

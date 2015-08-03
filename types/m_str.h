@@ -17,7 +17,9 @@ char *ms_strip (m_str *ms);
 char *ms_unmask (m_str *ms);
 
 char *ms_strchr (const m_str *ms, char c);
-int mbuf_strchr(m_str *mbuf, char d);
+m_str *mbuf_strchr(const m_str *mbuf, char d);
+
+m_str **ms_split (m_str *ms, char delim);
 
 int ms_mstrcmp (const m_str *first, const m_str *second);
 int ms_ustrcmp (const m_str *first, const m_str *second);

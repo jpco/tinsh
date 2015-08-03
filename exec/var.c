@@ -16,7 +16,7 @@
 // self-include
 #include "var.h"
 
-// TODO: rewrite this function. it's fucky
+// TODO: rewrite this function. this function is bad.
 void var_eval (job_j *job)
 {
         int i;
@@ -24,9 +24,9 @@ void var_eval (job_j *job)
                 m_str *arg = job->argv[i];
                 // ~
                 if (ms_strchr (arg, '~')) {
-                        if (devar ("__imp_~home")) {
+                        if (devar ("__tin_home")) {
                                 m_str *home_ptr = ms_dup (arg);
-                                m_str *home_val = devar ("__imp_~home");
+                                m_str *home_val = devar ("__tin_home");
 
                                 while (mbuf_strchr (home_ptr, '~')) {
                                         home_ptr = ms_advance (home_ptr, 1);

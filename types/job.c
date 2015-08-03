@@ -124,14 +124,12 @@ int redirect (job_j *job, int i)
 
 job_j *job_form (m_str *line, job_j *prev_job)
 {
-        if (line == NULL) return NULL;
-        // for memory safety
-        m_str *ol = line;
+        m_str *ol = NULL;
+        if (line != NULL && ms_len(line) > 0) {
+                // for memory safety
+                ol = line;
 
-        ms_trim (&line);
-        if (ms_len(line) == 0) {
-                free (ol);
-                return NULL;
+                ms_trim (&line);
         }
 
         job_j *job = malloc(sizeof(job_j));
@@ -147,6 +145,13 @@ job_j *job_form (m_str *line, job_j *prev_job)
         job->p_in = NULL;
         job->p_out = NULL;
         job->rd_stack = s_make();
+        job->block = NULL;
+
+        if (line == NULL || ms_len (line) == 0) {
+                job->argv = NULL;
+                job->argc = 0;
+                return job;
+        }
 
         job->argv = ms_spl_cmd (line);
         int i;
