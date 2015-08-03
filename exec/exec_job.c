@@ -117,12 +117,14 @@ void exec_single_job (job_j *job)
                         if (err == 1) {
                                 if (vval != NULL) {
                                         printf ("%s\n", ms_strip (vval));
+                                        exit (0);
                                 } else {
                                         print_err ("Var/command not found.");
                                 }
                         } else {
                                 print_err ("Could not execute command.");
                         }
+                        exit (1);
                 } else {
                         int status = 0;
                         if (waitpid (pid, &status, 0) < 0) {
