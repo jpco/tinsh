@@ -38,10 +38,10 @@ void var_eval (job_j *job)
                 int len = strlen(varptr);
                 int j;
                 for (j = 0; matched > 0 && j < len; j++) {
+                        varptr++;
                         if (left_spl[1]->mask[j]) continue;
                         if (left_spl[1]->str[j] == '(') matched++;
                         else if (left_spl[1]->str[j] == ')') matched--;
-                        varptr++;
                 }
                 if (matched > 0) {
                         print_err ("Missing ')'.");
