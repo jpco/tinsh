@@ -78,5 +78,11 @@ void jq_load_chain (job_queue *jq, job_j *jq_job)
         while (jq_job->p_prev != NULL) {
                 jq_job = jq_job->p_prev;
         }
-        ll_append (jq->jobs, jq_job);
+
+        if (jq_job->argc == 0 && jq_job->block == NULL
+                && jq_job->p_next == NULL) {
+                free (jq_job);
+        } else {
+                ll_append (jq->jobs, jq_job);
+        }
 }

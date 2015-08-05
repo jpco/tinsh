@@ -129,7 +129,7 @@ void exec_single_job (job_j *job)
                         } else {
                                 print_err ("Could not execute command.");
                         }
-                        exit (1);
+                        exit (err);
                 } else {
                         int status = 0;
                         if (waitpid (pid, &status, 0) < 0) {
@@ -158,8 +158,6 @@ void exec_single_job (job_j *job)
 
 void exec_job (job_j *job)
 {
-        set_var ("_?", "0");
-
         // set up piping redirects
         job_j *cjob = job;
         while (cjob->p_next != NULL) {

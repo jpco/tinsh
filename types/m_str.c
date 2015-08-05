@@ -35,10 +35,8 @@ m_str *ms_make (size_t len)
         return nms;
 }
 
-// TODO: Redo mask logic!
-//
-// HEY! | and ; in `` get masked!
-// HEY! \ at the end of a line kills a newline!
+// 
+// TODO: HEY! \ at the end of a line kills a newline!
 //
 m_str *ms_mask (const char *str)
 {
@@ -113,10 +111,10 @@ m_str *ms_mask (const char *str)
                                         continue;
                                 }
                                 char cchar = nms->str[i];
-                                if (cchar == ' ' ||
+                                if (cchar == ' ' || cchar == ';' ||
                                     cchar == '|' || cchar == '{' ||
                                     cchar == '}' || cchar == ':') {
-                                        nms->mask[i] = '"';
+                                        nms->mask[i] = '(';
                                         continue;
                                 }
                         }
@@ -209,7 +207,7 @@ char *ms_strchr (const m_str *ms, char c)
 m_str *mbuf_strchr(const m_str *mbuf, char d)
 {
         m_str *nmbuf = ms_make (ms_len(mbuf));
-        if (mbuf == NULL) return 0;
+        if (mbuf == NULL) return NULL;
         size_t len = mbuf->len;
         size_t i;
         for (i = 0; i < len; i++) {
