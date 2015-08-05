@@ -28,38 +28,60 @@ void var_eval (job_j *job)
         for (i = 0; i < job->argc; i++) {
                 m_str *arg = job->argv[i];
 
-                // normal (foo) vars
-                m_str *lparen = arg;
-                if (!mbuf_strchr (lparen, '(')) continue;
+                m_str **left_spl = ms_split (arg, '(');
+                if (left_spl == NULL) continue;
 
-                char *rparen = lparen->str;
-                if ((rparen = ms_strchr(lparen, ')')) == NULL) {
-                        dbg_print_err ("Mismatched parentheses.");
-                        continue;
+                printf ("arg: ");
+                ms_print (arg, 1);
+
+                ms_free (arg);
+
+                char matched = 1;
+                char *varptr = left_spl[1]->str;
+                int len = strlen(varptr);
+                int j;
+                for (j = 0; matched > 0 && j < len; j++) {
+                        if (left_spl[1]->mask[j]) continue;
+                        if (left_spl[1]->str[j] == '(') matched++;
+                        else if (left_spl[1]->str[j] == ')') matched--;
+                        varptr++;
                 }
-                m_str *ms_rparen = ms_advance (lparen, 1+rparen-(lparen->str));
-                *(ms_strchr (arg, ')')) = 0;
-                ms_updatelen (arg);
+                if (matched > 0) {
+                        print_err ("Missing ')'.");
+                } else {
+                        *(varptr-1) = 0;
+                }
+                m_str *right = ms_advance (left_spl[1],
+                                        varptr-left_spl[1]->str);
+                ms_updatelen (left_spl[1]);
+                ms_updatelen (right);
 
-                *(lparen->str) = '\0';
-                *rparen = '\0';
+                printf (" -- cut -- \n");
+                printf ("0: ");
+                ms_print (left_spl[0], 1);
+                printf ("1: ");
+                ms_print (left_spl[1], 1);
+                printf ("2: ");
+                ms_print (right, 1);
 
                 m_str *value;
-                if ((value = devar (lparen->str+1)) != NULL) {
-                } else if ((value = ms_mask (getenv (lparen->str+1))) != NULL) {
-                        m_str *nvalue = ms_dup (value);
-                        value = nvalue;
+                if ((value = devar (ms_strip(left_spl[1]))) == NULL) {
+                        value = ms_mask (getenv (ms_strip(left_spl[1])));
                 }
-                ms_updatelen (lparen);
-                m_str *nwd;
-                if (value != NULL) {
-                        nwd = ms_vcombine (0, 3, arg, value, ms_rparen);
-                } else {
-                        nwd = ms_vcombine (0, 2, arg, ms_rparen);
-                }
+                printf ("\n -- value --\n");
+                ms_print (value, 1);
+                ms_free (left_spl[1]);
+
+                m_str *nwd = ms_vcombine (0, 3, left_spl[0], value, right);
+                printf ("\n -- nwd --\n");
+                ms_print (nwd, 1);
+
+                ms_free (left_spl[0]);
+                ms_free (right);
+
+                ms_print (nwd, 1);
                 m_str **nargs = ms_spl_cmd (nwd);
                 rm_element (job->argv, i, &(job->argc));
-                int j;
                 for (j = 0; nargs[j] != NULL; j++) {
                         add_element (job->argv, nargs[j], i+j, &(job->argc));
                 }
