@@ -90,23 +90,32 @@ m_str *ms_mask (const char *str)
                                 nms->mask[i] = '\'';
                         }
                 } else {
-                        if (dquote || var) {
+                        if (dquote) {
                                 if (nms->str[i] == '"') {
                                         rm_char (nms->str + i);
                                         arm_char (nms->mask + i, len - i);
                                         dquote = 0;
                                         i--;
                                         continue;
-                                } else if (nms->str[i] == ')') {
-                                        var = 0;
-                                        continue;
                                 }
-
                                 char cchar = nms->str[i];
                                 if (cchar == ' ' ||
                                     cchar == '|' || cchar == '{' ||
                                     cchar == '}' || cchar == ':' ||
                                     cchar == '\'') {
+                                        nms->mask[i] = '"';
+                                        continue;
+                                }
+                        }
+                        if (var) {
+                                if (var && nms->str[i] == ')') {
+                                        var--;
+                                        continue;
+                                }
+                                char cchar = nms->str[i];
+                                if (cchar == ' ' ||
+                                    cchar == '|' || cchar == '{' ||
+                                    cchar == '}' || cchar == ':') {
                                         nms->mask[i] = '"';
                                         continue;
                                 }
@@ -123,7 +132,7 @@ m_str *ms_mask (const char *str)
                                 dquote = 1;
                                 i--;
                         } else if (nms->str[i] == '(') {
-                                var = 1;
+                                var++;
                         }
                 }
         }

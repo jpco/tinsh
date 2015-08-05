@@ -11,42 +11,22 @@
 #include "../util/debug.h"
 #include "../util/vector.h"
 
+#include "subshell.h"
 #include "env.h"
 
 // self-include
 #include "var.h"
 
+void tilde_eval (job_j *job);
+
 // TODO: rewrite this function. this function is bad.
 void var_eval (job_j *job)
 {
+        tilde_eval (job);
+
         int i;
         for (i = 0; i < job->argc; i++) {
                 m_str *arg = job->argv[i];
-                // ~
-                if (ms_strchr (arg, '~')) {
-                        if (devar ("__tin_home")) {
-                                m_str *home_ptr = ms_dup (arg);
-                                m_str *home_val = devar ("__tin_home");
-
-                                while (mbuf_strchr (home_ptr, '~')) {
-                                        home_ptr = ms_advance (home_ptr, 1);
-                                        if (ms_strchr (arg, '~')) {
-                                                *(ms_strchr (arg, '~')) = '\0';
-                                        }
-                                        ms_updatelen (arg);
-                                        ms_updatelen (home_ptr);
-                                        m_str *nwd = ms_vcombine (0, 3,
-                                                        arg,
-                                                        home_val,
-                                                        home_ptr);
-
-                                        rm_element (job->argv, i, &(job->argc));
-                                        add_element (job->argv, nwd, i, &(job->argc));
-                                }
-                        }
-                }
-
-                arg = job->argv[i];
 
                 // normal (foo) vars
                 m_str *lparen = arg;
@@ -87,6 +67,37 @@ void var_eval (job_j *job)
         }
 }
 
+void tilde_eval (job_j *job)
+{
+        int i;
+        for (i = 0; i < job->argc; i++) {
+                m_str *arg = job->argv[i];
+                // ~
+                if (ms_strchr (arg, '~')) {
+                        if (devar ("__tin_home")) {
+                                m_str *home_ptr = ms_dup (arg);
+                                m_str *home_val = devar ("__tin_home");
+
+                                while (mbuf_strchr (home_ptr, '~')) {
+                                        home_ptr = ms_advance (home_ptr, 1);
+                                        if (ms_strchr (arg, '~')) {
+                                                *(ms_strchr (arg, '~')) = '\0';
+                                        }
+                                        ms_updatelen (arg);
+                                        ms_updatelen (home_ptr);
+                                        m_str *nwd = ms_vcombine (0, 3,
+                                                        arg,
+                                                        home_val,
+                                                        home_ptr);
+
+                                        rm_element (job->argv, i, &(job->argc));
+                                        add_element (job->argv, nwd, i, &(job->argc));
+                                }
+                        }
+                }
+        }
+}
+
 m_str *devar(char *name)
 {
         var_j *varval = get_var (name);
@@ -102,5 +113,12 @@ m_str *devar(char *name)
         }
 
         // eval/exec time
-        return NULL;
+        // TODO: function handling goes here        
+
+        m_str *ret = ms_mask (subshell (name));
+        if (ret->str[ret->len-1] == '\n' && !ret->mask[ret->len-1]) {
+                ret->str[ret->len-1] = 0;
+                ms_updatelen(ret);
+        }
+        return ret;
 }

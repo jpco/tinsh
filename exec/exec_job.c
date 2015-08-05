@@ -115,8 +115,13 @@ void exec_single_job (job_j *job)
                 else if (pid == 0) {
                         int err = fork_exec (job);
                         if (err == 1) {
-                                if (vval != NULL) {
-                                        printf ("%s\n", ms_strip (vval));
+                                if (vval != NULL || get_var ("__tin_ignorenf")) {
+                                        if (!ms_strip (vval)) {
+                                                printf("\n");
+                                        } else {
+                                                printf("%s\n",
+                                                        ms_strip(vval));
+                                        }
                                         exit (0);
                                 } else {
                                         print_err ("Var/command not found.");
