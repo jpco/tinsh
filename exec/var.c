@@ -31,9 +31,6 @@ void var_eval (job_j *job)
                 m_str **left_spl = ms_split (arg, '(');
                 if (left_spl == NULL) continue;
 
-                printf ("arg: ");
-                ms_print (arg, 1);
-
                 ms_free (arg);
 
                 char matched = 1;
@@ -56,30 +53,17 @@ void var_eval (job_j *job)
                 ms_updatelen (left_spl[1]);
                 ms_updatelen (right);
 
-                printf (" -- cut -- \n");
-                printf ("0: ");
-                ms_print (left_spl[0], 1);
-                printf ("1: ");
-                ms_print (left_spl[1], 1);
-                printf ("2: ");
-                ms_print (right, 1);
-
                 m_str *value;
                 if ((value = devar (ms_strip(left_spl[1]))) == NULL) {
                         value = ms_mask (getenv (ms_strip(left_spl[1])));
                 }
-                printf ("\n -- value --\n");
-                ms_print (value, 1);
                 ms_free (left_spl[1]);
 
                 m_str *nwd = ms_vcombine (0, 3, left_spl[0], value, right);
-                printf ("\n -- nwd --\n");
-                ms_print (nwd, 1);
 
                 ms_free (left_spl[0]);
                 ms_free (right);
 
-                ms_print (nwd, 1);
                 m_str **nargs = ms_spl_cmd (nwd);
                 rm_element (job->argv, i, &(job->argc));
                 for (j = 0; nargs[j] != NULL; j++) {
