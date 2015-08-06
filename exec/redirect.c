@@ -29,9 +29,11 @@ int setup_redirects (job_j *job)
                 dup2 (job->p_out[1], STDOUT_FILENO);
         }
 
+        stack *bak = s_make();
         while (s_len(job->rd_stack) > 0) {
                 rd_j *redir;
                 s_pop (job->rd_stack, (void **)&redir);
+                s_push (bak, redir);
 
                 int other_fd = -1;
 
@@ -70,6 +72,12 @@ int setup_redirects (job_j *job)
                         dup2 (other_fd, redir->loc_fd);
                 }
         }
+        while (s_len(bak) > 0) {
+                rd_j *redir;
+                s_pop (bak, (void **)&redir);
+                s_push (job->rd_stack, redir);
+        }
+        free (bak);
 
         return 0;
 }

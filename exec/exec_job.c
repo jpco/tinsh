@@ -177,8 +177,13 @@ void exec_single_job (job_j *job)
         close (dup_out);
 }
 
-void exec_job (job_j *job)
+job_j *job_dup (job_j *job);
+void destroy_job (job_j *job);
+
+void exec_job (job_j *orig_job)
 {
+        job_j *job = job_dup (orig_job);
+
         // set up piping redirects
         job_j *cjob = job;
         while (cjob->p_next != NULL) {
@@ -204,4 +209,62 @@ void exec_job (job_j *job)
         }
 
         pid = 0;
+
+        destroy_job (job);
+}
+
+void destroy_job (job_j *job)
+{
+        while (job) {
+                if (job->p_in) free (job->p_in);
+                if (job->p_out) free (job->p_out);
+
+                int i;
+                for (i = 0; i < job->argc; i++) {
+                        ms_free (job->argv[i]);
+                }
+                free (job->argv);
+                job_j *fjob = job;
+                job = job->p_next;
+
+                free (fjob);
+        }
+}
+
+job_j *job_dup (job_j *job)
+{
+        job_j *currdup = NULL;
+        while (job) {
+                job_j *newdup = malloc(sizeof(job_j));
+                newdup->argc = job->argc;
+                newdup->argv = malloc(sizeof(m_str *) * newdup->argc);
+                int i;
+                for (i = 0; i < newdup->argc; i++) {
+                        newdup->argv[i] = ms_dup (job->argv[i]);
+                }
+
+                newdup->bg = job->bg;
+
+                // have to make sure we get p_next pointing to duplicates
+                // and not originals
+                newdup->p_prev = currdup;
+                newdup->p_next = NULL;
+                if (newdup->p_prev) newdup->p_prev->p_next = newdup;
+
+                // these don't need to be duplicated (hopefully)
+                newdup->block = job->block;
+                newdup->rd_stack = job->rd_stack;
+
+                // initialize these
+                newdup->p_in = NULL;
+                newdup->p_out = NULL;
+
+                currdup = newdup;
+                job = job->p_next;
+        }
+
+        // back up to first job in chain
+        while (currdup && currdup->p_prev) currdup = currdup->p_prev;
+
+        return currdup;
 }

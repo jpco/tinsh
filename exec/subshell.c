@@ -47,7 +47,10 @@ char *subshell (char *cmd)
                 q_push (c, cmd);
                 job_queue *jq = eval (c);
                 set_var ("__tin_ignorenf", "true");
+                var_j *db = get_var ("__tin_debug");
+                unset_var ("__tin_debug");
                 exec (jq);
+                if (db) set_var ("__tin_debug", "true");
 
                 do {
                         close (fds[1]);

@@ -48,11 +48,13 @@ void unset_var (const char *key)
                 }
                 csc = csc->parent;
         }
-        if (trash->is_fn) {
-                // TODO: this
-        } else {
-                ms_free (trash->v.value);
-                free (trash);
+        if (trash) {
+                if (trash->is_fn) {
+                        // TODO: this
+                } else {
+                        ms_free (trash->v.value);
+                        free (trash);
+                }
         }
 }
 

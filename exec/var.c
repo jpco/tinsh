@@ -19,7 +19,6 @@
 
 void tilde_eval (m_str **argv, size_t argc);
 
-// TODO: rewrite this function. this function is bad.
 void var_eval (job_j *job)
 {
         job->argc = devar_argv(job->argv, job->argc);
@@ -48,7 +47,7 @@ size_t devar_argv (m_str **argv, size_t argc)
 
         int i;
         for (i = 0; i < argc; i++) {
-                m_str *arg = argv[i];
+                m_str *arg = ms_dup(argv[i]);
 
                 m_str **left_spl = ms_split (arg, '(');
                 if (left_spl == NULL) continue;
@@ -101,7 +100,7 @@ void tilde_eval (m_str **argv, size_t argc)
 {
         int i;
         for (i = 0; i < argc; i++) {
-                m_str *arg = argv[i];
+                m_str *arg = ms_dup(argv[i]);
                 // ~
                 if (ms_strchr (arg, '~')) {
                         if (devar ("__tin_home")) {
@@ -125,6 +124,7 @@ void tilde_eval (m_str **argv, size_t argc)
                                 }
                         }
                 }
+                ms_free (arg);
         }
 }
 

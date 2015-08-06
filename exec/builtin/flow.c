@@ -56,7 +56,6 @@ int test (m_str **argv)
 
         if (ms_mstrcmp(argv[0], ms_mask("not"))) {
                 invert = 1;
-                ms_free (argv[0]);
                 argv++;
         }
 
@@ -128,12 +127,40 @@ int func_else (job_j *job)
 
 int func_while (job_j *job)
 {
-        return 0;
+        m_str **argv = job->argv + 1;
+        size_t argc = job->argc - 1;
+
+        // empty test is false
+        if (argc == 0) return 3;
+
+        while (test (argv)) {
+                if (job->block != NULL) {
+                        cscope = new_scope (cscope);
+                        exec (job->block);
+                        cscope = leave_scope (cscope);
+                }
+        }
+
+        return 3;
 }
 
 int func_for (job_j *job)
 {
-        return 0;
+        m_str **argv = job->argv + 1;
+        size_t argc = job->argc - 1;
+
+        if (argc == 0) return 3;
+
+        while (test (argv)) {
+                if (job->block != NULL) {
+                        cscope = new_scope (cscope);
+                        exec (job->block);
+                        cscope = leave_scope (cscope);
+                }
+        }
+
+        return 3;
+
 }
 
 int func_cfor (job_j *job)

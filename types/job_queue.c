@@ -36,34 +36,34 @@ job_queue *jq_make (queue *lines)
 
                 if (line == PIPE_MARKER) {
                         pipe = 1;
-                } else {
-                        if (line == NULL || line->str == NULL) continue;
-
-                        if (olstrcmp (line->str, "{")) {
-                                ms_free (line);
-                                line = NULL;
-                                prev_job->block = jq_make (lines);
-                                pipe = 0;
-                        } else if (olstrcmp (line->str, ":")) {
-                                ms_free (line);
-                                line = NULL;
-                                prev_job->block = jq_singleton (lines);
-                                pipe = 0;
-                        } else if (olstrcmp (line->str, "}")) {
-                                ms_free (line);
-                                break;
-                        }
-
-                        if (!pipe) {
-                                jq_load_chain (njq, prev_job);
-                                prev_job = NULL;
-                        } 
-
-                        if (line != NULL) {
-                                prev_job = job_form (line, prev_job);
-                        }
-                        pipe = 0;
+                        continue;
                 }
+                if (line == NULL || line->str == NULL) continue;
+
+                if (olstrcmp (line->str, "{")) {
+                        ms_free (line);
+                        line = NULL;
+                        prev_job->block = jq_make (lines);
+                        pipe = 0;
+                } else if (olstrcmp (line->str, ":")) {
+                        ms_free (line);
+                        line = NULL;
+                        prev_job->block = jq_singleton (lines);
+                        pipe = 0;
+                } else if (olstrcmp (line->str, "}")) {
+                        ms_free (line);
+                        break;
+                }
+
+                if (!pipe) {
+                        jq_load_chain (njq, prev_job);
+                        prev_job = NULL;
+                } 
+
+                if (line != NULL) {
+                        prev_job = job_form (line, prev_job);
+                }
+                pipe = 0;
         }
         jq_load_chain (njq, prev_job);
         return njq;
@@ -83,36 +83,36 @@ job_queue *jq_singleton (queue *lines)
 
                 if (line == PIPE_MARKER) {
                         pipe = 1;
-                } else {
-                        if (line == NULL || line->str == NULL) continue;
-
-                        if (olstrcmp (line->str, "{")) {
-                                ms_free (line);
-                                line = NULL;
-                                prev_job->block = jq_make (lines);
-                                pipe = 0;
-                        } else if (olstrcmp (line->str, ":")) {
-                                ms_free (line);
-                                line = NULL;
-                                prev_job->block = jq_singleton (lines);
-                                pipe = 0;
-                        } else if (olstrcmp (line->str, "}")) {
-                                ms_free (line);
-                                break;
-                        }
-
-                        if (!pipe) {
-                                jq_load_chain (njq, prev_job);
-                                prev_job = NULL;
-                        } 
-
-                        if (line != NULL) {
-                                prev_job = job_form (line, prev_job);
-                        }
-                        if (!pipe) break;
-
-                        pipe = 0;
+                        continue;
                 }
+
+                if (line == NULL || line->str == NULL) continue;
+
+                if (olstrcmp (line->str, "{")) {
+                        ms_free (line);
+                        line = NULL;
+                        prev_job->block = jq_make (lines);
+                        pipe = 0;
+                } else if (olstrcmp (line->str, ":")) {
+                        ms_free (line);
+                        line = NULL;
+                        prev_job->block = jq_singleton (lines);
+                        pipe = 0;
+                } else if (olstrcmp (line->str, "}")) {
+                        ms_free (line);
+                        break;
+                }
+
+                if (!pipe) {
+                        jq_load_chain (njq, prev_job);
+                        prev_job = NULL;
+                } 
+
+                if (line != NULL) {
+                        prev_job = job_form (line, prev_job);
+                }
+                if (!pipe) break;
+                else pipe = 0;
         }
         jq_load_chain (njq, prev_job);
         return njq;
