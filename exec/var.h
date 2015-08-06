@@ -6,6 +6,10 @@
 
 void var_eval(job_j *job);
 
+size_t devar_argv (m_str **argv, size_t argc);
+
+void devar_arg (m_str **arg);
+
 m_str *devar(char *name);
 
 #endif

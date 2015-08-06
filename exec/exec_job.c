@@ -18,6 +18,7 @@
 #include "env.h"
 
 #include "builtin/builtin.h"
+#include "builtin/flow.h"
 
 #include "exec.h"
 
@@ -61,8 +62,6 @@ void exec_single_job (job_j *job)
         int dup_in = dup (STDIN_FILENO);
         int dup_out = dup (STDOUT_FILENO);
 
-        var_eval (job);
-
         // aliasing
         m_str *vval = NULL;
         m_str *newval = NULL;
@@ -95,20 +94,34 @@ void exec_single_job (job_j *job)
                 }
         } while (newval != NULL && newmask == 0);
 
-        if (get_var ("__tin_debug")) {
-                int i;
-                printf("[");
-                ms_print (job->argv[0], 0);
-                printf("] ");
-                for (i = 1; i < job->argc; i++) {
-                        ms_print (job->argv[i], 0);
-                        printf (" ");
+        // flow builtins get evaluated here
+        int fb_status = flow_builtin(job);
+        if (fb_status) {
+                if (fb_status == 1) {
+                        // if && evaluated true
+
+                } else if (fb_status == 2) {
+                        // if && evaluated false
+
                 }
-                printf ("\n");
+                return;
         }
 
-        // function calls
+        var_eval (job);
 
+        // debug printing
+        if (get_var ("__tin_debug")) {
+                int i;
+                fprintf(stderr, "[%s] ", ms_strip (job->argv[0]));
+                for (i = 1; i < job->argc; i++) {
+                        fprintf (stderr, "%s ", ms_strip (job->argv[i]));
+                }
+                fprintf (stderr, "\n");
+        }
+
+        // TODO: function calls go here
+
+        // builtins & forking go here
         if (!builtin(job)) {
                 pid = fork();
                 if (pid < 0) print_err_wno ("fork() error.", errno);
@@ -116,6 +129,7 @@ void exec_single_job (job_j *job)
                         int err = fork_exec (job);
                         if (err == 1) {
                                 if (vval != NULL || get_var ("__tin_ignorenf")) {
+                                        // handle empty returns
                                         if (!ms_strip (vval)) {
                                                 printf("\n");
                                         } else {
@@ -124,6 +138,7 @@ void exec_single_job (job_j *job)
                                         }
                                         exit (0);
                                 } else {
+                                        fprintf (stderr, "For fn %s\n", job->argv[0]->str);
                                         print_err ("Var/command not found.");
                                 }
                         } else {
@@ -143,6 +158,12 @@ void exec_single_job (job_j *job)
                         snprintf (strstatus, 3, "%d", status);
                         set_var ("_?", strstatus);
                 }
+        }
+
+        if (job->block != NULL) {
+                cscope = new_scope (cscope);
+                exec (job->block);
+                cscope = leave_scope (cscope);
         }
 
         if (job->p_in != NULL) {

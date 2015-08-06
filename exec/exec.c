@@ -26,12 +26,6 @@ void exec (job_queue *jq)
                 if (celt->argc > 0) {
                         exec_job (celt);
                 }
-                                
-                if (celt->block != NULL) {
-                        cscope = new_scope (cscope);
-                        exec (celt->block);
-                        cscope = leave_scope (cscope);
-                }
         }
 
         free (jq->cjob);

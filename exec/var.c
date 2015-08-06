@@ -17,16 +17,38 @@
 // self-include
 #include "var.h"
 
-void tilde_eval (job_j *job);
+void tilde_eval (m_str **argv, size_t argc);
 
 // TODO: rewrite this function. this function is bad.
 void var_eval (job_j *job)
 {
-        tilde_eval (job);
+        job->argc = devar_argv(job->argv, job->argc);
+}
+
+void devar_arg (m_str **arg)
+{
+        m_str **args = ms_spl_cmd (*arg);
+        size_t argc;
+        for (argc = 0; args[argc] != NULL; argc++);
+
+        argc = devar_argv (args, argc);
+
+        *arg = ms_combine ((const m_str **)args, argc, ' ');
 
         int i;
-        for (i = 0; i < job->argc; i++) {
-                m_str *arg = job->argv[i];
+        for (i = 0; i < argc; i++) {
+                ms_free (args[i]);
+                free (args);
+        }
+}
+
+size_t devar_argv (m_str **argv, size_t argc)
+{
+        tilde_eval (argv, argc);
+
+        int i;
+        for (i = 0; i < argc; i++) {
+                m_str *arg = argv[i];
 
                 m_str **left_spl = ms_split (arg, '(');
                 if (left_spl == NULL) continue;
@@ -65,19 +87,21 @@ void var_eval (job_j *job)
                 ms_free (right);
 
                 m_str **nargs = ms_spl_cmd (nwd);
-                rm_element (job->argv, i, &(job->argc));
+                rm_element (argv, i, &argc);
                 for (j = 0; nargs[j] != NULL; j++) {
-                        add_element (job->argv, nargs[j], i+j, &(job->argc));
+                        add_element (argv, nargs[j], i+j, &argc);
                 }
                 i--;
         }
+
+        return argc;
 }
 
-void tilde_eval (job_j *job)
+void tilde_eval (m_str **argv, size_t argc)
 {
         int i;
-        for (i = 0; i < job->argc; i++) {
-                m_str *arg = job->argv[i];
+        for (i = 0; i < argc; i++) {
+                m_str *arg = argv[i];
                 // ~
                 if (ms_strchr (arg, '~')) {
                         if (devar ("__tin_home")) {
@@ -96,8 +120,8 @@ void tilde_eval (job_j *job)
                                                         home_val,
                                                         home_ptr);
 
-                                        rm_element (job->argv, i, &(job->argc));
-                                        add_element (job->argv, nwd, i, &(job->argc));
+                                        rm_element (argv, i, &argc);
+                                        add_element (argv, nwd, i, &argc);
                                 }
                         }
                 }
@@ -122,7 +146,9 @@ m_str *devar(char *name)
         // TODO: function handling goes here        
 
         m_str *ret = ms_mask (subshell (name));
-        if (ret->str[ret->len-1] == '\n' && !ret->mask[ret->len-1]) {
+        if (ret->len > 0
+                && ret->str[ret->len-1] == '\n'
+                && !ret->mask[ret->len-1]) {
                 ret->str[ret->len-1] = 0;
                 ms_updatelen(ret);
         }

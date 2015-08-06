@@ -15,6 +15,7 @@
 #include "../redirect.h"
 
 #include "cd.h"
+#include "flow.h"
 
 // self-include
 #include "builtin.h"
@@ -40,18 +41,17 @@ int func_set (job_j *job)
                 print_err ("Too few args.\n");
                 return 2;
         } else {
-                char *keynval = ms_strip(ms_combine(argv+1, argc-1, ' '));
-                if (strchr(keynval, '=') != NULL) {
-                        char **key_val = split_str (keynval, '=');
-                        int len = 0;
-                        for (len = 0; key_val[len] != NULL; len++);
-                        key_val[1] = combine_str ((const char **)key_val+1, len-1, '=');
+                m_str *keynval = ms_combine(argv+1, argc-1, ' ');
+                if (ms_strchr(keynval, '=') != NULL) {
+                        m_str **key_val = ms_split (keynval, '=');
 
-                        key_val[0] = trim_str (key_val[0]);
-                        key_val[1] = trim_str (key_val[1]);
+                        ms_trim (&key_val[0]);
+                        ms_trim (&key_val[1]);
                         if (key_val[0] != NULL) {
-                                set_var (key_val[0], key_val[1]);
-                                free (key_val[0]);
+                                set_var (ms_strip(key_val[0]),
+                                        ms_strip(key_val[1]));
+                                ms_free (key_val[0]);
+                                ms_free (key_val[1]);
                                 free (key_val);
                         } else {
                                 print_err ("Malformed 'set' syntax.");
@@ -59,7 +59,7 @@ int func_set (job_j *job)
                 } else {
                         print_err ("No value to set to.");
                 }
-                free (keynval);
+                ms_free (keynval);
         }
 
         return 1;
@@ -147,6 +147,7 @@ int builtin (job_j *job)
 
         if (strchr(f_arg, '/')) return 0;
 
+        // TODO: fix this
         if (olstrcmp (f_arg, "exit")) {
                 cfunc = func_exit;
         } else if (olstrcmp (f_arg, "cd")) {
@@ -155,10 +156,10 @@ int builtin (job_j *job)
                 cfunc = func_pwd;
         } else if (olstrcmp (f_arg, "set")) {
                 cfunc = func_set;
-        } else if (olstrcmp (f_arg, "setenv")) {
-                cfunc = func_setenv;
         } else if (olstrcmp (f_arg, "unset")) {
                 cfunc = func_unset;
+        } else if (olstrcmp (f_arg, "setenv")) {
+                cfunc = func_setenv;
         } else if (olstrcmp (f_arg, "unenv")) {
                 cfunc = func_unenv;
         } else if (olstrcmp (f_arg, "color")) {
