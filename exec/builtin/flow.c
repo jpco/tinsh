@@ -12,6 +12,8 @@
 #include "../env.h"
 #include "../var.h"
 
+#include "builtin.h"
+
 // self-include
 #include "flow.h"
 
@@ -182,5 +184,12 @@ int func_cfor (job_j *job)
 
 int func_with (job_j *job)
 {
-        return 0;
+        if (job->argc < 2 || job->block == NULL) return 3;
+
+        cscope = new_scope (cscope);
+        func_set (job);
+        exec (job->block);
+        cscope = leave_scope (cscope);
+
+        return 3;
 }

@@ -3,6 +3,7 @@
 
 #include "../../types/job.h"
 
+int func_set (job_j *job);
 int builtin (job_j *job);
 
 #endif
