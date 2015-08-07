@@ -6,6 +6,7 @@
 #include "../../types/scope.h"
 
 #include "../../util/str.h"
+#include "../../util/debug.h"
 
 #include "../exec.h"
 #include "../env.h"
@@ -149,18 +150,29 @@ int func_for (job_j *job)
         m_str **argv = job->argv + 1;
         size_t argc = job->argc - 1;
 
-        if (argc == 0) return 3;
+        if (argc == 0 || job->block == NULL) return 3;
 
-        while (test (argv)) {
-                if (job->block != NULL) {
-                        cscope = new_scope (cscope);
-                        exec (job->block);
-                        cscope = leave_scope (cscope);
-                }
+        int i;
+        for (i = 0; i < argc; i++) {
+                if (olstrcmp (ms_strip(argv[i]), "in")) break;
+        }
+        if (i == 0 || i == argc) {
+                print_err ("No variable given for for loop.");
+                return 3;
+        }
+        char *varname = ms_strip(argv[0]);
+        argv += i + 1;
+        argc -= i + 1;
+
+        argc = devar_argv (argv, argc);
+        for (i = 0; i < argc; i++) {
+                set_msvar (varname, argv[i]);
+                cscope = new_scope (cscope);
+                exec (job->block);
+                cscope = leave_scope (cscope);
         }
 
         return 3;
-
 }
 
 int func_cfor (job_j *job)

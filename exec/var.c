@@ -145,11 +145,9 @@ m_str *devar(char *name)
         // eval/exec time
         // TODO: function handling goes here        
 
-        m_str *ret = ms_mask (subshell (name));
-        if (ret->len > 0
-                && ret->str[ret->len-1] == '\n'
-                && !ret->mask[ret->len-1]) {
-                ret->str[ret->len-1] = 0;
+        m_str *ret = ms_mask (subexec (name));
+        while (ms_strchr(ret, '\n') != NULL) {
+                *(ms_strchr(ret, '\n')) = ' ';
                 ms_updatelen(ret);
         }
         return ret;

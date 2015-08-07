@@ -21,7 +21,7 @@
 
 static int pid;
 
-char *subshell (char *cmd)
+char *subexec (char *cmd)
 {
         cmd = strdup (cmd);
 
@@ -82,4 +82,3 @@ char *subshell (char *cmd)
 
         return NULL;
 }
-

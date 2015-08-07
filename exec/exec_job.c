@@ -12,6 +12,7 @@
 #include "../util/debug.h"
 #include "../util/vector.h"
 #include "../util/str.h"
+#include "../util/defs.h"
 
 #include "redirect.h"
 #include "var.h"
@@ -237,7 +238,7 @@ job_j *job_dup (job_j *job)
         while (job) {
                 job_j *newdup = malloc(sizeof(job_j));
                 newdup->argc = job->argc;
-                newdup->argv = malloc(sizeof(m_str *) * newdup->argc);
+                newdup->argv = malloc(sizeof(m_str *) * MAX_SPLIT);
                 int i;
                 for (i = 0; i < newdup->argc; i++) {
                         newdup->argv[i] = ms_dup (job->argv[i]);

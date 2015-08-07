@@ -7,14 +7,6 @@
 
 // Max line length.
 #define MAX_LINE        1000 
-// Maximum number of aliases.
-#define MAX_ALIASES     100
-
-// Maximum number of variables (at a time).
-#define MAX_VARS        1000
-
-// Maximum number of jobs allowed per eval.
-#define MAX_JOBS        50
 
 #define MAX_SPLIT       100
 
