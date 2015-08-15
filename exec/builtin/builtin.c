@@ -32,24 +32,48 @@ int func_pwd (job_j *job)
         return 1;
 }
 
+// TODO: move these two around
 int func_set (job_j *job)
 {
-        const m_str **argv = (const m_str **)job->argv;
-        size_t argc = job->argc;
+        return func_settype (job, DEF);
+}
 
-        if (argc == 1) {
+int func_settype (job_j *job, vartype deftype)
+{
+        const m_str **argv = (const m_str **)(job->argv + 1);
+        size_t argc = job->argc - 1;
+
+        if (argc == 0) {
                 print_err ("Too few args.\n");
                 return 2;
         } else {
-                m_str *keynval = ms_combine(argv+1, argc-1, ' ');
+                vartype v_type = deftype;
+                char adv = 0;
+                if (olstrcmp(ms_strip((m_str *)argv[0]), "env")) {
+                        v_type = ENV;
+                        adv = 1;
+                } else if (olstrcmp(ms_strip((m_str *)argv[0]), "global")) {
+                        v_type = GLOBAL;
+                        adv = 1;
+                } else if (olstrcmp(ms_strip((m_str *)argv[0]), "local")) {
+                        v_type = LOCAL;
+                        adv = 1;
+                }
+                if (adv) {
+                        argv++;
+                        argc--;
+                }
+
+                m_str *keynval = ms_combine(argv, argc, ' ');
+
                 if (ms_strchr(keynval, '=') != NULL) {
                         m_str **key_val = ms_split (keynval, '=');
 
                         ms_trim (&key_val[0]);
                         ms_trim (&key_val[1]);
                         if (key_val[0] != NULL) {
-                                set_var (ms_strip(key_val[0]),
-                                        ms_strip(key_val[1]));
+                                set_type_var (ms_strip(key_val[0]),
+                                        ms_strip(key_val[1]), v_type);
                                 ms_free (key_val[0]);
                                 ms_free (key_val[1]);
                                 free (key_val);
@@ -60,38 +84,6 @@ int func_set (job_j *job)
                         print_err ("No value to set to.");
                 }
                 ms_free (keynval);
-        }
-
-        return 1;
-}
-
-int func_setenv (job_j *job)
-{
-        const m_str **argv = (const m_str **)job->argv;
-        size_t argc = job->argc;
-
-        if (argc == 1) {
-                print_err ("Too few args.\n");
-                return 2;
-        } else {
-                char *keynval = ms_strip(ms_combine(argv+1, argc-1, ' '));
-                if (strchr(keynval, '=') != NULL) {
-                        char **key_val = split_str (keynval, '=');
-                        int len = 0;
-                        for (len = 0; key_val[len] != NULL; len++);
-                        key_val[1] = combine_str ((const char **)key_val+1, len-1, '=');
-
-                        key_val[0] = trim_str (key_val[0]);
-                        key_val[1] = trim_str (key_val[1]);
-                        if (key_val[0] != NULL) {
-                                setenv (key_val[0], key_val[1], 1);
-                                free (key_val[0]);
-                                free (key_val);
-                        } else {
-                                print_err ("Malformed 'setenv' syntax.");
-                        }
-                }
-                free (keynval);
         }
 
         return 1;
@@ -110,22 +102,6 @@ int func_unset (job_j *job)
         
         return 1;
 }
-
-int func_unenv (job_j *job)
-{
-        if (job->argc < 2) {
-                print_err ("Too few args.\n");
-                return 2;
-        } else {
-                int i;
-                for (i = 1; i < job->argc; i++) {
-                        unsetenv (ms_strip(job->argv[i]));
-                }
-        }
-
-        return 1;
-}
-
 
 int func_color (job_j *job)
 {
@@ -158,10 +134,6 @@ int builtin (job_j *job)
                 cfunc = func_set;
         } else if (olstrcmp (f_arg, "unset")) {
                 cfunc = func_unset;
-        } else if (olstrcmp (f_arg, "setenv")) {
-                cfunc = func_setenv;
-        } else if (olstrcmp (f_arg, "unenv")) {
-                cfunc = func_unenv;
         } else if (olstrcmp (f_arg, "color")) {
                 cfunc = func_color;
         }

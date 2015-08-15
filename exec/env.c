@@ -24,18 +24,54 @@
 scope_j *gscope;
 scope_j *cscope;  // defines full scope stack within scope type as well
 
+var_j *get_scope_var (scope_j *sc, const char *key);
+
 void set_var (const char *key, const char *value)
 {
         m_str *mval = ms_mask (value);
         set_msvar (key, mval);
 }
 
+void set_type_msvar(const char *key, m_str *value, vartype type);
+
 void set_msvar (const char *key, m_str *value)
 {
-        var_j *nvar = malloc(sizeof(var_j));
-        nvar->is_fn = 0;
-        nvar->v.value = value;
-        ht_add (cscope->vars, key, nvar);
+        set_type_msvar(key, value, DEF);
+}
+
+void set_type_var(const char *key, const char *value, vartype type)
+{
+        m_str *mval = ms_mask (value);
+        set_type_msvar(key, mval, type);
+}
+
+void set_type_msvar(const char *key, m_str *value, vartype type)
+{
+        // ENV, GLOBAL, LOCAL, DEF
+        if (type == ENV) {
+                setenv (key, ms_strip (value), 1);
+        } else {
+                var_j *nvar = malloc(sizeof(var_j));
+                nvar->is_fn = 0;
+                nvar->v.value = value;
+
+                if (type == LOCAL) {
+                        ht_add (cscope->vars, key, nvar);
+                } else if (type == GLOBAL) {
+                        ht_add (gscope->vars, key, nvar);
+                } else {
+                        scope_j *csc = cscope;
+                        while (csc != NULL) {
+                                if (get_scope_var(csc, key)) break;
+                                csc = csc->parent;
+                        }
+                        if (csc) {
+                                ht_add (csc->vars, key, nvar);
+                        } else {
+                                ht_add (cscope->vars, key, nvar);
+                        }
+                }
+        }
 }
 
 void unset_var (const char *key)
@@ -57,6 +93,14 @@ void unset_var (const char *key)
                 }
         }
 }
+
+var_j *get_scope_var (scope_j *sc, const char *key)
+{
+        var_j *retval = NULL;
+        ht_get (sc->vars, key, (void **)&retval);
+        return retval;
+}
+
 
 var_j *get_var (const char *key)
 {

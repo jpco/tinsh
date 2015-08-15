@@ -4,11 +4,15 @@
 #include "../types/var.h"
 #include "../types/m_str.h"
 #include "../types/var.h"
+#include "../types/scope.h"
 
 // Variable utilities. Should be fairly simple
 // variables are stored internally as m_str*s
 
+typedef enum {DEF, LOCAL, GLOBAL, ENV} vartype;
+
 void set_var(const char *key, const char *value);
+void set_type_var(const char *key, const char *value, vartype type);
 void set_msvar(const char *key, m_str *value);
 void unset_var(const char *key);
 
