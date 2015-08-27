@@ -76,14 +76,16 @@ void reprint (void)
         int horiz = (prompt_length + idx - 1) % width;
 
         // clear last buffer
-        printf ("[%dA[%dG[K[0G", last_vert, prompt_length);
+        if (last_vert) printf ("[%dA", last_vert);
+        printf ("[%dG[K[0G", prompt_length);
         int i;
         for (i = 0; i < last_nlines; i++) {
                 printf ("[B[K");
         }
 
+        if (last_nlines) printf ("[%dA", last_nlines);
         // position for print
-        printf("[%dA[%dG", last_nlines, prompt_length); 
+        printf("[%dG", prompt_length); 
         // print
         printf("%s", buf);
         // clean up and relocate
@@ -91,8 +93,11 @@ void reprint (void)
                 // at end and hit new line
                 printf ("\n");
         } else {
-                printf("[%dA[%dB[%dG", nlines, vert, horiz + 1);
+                if (nlines) printf ("[%dA", nlines);
+                if (vert) printf ("[%dB", vert);
+                printf("[%dG", horiz + 1);
         }
+
         last_vert = vert;
         last_nlines = nlines;
 }
