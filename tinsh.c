@@ -1,189 +1,77 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <signal.h>
+#include <stdio.h>
+#include "posix/putils.h"
+#include "posix/ptypes.h"
 
-// local includes
-#include "inter/hist.h"
-#include "inter/term.h"
-#include "inter/buffer.h"
+#define CMD_MAX 100
 
-#include "eval/eval.h"
-
-#include "types/var.h"
-#include "types/queue.h"
-
-#include "exec/exec.h"
-#include "exec/env.h"
-
-#include "util/str.h"
-#include "util/debug.h"
-#include "util/defs.h"
-
-// don't need self-include for main
-
-int debug_line_no = 0;
-
-// Very basic signal handler.
-// TODO: this should handle more signals
-/* void sigint_handler (int signo)
+char **split_str (char *in)
 {
-        sigchild (signo);
-} */
+//    fprintf (stderr, "cmd: %s\n", in);
+    int numelts = 2;
+    char *indup = in;
+    while ((indup = strchr (indup, ' '))) { numelts++; indup++; }
 
-/**
- * Parses a file of tinsh commands. Since there's no control flow or
- * anything, it's not super useful.
- * 
- * Arg: the path of the file to open.
- *
- * TODO: when this gets more complex, separate into its own file.
- */
-void parse_file (char *fstr)
-{
-        FILE *fp = fopen (fstr, "r");
-        int err = errno;
-        if (fp == NULL) {
-                print_err_wno ("Error opening file.", err);
-                return;
-        }
+    char **argv = malloc (numelts * sizeof (char *));
+    argv[numelts - 1] = NULL;
+   
+    char *lindup = in;
+    indup = in;
+    int i;
+//    fprintf (stderr, "argv: ");
+    for (i = 0; (indup = strchr (indup, ' ')); i++) {
+        *indup = 0;
+        argv[i] = strdup (lindup);
+        *indup = ' ';
+        lindup = ++indup;
+//        fprintf (stderr, "[%s] ", argv[i]);
+    }
+    argv[i] = strdup (lindup);
+//    fprintf (stderr, "[%s] ", argv[i]);
 
-        size_t n = MAX_LINE;
-        char *line = malloc ((1+n) * sizeof(char));
-        queue *lines = q_make();
+//    fprintf (stderr, "\n");
 
-        int read = getline (&line, &n, fp);
-        for (; read >= 0; read = getline (&line, &n, fp)) {
-                q_push (lines, line);
-                line = malloc ((1+n) * sizeof(char));
-        }
-        fclose (fp);
-
-        job_queue *jq = eval (lines);
-        exec (jq);
+    return argv;
 }
 
-typedef struct {
-        char *cmd;
-        char *config;
-        char *file;
-        char **fargs;
-} args_t;
-
-/*
- * Parses arguments into tinsh.
- * Arguments:
- *  - argc = main argc
- *  - argv = main argv
- *  - cmd  = a pointer which will have the cmd for main to evaluate, or
- *           NULL otherwise
- * Returns:
- *  - a combination of the following masks:
- *  - binary 1 indicates that the default env file needs to be parsed
- *  - binary 10 indicates that the program is to be interactive
- */
-args_t parse_args(int argc, char **argv)
+int main (void)
 {
-        args_t retval;
-        retval.cmd = NULL;
-        retval.config = NULL;
-        retval.file = NULL;
+    // initialize
+    // parse arguments
+    init_shell ();
+    // read input/listen for input
 
-        int i;
+    char *inbuf = malloc (CMD_MAX * sizeof (char));
+    while (1) {
+        // get input
+        memset (inbuf, 0, CMD_MAX);
+        fgets (inbuf, CMD_MAX, stdin);
+        char *cmd = strndup (inbuf, CMD_MAX);
+        cmd[strlen(cmd) - 1] = 0;   // kill newline
 
-        char *fargs[argc];
-        int fargc = 0;
-        fargs[0] = NULL;
+        // create job/processes (this will be the majority of the shell lol)
+        job *cjob = calloc (sizeof (job), 1);
+        cjob->command = cmd;
+        cjob->stdin = STDIN_FILENO;
+        cjob->stdout = STDOUT_FILENO;
+        cjob->stderr = STDERR_FILENO;
 
-        char fmode = 0;
-        for (i = 1; i < argc; i++) {
-                char *carg = argv[i];
-                if (olstrcmp(carg, "-e")) {
-                        if (i < argc - 1)
-                                retval.cmd = argv[++i];
-                } else if (olstrcmp(carg, "-c")) {
-                        if (i < argc - 1)
-                                retval.config = argv[++i];
-                } else {
-                        if (!fmode) {
-                                retval.file = carg;
-                                fmode = 1;
-                        } else {
-                                fargs[fargc++] = carg;
-                                fargs[fargc] = NULL;
-                        }
-                }
-        }
+        cjob->first = calloc (sizeof (process), 1);
+        cjob->first->argv = split_str (cmd);
 
-        retval.fargs = malloc(sizeof(fargs));
-        memcpy (retval.fargs, fargs, sizeof(fargs));
-
-        return retval;
-}
-
-/*
- * The main method.
- * Arguments -- tinsh [options] [command | file]
- *  -c ./configfile: uses ./configfile as the config file
- *  -e [command]: executes the command and exits.
- *  [file]: executes the file line-by-line and exits.
- * Returns:
- *  - 0 without errors (no errors implemented yet)
- */
-int main (int argc, char **argv)
-{
-//        signal(SIGINT, sigint_handler);
-        args_t args = parse_args(argc, argv);
-
-        if (args.config != NULL) {
-                init_envp(args.config);
+        // add job to job list
+        if (!first_job) {
+            first_job = cjob;
         } else {
-                init_env();
+            job *lj, *cj;
+            for (cj = first_job; cj; cj = cj->next) lj = cj;
+            lj->next = cjob;
         }
 
-        atexit (free_env);
-
-        if (args.file != NULL) {
-                int i;
-                for (i = 0; args.fargs[i] != NULL; i++) {
-                        char idx[5];
-                        snprintf (idx, 5, "_%d", i+1);
-                        set_var (idx, args.fargs[i]);
-                }
-                char idx[4];
-                snprintf (idx, 4, "%d", i);
-                set_var ("_n", idx);
-                set_var ("_", args.file);
-
-                parse_file (args.file);
-                return 0;
-        } else if (args.cmd != NULL) {
-                queue *smq = q_make();
-                q_push(smq, args.cmd);
-                job_queue *jq = eval (smq);
-                exec (jq);
-                return 0;
-        }
-
-        term_init();
-        atexit (free_hist);
-        atexit (term_exit);
-
-        // interactivity
-        while (1) {
-                char *line = line_loop();
-
-                if (*line != '\0' && term_prep() == 0) {
-                        // TODO: this will need to understand unresolved
-                        // blocks/lines
-                        queue *smq = q_make();
-                        q_push (smq, line);
-                        job_queue *jq = eval (smq);
-                        exec (jq);
-                }
-                term_unprep();
-        }
-
-        return 0;
+        // launch job
+        launch_job (cjob, 0);
+        // refresh jobs
+        do_job_notification ();
+    }
 }
