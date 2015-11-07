@@ -86,13 +86,23 @@ int main (int argc, char **argv)
         cjob->first = calloc (sizeof (process), 1);
         cjob->first->argv = cmd_ll_to_array (cmd_ll);
 
-        // translate cmd_ll to bin path
-        sym_t *binpath = sym_resolve (cjob->first->argv[0]);
-        if (!binpath) {
-            fprintf (stderr, "Command '%s' not found.\n", cjob->first->argv[0]);
-            continue;
+        // if no '/' in bin, translate cmd_ll to bin path
+        char retried = 0;
+        if (!strchr (cjob->first->argv[0], '/')) {
+            sym_t *binpath;
+resolve:
+            binpath = sym_resolve (cjob->first->argv[0]);
+            if (!binpath) {
+                if (!retried) {
+                    rehash_bins();
+                    retried = 1;
+                    goto resolve;
+                }
+                fprintf (stderr, "Command '%s' not found.\n", cjob->first->argv[0]);
+                continue;
+            }
+            cjob->first->argv[0] = binpath->value;
         }
-        cjob->first->argv[0] = binpath->value;
 
         ll_destroy (cmd_ll);
 

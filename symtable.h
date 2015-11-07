@@ -27,6 +27,7 @@ struct scope *cscope;
 hashtable *bintable;
 
 void hash_bins();
+void rehash_bins();
 sym_t *sym_resolve (char *key);
 
 #endif

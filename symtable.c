@@ -29,11 +29,17 @@ void create_symtable (void)
 void hash_bins (void)
 {
     // populate symtable with binaries from PATH
-    char *path = getenv ("PATH");
+    char path[PATH_MAX];
+    strcpy (path, getenv ("PATH"));
+    
     char *cpath = strtok (path, ":");
     for (; cpath; cpath = strtok (NULL, ":")) {
+
         DIR *cdir = opendir (cpath);
+
         if (!cdir) perror ("create_symtable");
+
+        // FIXME: change to readdir_r
         struct dirent *celt = readdir (cdir);
 
         char fcpath[PATH_MAX];
@@ -47,7 +53,7 @@ void hash_bins (void)
                 if(S_ISREG(sb.st_mode) && !access(fcpath, X_OK)) {
                     sym_t *nbin = malloc (sizeof (sym_t));
                     nbin->type = SYM_BINARY;
-                    char *fcpcpy = malloc (PATH_MAX);
+                    char *fcpcpy = malloc (1 + strlen (fcpath));
                     strcpy (fcpcpy, fcpath);
                     nbin->value = fcpcpy;
                     
@@ -58,6 +64,14 @@ void hash_bins (void)
 
         closedir (cdir);
     }
+}
+
+void rehash_bins (void)
+{
+    // TODO: free ht values
+    ht_destroy (bintable);
+    bintable = ht_make();
+    hash_bins();
 }
 
 sym_t *sym_resolve (char *key)
