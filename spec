@@ -1,10 +1,10 @@
 # The Tin Shell
 
 ## ARGUMENTS
-tinsh [-c configfile] [-iln] [-d N] [-e command|tinfile]
+tinsh [-c configfile] [-iln] [-d [N]] [-e command|tinfile]
  -i (force interactivity)
  -l (force login shell)
- -n (only perform syntax checking)
+ -n (do not execute)
  -d (debug level; default 1)
  -e (execute given command)
  -c (read alternate config)
@@ -32,9 +32,30 @@ per-command:
     - single-line blocks declared with ':', arbitrary-line with '{ }'
         $ if (foo) == bar: ls
         $ if not (ls -A) { echo "empty!" } else { echo "not!" }
-    - tinsh is block-scoped: local variables defined in block will be deleted upon leaving block
+    - line-break before block declarations is valid, as follows:
+        $ if (foo) == bar
+            : ls
+        $ if not (ls -A)
+          {
+              echo "empty!"
+          }
+          else
+          {
+              echo "not!"
+          }
+    - blockless commands
+        $ if (foo) == bar, ls
+        $ if (foo) == bar
+          ls
+    - tinsh is block-scoped: local variables first defined in block will be deleted upon leaving block
+        - however, 'set foo = bar; : set foo = baz; echo (foo)' will echo 'baz'
+        - if a variable is set, by default, resetting it will change the outer variable's value
+            - 'set foo = bar; : set -l foo = baz; echo (foo)' will mask the variable like in Rust
  - quoting
  - redirection
+ - job control
+    - (basically) POSIX compliant
+        - dont do '&' on things like 'cd' though because thats just silly and will be ignored
 
 ## BUILTINS
  - cd
@@ -43,7 +64,7 @@ per-command:
     $ set foo = (fn - this, that: ls (this) (that))
  - flow control
     - if/else
-        - if 'test'[:{] 'action'
+        - 'if/else [,:{\n] action'
     - while
         - $ set until = 'while not'
     - for

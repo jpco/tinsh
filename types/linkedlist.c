@@ -160,7 +160,7 @@ int ll_rm (linkedlist *ll, void **elt, size_t idx)
                         c_elt = c_elt->next;
                 }
 
-                *elt = c_elt->data;
+                if (elt != NULL) *elt = c_elt->data;
                 c_elt->prev->next = c_elt->next;
                 if (c_elt->next != NULL)
                         c_elt->next->prev = c_elt->prev;
@@ -185,7 +185,7 @@ int ll_rmtail (linkedlist *ll, void **elt)
         if (ll->tail != NULL) ll->tail->next = NULL;
 
         (ll->len)--;
-        *elt = rm_elt->data;
+        if (elt != NULL) *elt = rm_elt->data;
         free (rm_elt);
         
         return 0;
@@ -204,7 +204,7 @@ int ll_rmhead (linkedlist *ll, void **elt)
         if (ll->head != NULL) ll->head->prev = NULL;
 
         (ll->len)--;
-        *elt = rm_elt->data;
+        if (elt != NULL) *elt = rm_elt->data;
         free (rm_elt);
         
         return 0;

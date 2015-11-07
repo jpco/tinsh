@@ -10,13 +10,15 @@
 #include "ptypes.h"
 #include "putils.h"
 
+extern char **environ;
+
 pid_t shell_pgid;
 struct termios shell_tmodes;
 int shell_terminal;
 int shell_is_interactive;
 
 // Initialize the shell in a POSIX-pleasing way
-void init_shell (void)
+void posix_init (void)
 {
     shell_terminal = STDIN_FILENO;
     shell_is_interactive = isatty (shell_terminal);
@@ -32,6 +34,8 @@ void init_shell (void)
         signal (SIGTSTP, SIG_IGN);
         signal (SIGTTIN, SIG_IGN);
         signal (SIGTTOU, SIG_IGN);
+
+        // this should not be ignored; we need to get this signal from children
 //        signal (SIGCHLD, SIG_IGN);
 
         // put ourselves in in a new process group.
@@ -88,8 +92,8 @@ void launch_process (process *p, pid_t pgid,
         }
 
         // Execute the new process; make sure we exit.
-        execvp (p->argv[0], p->argv);
-        perror ("execvp");
+        execve (p->argv[0], p->argv, environ);
+        perror ("execve");
 
         exit (1);
     }
@@ -140,7 +144,7 @@ void launch_job (job *j, int foreground)
         infile = procpipe[0];
     }
 
-    format_job_info (j, "launched");
+    // format_job_info (j, "launched");
 
     if (!shell_is_interactive) {
         wait_for_job (j);
@@ -237,6 +241,25 @@ void wait_for_job (job *j)
     } while (!mark_process_status (pid, status)
             && !job_is_stopped (j)
             && !job_is_completed (j));
+
+    job *jcurr = NULL, *jlast = NULL, *jnext = NULL;
+    for (jcurr = first_job; jcurr; jcurr = jnext) {
+        jnext = jcurr->next;
+        if (jcurr != j) {
+            jlast = jcurr;
+            continue;
+        }
+
+        if (jlast) {
+            jlast->next = jnext;
+        } else {
+            first_job = jnext;
+        }
+
+        // TODO: free this job at the appropriate time
+        // free_job (j);
+        break;
+    }
 }
 
 void format_job_info (job *j, const char *status)
@@ -272,7 +295,7 @@ void do_job_notification (void)
             jlast = j;
         } else {
             // Do nothing
-            format_job_info (j, "running");
+            // format_job_info (j, "running");
             jlast = j;
         }
     }
