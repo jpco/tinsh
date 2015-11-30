@@ -67,24 +67,40 @@ hashtable *ht_make (void)
         return new_ht;
 }
 
+void ht_empty (hashtable *ht, void (*free_fn)(void *elt))
+{
+    size_t i;
+    for (i = 0; i < ht->num_buckets; i++) {
+        linkedlist *cbucket = ht->buckets[i];
+        if (!cbucket) continue;
+
+        keyval *ckv;
+        while (ll_rmhead(cbucket, (void **)&ckv) == 0) {
+            free (ckv->key);
+            free_fn (ckv->value);
+            free (ckv);
+        }
+    }
+}
+
 void ht_destroy (hashtable *ht)
 {
-        int i;
-        for (i = 0; i < ht->num_buckets; i++) {
-                if (ht->buckets[i] != NULL) {
-                        linkedlist *cbucket = ht->buckets[i];
+    int i;
+    for (i = 0; i < ht->num_buckets; i++) {
+        if (ht->buckets[i] != NULL) {
+            linkedlist *cbucket = ht->buckets[i];
 
-                        keyval *ckv;
-                        while (ll_rmhead(cbucket, (void **)&ckv) == 0) {
-                                free (ckv->key);
-                                free (ckv);
-                        }
-                        free (cbucket);
-                }
+            keyval *ckv;
+            while (ll_rmhead(cbucket, (void **)&ckv) == 0) {
+                free (ckv->key);
+                free (ckv);
+            }
+            free (cbucket);
         }
+    }
 
-        free (ht->buckets);
-        free (ht);
+    free (ht->buckets);
+    free (ht);
 }
 
 // TODO: resizability

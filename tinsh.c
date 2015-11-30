@@ -6,6 +6,7 @@
 #include "posix/putils.h"
 #include "posix/ptypes.h"
 #include "types/linkedlist.h"
+#include "builtins/builtins.h"
 
 #include "symtable.h"
 #include "ll_utils.h"
@@ -35,7 +36,10 @@ int main (int argc, char **argv)
     posix_init ();
 
     // initialize symbol table
-    create_symtable();
+    create_symtable ();
+
+    // initialize builtins
+    builtins_init ();
 
     // parse arguments
     parse_args (argc, argv);
@@ -89,10 +93,10 @@ int main (int argc, char **argv)
         // if no '/' in bin, translate cmd_ll to bin path
         char retried = 0;
         if (!strchr (cjob->first->argv[0], '/')) {
-            sym_t *binpath;
+            sym_t *execu;
 resolve:
-            binpath = sym_resolve (cjob->first->argv[0]);
-            if (!binpath) {
+            execu = sym_resolve (cjob->first->argv[0], SYM_BINARY | SYM_BUILTIN);
+            if (!execu) {
                 if (!retried) {
                     rehash_bins();
                     retried = 1;
@@ -101,7 +105,7 @@ resolve:
                 fprintf (stderr, "Command '%s' not found.\n", cjob->first->argv[0]);
                 continue;
             }
-            cjob->first->argv[0] = binpath->value;
+            cjob->first->wh_exec = execu;
         }
 
         ll_destroy (cmd_ll);

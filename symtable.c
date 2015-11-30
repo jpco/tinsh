@@ -12,8 +12,6 @@
 
 extern char **environ;
 
-// TODO: rehash() function
-
 void create_symtable (void)
 {
     bintable = ht_make();
@@ -66,18 +64,45 @@ void hash_bins (void)
     }
 }
 
+void free_sym (void *voidsym)
+{
+    sym_t *sym = (sym_t *)voidsym;
+    free (sym->value);
+    free (sym);
+}
+
 void rehash_bins (void)
 {
-    // TODO: free ht values
-    ht_destroy (bintable);
-    bintable = ht_make();
+    ht_empty (bintable, free_sym);
     hash_bins();
 }
 
-sym_t *sym_resolve (char *key)
+int add_sym (char *name, void *val, sym_type type)
+{
+    sym_t *nsym = malloc (sizeof (sym_t));
+    if (!nsym) return -1;
+    nsym->type = type;
+    nsym->value = (char *)val;
+
+    ht_add (cscope->symtable, name, nsym);
+
+    return 0;
+}
+
+sym_t *sym_resolve (char *key, int ptypes)
 {
     sym_t *res;
+    struct scope *cs = cscope;
+
+    for (; cs; cs = cs->parent) {
+        if (!ht_get (cs->symtable, key, (void **)&res)) continue;
+        if (ptypes && res && !(res->type & ptypes)) continue;
+
+        return res;
+    }
+
     ht_get (bintable, key, (void **)&res);
+    if (ptypes && res && !(res->type & ptypes)) return NULL;
 
     return res;
 }

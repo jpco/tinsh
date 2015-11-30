@@ -9,6 +9,7 @@
 
 #include "ptypes.h"
 #include "putils.h"
+#include "../builtins/builtins.h"
 
 extern char **environ;
 
@@ -118,30 +119,35 @@ void launch_job (job *j, int foreground)
             outfile = j->stdout;
         }
 
-        // fork the child processes
-        pid = fork ();
-        if (pid == 0) {
-            // this is the child proc
-            launch_process (p, j->pgid, infile, outfile, j->stderr, foreground);
-        } else if (pid < 0) {
-            // something broke
-            perror ("fork");
-            exit (1);
-        } else {
-            // this is the parent proc
-            p->pid = pid;
-            if (shell_is_interactive) {
-                if (!j->pgid)
-                    j->pgid = pid;
-                setpgid (pid, j->pgid);
+        if (p->wh_exec->type == SYM_BINARY) {
+            // fork the child processes
+            pid = fork ();
+            if (pid == 0) {
+                // this is the child proc
+                launch_process (p, j->pgid, infile, outfile, j->stderr, foreground);
+            } else if (pid < 0) {
+                // something broke
+                perror ("fork");
+                exit (1);
+            } else {
+                // this is the parent proc
+                p->pid = pid;
+                if (shell_is_interactive) {
+                    if (!j->pgid)
+                        j->pgid = pid;
+                    setpgid (pid, j->pgid);
+                }
             }
-        }
 
-        if (infile != j->stdin)
-            close (infile);
-        if (outfile != j->stdout)
-            close (outfile);
-        infile = procpipe[0];
+            if (infile != j->stdin)
+                close (infile);
+            if (outfile != j->stdout)
+                close (outfile);
+            infile = procpipe[0];
+        } else if (p->wh_exec->type == SYM_BUILTIN) {
+            // launch builtin in a new thread, don't fork
+            launch_builtin (p, infile, outfile, j->stderr, foreground);
+        }
     }
 
     // format_job_info (j, "launched");

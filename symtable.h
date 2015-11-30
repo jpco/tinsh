@@ -6,9 +6,10 @@
 void create_symtable();
 
 typedef enum {
-    SYM_BINARY,
-    SYM_FUNCTION,
-    SYM_VAR
+    SYM_BINARY = 8,
+    SYM_BUILTIN = 4,
+    SYM_FUNCTION = 2,
+    SYM_VAR = 1
 } sym_type;
 
 struct scope {
@@ -28,6 +29,8 @@ hashtable *bintable;
 
 void hash_bins();
 void rehash_bins();
-sym_t *sym_resolve (char *key);
+sym_t *sym_resolve (char *key, int ptypes);
+
+int add_sym (char *name, void *val, sym_type type);
 
 #endif

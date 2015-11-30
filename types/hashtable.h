@@ -6,6 +6,7 @@
 typedef struct hashtable_str hashtable;
 
 hashtable *ht_make();
+void ht_empty (hashtable *ht, void (*free_fn)(void *elt));
 void ht_destroy(hashtable *ht);
 
 void ht_add (hashtable *ht, const char *key, void *elt);

@@ -3,10 +3,12 @@
 
 #include <unistd.h>
 #include <termios.h>
+#include "../symtable.h"
 
 typedef struct process
 {
     struct process *next;
+    sym_t *wh_exec;
     char **argv;
     pid_t pid;
     char completed;
