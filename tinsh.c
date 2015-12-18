@@ -24,7 +24,7 @@ typedef enum {
 } line_state_t;
 
 line_state_t lstate = LINE_NORMAL;
-static char *linebuffer;
+// static char *linebuffer;
 
 void parse_args (int argc, char **argv)
 {

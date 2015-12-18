@@ -93,7 +93,7 @@ void launch_process (process *p, pid_t pgid,
         }
 
         // Execute the new process; make sure we exit.
-        execve (p->argv[0], p->argv, environ);
+		execve ((p->wh_exec ? p->wh_exec->value : p->argv[0]), p->argv, environ);
         perror ("execve");
 
         exit (1);
@@ -119,7 +119,7 @@ void launch_job (job *j, int foreground)
             outfile = j->stdout;
         }
 
-        if (p->wh_exec->type == SYM_BINARY) {
+        if (!(p->wh_exec) || p->wh_exec->type == SYM_BINARY) {
             // fork the child processes
             pid = fork ();
             if (pid == 0) {
