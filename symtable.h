@@ -29,6 +29,7 @@ hashtable *bintable;
 
 void hash_bins();
 void rehash_bins();
+void free_sym(void *voidsym);
 sym_t *sym_resolve (char *key, int ptypes);
 
 int add_sym (char *name, void *val, sym_type type);

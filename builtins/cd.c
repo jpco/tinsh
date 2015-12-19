@@ -1,6 +1,6 @@
 #include "builtins.h"
 
-int bi_cd (void *threadarg)
+long bi_cd (char **argv, int argc)
 {
     return 0;
 }

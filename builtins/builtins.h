@@ -11,12 +11,13 @@
 
 struct builtin {
     char *name;
-    int (*bi_fn)(char **argv, int argc);
+    long (*bi_fn)(char **argv, int argc);
 };
 
-// BUILTINS MUST TAKE A process * AS ARG
-// AND RETURN A STATUS INT CAST TO VOID *
-extern int bi_exit (char **argv, int argc);
+// BUILTINS MUST TAKE char **argv, int argc AS ARG
+// AND RETURN A STATUS int
+extern long bi_exit (char **argv, int argc);
+extern long bi_cd (char **argv,  int argc);
 
 static struct builtin builtins[];
 
