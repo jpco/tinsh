@@ -67,7 +67,10 @@ void hash_bins (void)
 void free_sym (void *voidsym)
 {
     sym_t *sym = (sym_t *)voidsym;
-    free (sym->value);
+
+	// builtin data is loaded in program text, not the heap
+	if (sym->type != SYM_BUILTIN)
+		free (sym->value);
     free (sym);
 }
 
