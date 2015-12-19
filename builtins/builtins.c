@@ -6,18 +6,18 @@
 #include "../symtable.h"
 #include "../posix/ptypes.h"
 
+#define NUMBUILTINS 2
+
 static struct builtin builtins[NUMBUILTINS] = 
 {
     { "exit", bi_exit },
-    // { "cd", bi_cd }
+    { "cd", bi_cd }
 };
 
 void builtins_init (void)
 {
     int i;
     for (i = 0; i < NUMBUILTINS; i++) {
-        fprintf (stderr, "adding %s\n", builtins[i].name);
-
         add_sym (builtins[i].name, builtins[i].bi_fn, SYM_BUILTIN);
     }
 }

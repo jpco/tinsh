@@ -7,8 +7,6 @@
 #include "../symtable.h"
 #include "../posix/ptypes.h"
 
-#define NUMBUILTINS 1
-
 struct builtin {
     char *name;
     long (*bi_fn)(char **argv, int argc);
