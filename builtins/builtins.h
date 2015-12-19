@@ -1,21 +1,20 @@
 #ifndef TINSH_BUILTINS_BUILTINS_H
 #define TINSH_BUILTINS_BUILTINS_H
 
-// all builtins must return an int
-// and take in a char **argv, int argc
-
 #include "../symtable.h"
 #include "../posix/ptypes.h"
 
 struct builtin {
     char *name;
-    long (*bi_fn)(char **argv, int argc);
+    int (*bi_fn)(char **argv, int argc);
 };
 
 // BUILTINS MUST TAKE char **argv, int argc AS ARG
 // AND RETURN A STATUS int
-extern long bi_exit (char **argv, int argc);
-extern long bi_cd (char **argv,  int argc);
+
+int bi_exit (char **, int);
+int bi_cd (char **, int);
+int bi_history (char **, int);
 
 static struct builtin builtins[];
 

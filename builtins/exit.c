@@ -5,9 +5,12 @@
 // for freeing everything
 #include "../symtable.h"
 #include "../types/hashtable.h"
+#include "../hist.h"
 
-long bi_exit (char **argv, int argc)
+int bi_exit (char **argv, int argc)
 {
+	free_hist ();
+
 	ht_empty (bintable, free_sym);
 	ht_destroy (bintable);
 

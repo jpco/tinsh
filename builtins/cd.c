@@ -8,7 +8,7 @@
 
 int cd (const char *arg);
 
-long bi_cd (char **argv, int argc)
+int bi_cd (char **argv, int argc)
 {
 	if (argv[1] == NULL) {
 		return cd (getenv("HOME"));
