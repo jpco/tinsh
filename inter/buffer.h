@@ -3,6 +3,8 @@
 
 #define CMD_MAX 100
 
-void line_loop();
+void prompt();
+
+void get_cmd(char *cmdbuf);
 
 #endif // TINSH_LINEBUFFER_H

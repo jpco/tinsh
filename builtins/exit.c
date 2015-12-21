@@ -5,7 +5,7 @@
 // for freeing everything
 #include "../symtable.h"
 #include "../types/hashtable.h"
-#include "../hist.h"
+#include "../inter/hist.h"
 
 int bi_exit (char **argv, int argc)
 {

@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #include "builtins.h"
-#include "../hist.h"
+#include "../inter/hist.h"
 
 #ifndef CMD_MAX
 #define CMD_MAX 100

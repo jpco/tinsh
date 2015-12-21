@@ -1,5 +1,5 @@
-#ifndef JPSH_HIST_H
-#define JPSH_HIST_H
+#ifndef TINSH_HIST_H
+#define TINSH_HIST_H
 
 #define LEN_HIST 400
 
