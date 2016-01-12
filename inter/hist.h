@@ -1,8 +1,6 @@
 #ifndef TINSH_HIST_H
 #define TINSH_HIST_H
 
-#define LEN_HIST 400
-
 /**
  * Adds an entry to the history. If the current bottom
  * element is the same as the passed line, does not

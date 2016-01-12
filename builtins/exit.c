@@ -6,9 +6,11 @@
 #include "../symtable.h"
 #include "../types/hashtable.h"
 #include "../inter/hist.h"
+#include "../inter/term.h"
 
 int bi_exit (char **argv, int argc)
 {
+    term_exit ();
 	free_hist ();
 
 	ht_empty (bintable, free_sym);

@@ -4,18 +4,16 @@
 #include "builtins.h"
 #include "../inter/hist.h"
 
-#ifndef CMD_MAX
-#define CMD_MAX 100
-#endif
+#include "../util/defs.h"
 
 int bi_history (char **argv,  int argc)
 {
-	char histbuf[CMD_MAX];
+	char histbuf[MAX_LINE];
 	int i;
 	printf ("History (most recent first):\n");
 	for (i = 1; i <= 10; i++) {
-		hist_up (histbuf);
-		printf ("(%d) %s", i, histbuf);
+		if (hist_up (histbuf)) break;
+		printf ("(%d) %s\n", i, histbuf);
 	}
 	for (i = 1; i <= 10; i++) hist_down (histbuf);
 

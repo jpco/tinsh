@@ -9,6 +9,8 @@
 #include "builtins/builtins.h"
 #include "inter/hist.h"
 #include "inter/buffer.h"
+#include "util/defs.h"
+#include "inter/term.h"
 
 #include "symtable.h"
 #include "ll_utils.h"
@@ -44,22 +46,22 @@ int main (int argc, char **argv)
     // initialize builtins
     builtins_init ();
 
+    term_init ();
+    
     // read config file
 
     // read input/listen for input
-    char *inbuf = malloc (CMD_MAX * sizeof (char));
+    char inbuf[MAX_LINE];
     while (1) {
-		prompt ();
-
         // get input
-        memset (inbuf, 0, CMD_MAX);
+        memset (inbuf, 0, MAX_LINE);
 		get_cmd (inbuf);
         if (!*inbuf) continue;
 
-        char *cmd = strndup (inbuf, CMD_MAX);
-        if (cmd[strlen(cmd) - 1] == '\n') {
+        char *cmd = strndup (inbuf, MAX_LINE);
+        /* if (cmd[strlen(cmd) - 1] == '\n') {
             cmd[strlen(cmd) - 1] = 0;
-        }
+        } */
 
         if (!*cmd) continue;
 
@@ -123,6 +125,4 @@ resolve:
         // refresh jobs
         do_job_notification ();
     }
-
-    free (inbuf);
 }

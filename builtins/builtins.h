@@ -4,6 +4,8 @@
 #include "../symtable.h"
 #include "../posix/ptypes.h"
 
+#define NUMBUILTINS 3
+
 struct builtin {
     char *name;
     int (*bi_fn)(char **argv, int argc);
@@ -16,7 +18,7 @@ int bi_exit (char **, int);
 int bi_cd (char **, int);
 int bi_history (char **, int);
 
-static struct builtin builtins[];
+extern struct builtin builtins[NUMBUILTINS];
 
 void builtins_init();
 void launch_builtin (process *p, int infile, int outfile, int errfile, int foreground);

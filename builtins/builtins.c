@@ -1,14 +1,13 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#include "builtins.h"
 #include "../types/hashtable.h"
 #include "../symtable.h"
 #include "../posix/ptypes.h"
 
-#define NUMBUILTINS 3
+#include "builtins.h"
 
-static struct builtin builtins[NUMBUILTINS] = 
+struct builtin builtins[NUMBUILTINS] = 
 {
     { "exit", bi_exit },
     { "cd", bi_cd },
