@@ -13,7 +13,7 @@
 #include "inter/term.h"
 
 #include "symtable.h"
-#include "ll_utils.h"
+#include "eval.h"
 
 typedef enum {
     LINE_NORMAL,    // normal parsing
@@ -59,9 +59,6 @@ int main (int argc, char **argv)
         if (!*inbuf) continue;
 
         char *cmd = strndup (inbuf, MAX_LINE);
-        /* if (cmd[strlen(cmd) - 1] == '\n') {
-            cmd[strlen(cmd) - 1] = 0;
-        } */
 
         if (!*cmd) continue;
 
@@ -69,60 +66,11 @@ int main (int argc, char **argv)
 		// should we even be involving linkedlists? should do experiments
 		// eval() should be in a different function/file
 
-        linkedlist *cmd_ll = ll_make();
+        // eval() calls exec()
+        int stat = eval (cmd);
+        hist_add (inbuf);
 
-        // 1. word split
-        word_split (cmd, cmd_ll);
-
-        // 2. strong var/alias resolution
-        // 3. command splitting/block gathering
-        // 4. var resolution/shell expansion
-
-        // create job/processes (this will end up the majority of the shell lol)
-        job *cjob = calloc (sizeof (job), 1);
-        cjob->command = cmd;
-        cjob->stdin = STDIN_FILENO;
-        cjob->stdout = STDOUT_FILENO;
-        cjob->stderr = STDERR_FILENO;
-
-        // 5. redirection
-        // 6. execution
-        cjob->first = calloc (sizeof (process), 1);
-        cjob->first->argv = cmd_ll_to_array (cmd_ll);
-
-        // if no '/' in bin, translate cmd_ll to bin path
-        char retried = 0;
-        if (!strchr (cjob->first->argv[0], '/')) {
-            sym_t *execu;
-resolve:
-            execu = sym_resolve (cjob->first->argv[0], SYM_BINARY | SYM_BUILTIN);
-            if (!execu) {
-                if (!retried) {
-                    rehash_bins();
-                    retried = 1;
-                    goto resolve;
-                }
-                fprintf (stderr, "Command '%s' not found.\n", cjob->first->argv[0]);
-                continue;
-            }
-            cjob->first->wh_exec = execu;
-        }
-
-        ll_destroy (cmd_ll);
-
-        // add job to job list
-        if (!first_job) {
-            first_job = cjob;
-        } else {
-            job *lj, *cj;
-            for (cj = first_job; cj; cj = cj->next) lj = cj;
-            lj->next = cjob;
-        }
-
-        // launch job
-        launch_job (cjob, 1);
-		hist_add (inbuf);
-        // refresh jobs
-        do_job_notification ();
+        // while we're testing eval
+        continue;
     }
 }
