@@ -182,6 +182,7 @@ void put_job_in_foreground (job *j, int cont)
     // restore the shell's terminal modes
     tcgetattr (shell_terminal, &j->tmodes);
     tcsetattr (shell_terminal, TCSADRAIN, &shell_tmodes);
+    free_job (j);
 }
 
 void put_job_in_background (job *j, int cont)
@@ -262,8 +263,6 @@ void wait_for_job (job *j)
             first_job = jnext;
         }
 
-        // TODO: free this job at the appropriate time
-        // free_job (j);
         break;
     }
 }

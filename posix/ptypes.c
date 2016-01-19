@@ -46,13 +46,17 @@ int job_is_completed (job *j)
 void free_job (job *j)
 {
     // TODO: free command
-    // free (j->command);
+    free (j->command);
 
     process *p;
     process *pnext;
     for (p = j->first; p; p = pnext) {
         pnext = p->next;
-        // TODO: free argv
+        int i;
+        for (i = 0; p->argv[i]; i++) {
+            free (p->argv[i]);
+        }
+        free (p->argv);
         free (p);
     }
 

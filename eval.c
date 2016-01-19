@@ -116,7 +116,7 @@ int eval (char *cmdline)
 {
     // create first job/process
     job *cjob = make_job ();
-    cjob->command = cmdline;
+    cjob->command = strdup (cmdline);
     process *cproc = cjob->first;
     cproc->argv = calloc (MAX_LINE, sizeof (char *));
     char **carg = cproc->argv;
@@ -147,7 +147,7 @@ int eval (char *cmdline)
                 exec (cjob, jfg);
                 jfg = 1;
                 cjob = make_job ();
-                cjob->command = cmdline;
+                cjob->command = strdup (cmdline);
                 cproc = cjob->first;
                 cproc->argv = calloc (MAX_LINE, sizeof (char *));
                 carg = cproc->argv;

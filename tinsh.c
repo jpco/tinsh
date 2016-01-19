@@ -63,14 +63,10 @@ int main (int argc, char **argv)
         if (!*cmd) continue;
 
         // TODO: fork behavior here based on line state
-		// should we even be involving linkedlists? should do experiments
-		// eval() should be in a different function/file
 
         // eval() calls exec()
         int stat = eval (cmd);
         hist_add (inbuf);
-
-        // while we're testing eval
-        continue;
+        free (cmd);
     }
 }
