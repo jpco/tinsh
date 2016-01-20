@@ -8,13 +8,30 @@
 #include "eval.h"
 #include "exec.h"
 
-static char tokarr[MAX_LINE];
-static char *tokstr = tokarr;
+struct tokendat {
+    char tokarr[MAX_LINE];
+    char *tokstr;
+};
 
-int settoken (char *tkstr)
+static struct tokendat gtkd;
+
+int settoken (char *tkstr, struct tokendat *tkd)
 {
-    strncpy (tokarr, tkstr, MAX_LINE);
-    tokstr = tokarr;
+    if (!tkd) tkd = &gtkd;
+    strncpy (tkd->tokarr, tkstr, MAX_LINE);
+    tkd->tokstr = tkd->tokarr;
+
+    return 0;
+}
+
+int instoken (char *tkins, struct tokendat *tkd)
+{
+    if (!tkd) tkd = &gtkd;
+    int len = strlen (tkins);
+    char *tmpstr = strdup (tkd->tokstr);
+    strcpy (tkd->tokstr, tkins);
+    strcpy (tkd->tokstr + len, tmpstr);
+    free (tmpstr);
 
     return 0;
 }
@@ -42,25 +59,26 @@ token calls:
 
 // TODO: add { and }, enable escaping newlines
 // TODO: enable escaping things with '\'
-char gettoken (char *tokbuf)
+char gettoken (char *tokbuf, struct tokendat *tkd)
 {
+    if (!tkd) tkd = &gtkd;
     // word, |, -2>1, (var (resolution)), 'quotes (single)', "double quotes", #, :, {, }
     // some tokens are symbols: |#:{};&
     // some tokens fill a buffer: word, -2>1, (var (resolution)), 'quotes', "quotes"
     // whitespace is ' \t\r\n'
 
     // eat initial whitespace
-    while (*tokstr && strchr (WHITESPACE, *tokstr)) {
-        tokstr++;
+    while (*(tkd->tokstr) && strchr (WHITESPACE, *(tkd->tokstr))) {
+        tkd->tokstr++;
     }
 
     // indicate end of string
-    if (!*tokstr) return 0;
+    if (!*(tkd->tokstr)) return 0;
 
     // if we have a single-char token it's easy--advance tokstr and return the token
-    if (strchr (STOKEN, *tokstr)) {
-        char rv = *tokstr;
-        tokstr++;
+    if (strchr (STOKEN, *(tkd->tokstr))) {
+        char rv = *(tkd->tokstr);
+        tkd->tokstr++;
         return rv;
     }
 
@@ -73,7 +91,7 @@ char gettoken (char *tokbuf)
     char *tkbuf = tokbuf;
 
     char cchar;
-    while ((cchar = *tokstr++)) {
+    while ((cchar = *(tkd->tokstr++))) {
         if (cchar == '(' && q != '\'') {
             vdepth++;
             type = '(';
@@ -90,7 +108,7 @@ char gettoken (char *tokbuf)
     }
 
 end:
-    tokstr--;
+    tkd->tokstr--;
     *tkbuf = 0;
     if (*tokbuf == '-') {
         tkbuf--;
@@ -112,6 +130,95 @@ job *make_job (void)
     return cjob;
 }
 
+// resolve variable && move resolved result out
+// returns new position for output buf
+char *_devar (const char *input, char *output)
+{
+    sym_t *res = sym_resolve (input, SYM_VAR);
+    if (res) {
+        char *val = res->value;
+        for (; *val; *output++ = *val++);
+    }
+    *output = 0;
+    return output;
+}
+
+void devar_np (char *token)
+{
+    char *tokdup = strdup (token);
+    _devar (tokdup, token);
+    if (!*token) strcpy (token, tokdup);
+    free (tokdup);
+}
+
+// parse token and resolve all variables present
+void devar (char *token)
+{
+    char res[MAX_LINE];
+    char *resi = res;
+    char wvar[MAX_LINE];
+    char *wvari = wvar;
+
+    char q = 0;
+
+    int vdepth = 0;
+    char *tokbuf;
+    // _dv is to mark when to evaluate a var
+    // _fc is to mark to skip the opening paren when loading the var buf
+    int _dv = 0, _fc = 0;
+    for (tokbuf = token; *tokbuf; tokbuf++) {
+        char cchr = *tokbuf;
+
+        // quoting
+        if (q && cchr == q) q = 0;
+        else if (!q && (cchr == '"' || cchr == '\'')) q = cchr;
+
+        // parentheses
+        if (q != '\'' && cchr == '(') {
+            vdepth++;
+            if (vdepth == 1) _fc = 1;
+        } else if (q != '\'' && cchr == ')' && vdepth > 0) {
+            vdepth--;
+            if (!vdepth) _dv = 1;
+        }
+
+        if (vdepth) {     // still building var
+            if (_fc) _fc = 0;
+            else *wvari++ = cchr;
+        } else if (_dv) { // need to resolve var
+            *wvari = 0;
+            resi = _devar (wvar, resi);
+            wvari = wvar;
+            _dv = 0;
+        } else {          // just adding misc chars
+            *resi++ = cchr;
+        }
+    }
+
+    *resi = 0;
+    strncpy (token, res, MAX_LINE);
+}
+
+int dequote (char *tok)
+{
+    char q = 0;
+    char *dest = tok;
+    char *curr = tok;
+    for (; *curr; curr++) {
+        char cchr = *curr;
+        if (!q && (cchr == '\'' || cchr == '"')) {
+            q = cchr;
+        } else if (q && q == cchr) {
+            q = 0;
+        } else {
+            *dest++ = cchr;
+        }
+    }
+    *dest = 0;
+
+    return 0;
+}
+
 int eval (char *cmdline)
 {
     // create first job/process
@@ -122,22 +229,20 @@ int eval (char *cmdline)
     char **carg = cproc->argv;
 
     // prepare to tokenize
-    settoken (cmdline);
+    settoken (cmdline, NULL);
 
     // tokenize!
     int ttype;
     char tokbuf[MAX_LINE];
-    int jfg = 1;
-    // tokens: 
-    // #define WTOKEN "w>("            // word token
-    // #define STOKEN "|#:;&"          // single-character token
-    while ((ttype = gettoken (tokbuf))) {
+    int jfg = 1, ftok = 1;
+    while ((ttype = gettoken (tokbuf, NULL))) {
         switch (ttype) {
             case '|':
                 cproc->next = calloc (sizeof (process), 1);
                 cproc = cproc->next;
                 cproc->argv = calloc (MAX_LINE, sizeof (char *));
                 carg = cproc->argv;
+                ftok = 1;
                 break;
             case '#':
                 goto brk;
@@ -146,6 +251,7 @@ int eval (char *cmdline)
             case ';':
                 exec (cjob, jfg);
                 jfg = 1;
+                ftok = 1;
                 cjob = make_job ();
                 cjob->command = strdup (cmdline);
                 cproc = cjob->first;
@@ -156,10 +262,17 @@ int eval (char *cmdline)
                 jfg = 0;
                 break;
             case '(':
-                // devar (tokbuf);
+                ftok = 0;
+                devar (tokbuf);
             case 'w':
-                // dequote (tokbuf);
-                *carg++ = strdup (tokbuf);
+                if (ftok) {
+                    devar_np (tokbuf);
+                    instoken (tokbuf, NULL);
+                    ftok = 0;
+                } else {
+                    dequote (tokbuf);
+                    *carg++ = strdup (tokbuf);
+                }
                 break;
             case '>':
                 break;

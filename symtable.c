@@ -92,7 +92,7 @@ int add_sym (char *name, void *val, sym_type type)
     return 0;
 }
 
-sym_t *sym_resolve (char *key, int ptypes)
+sym_t *sym_resolve (const char *key, int ptypes)
 {
     sym_t *res;
     struct scope *cs = cscope;

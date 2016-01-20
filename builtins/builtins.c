@@ -11,7 +11,8 @@ struct builtin builtins[NUMBUILTINS] =
 {
     { "exit", bi_exit },
     { "cd", bi_cd },
-	{ "history", bi_history }
+	{ "history", bi_history },
+    { "set", bi_set }
 };
 
 void builtins_init (void)
