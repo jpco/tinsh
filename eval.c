@@ -250,13 +250,13 @@ int eval (char *cmdline)
                 break;
             case ';':
                 exec (cjob, jfg);
-                jfg = 1;
-                ftok = 1;
                 cjob = make_job ();
                 cjob->command = strdup (cmdline);
                 cproc = cjob->first;
                 cproc->argv = calloc (MAX_LINE, sizeof (char *));
                 carg = cproc->argv;
+                jfg = 1;
+                ftok = 1;
                 break;
             case '&':
                 jfg = 0;
@@ -279,7 +279,8 @@ int eval (char *cmdline)
         }
     }
 
-brk:
+brk: ; // test for valid syntax
+
     exec (cjob, jfg);
 
     return 0;

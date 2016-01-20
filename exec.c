@@ -6,7 +6,24 @@
 
 int exec (job *cjob, int fg)
 {
+    if (!cjob->first->argv[0] && !cjob->first->next) {
+        // job is just ';', we 'run' it and return just fine
+        free_job (cjob);
+        return 0;
+    }
+
+    // test for broken pipes
     process *cproc;
+    char empty = 0;
+    for (cproc = cjob->first; cproc; cproc = cproc->next)
+        if (!cproc->argv[0]) empty = 1;
+
+    if (empty) {
+        fprintf (stderr, "Cannot run job '%s': empty process\n", cjob->command);
+        free_job (cjob);
+        return 1;
+    }
+
     for (cproc = cjob->first; cproc; cproc = cproc->next) {
         // if no '/' in bin, translate cmd_ll to bin path
         char retried = 0;
