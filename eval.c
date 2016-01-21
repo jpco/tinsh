@@ -112,13 +112,24 @@ char gettoken (char *tokbuf, struct tokendat *tkd)
     }
 
 end:
+// (-|~)(fd|&)?>(fd|+)?, or <<?(-|~)
     tkd->tokstr--;
     *tkbuf = 0;
-    if (*tokbuf == '-') {
-        tkbuf--;
-        if (*tkbuf == '>' || *(tkbuf - 1) == '>') {
+    if (*tokbuf == '<') {
+        char *b = tokbuf + 1;
+        if (*b == '<') b++;
+        if ((*b == '-' || *b == '~') && b + 1 == tkbuf) {
             type = '>';
         }
+    } else if (*tokbuf == '-' || *tokbuf == '~') {
+        char *b = tokbuf + 1;
+        if (*b == '&') b++;
+        else while (*b >= '0' && *b <= '9') b++;
+        if (*b != '>') return type;
+        b++;
+        if (*b == '+') b++;
+        else while (*b >= '0' && *b <= '9') b++;
+        if (b == tkbuf) type = '>';
     }
     return type;
 }

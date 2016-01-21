@@ -17,16 +17,44 @@
 
 typedef enum {
     LINE_NORMAL,    // normal parsing
-    LINE_COMMENT,   // we're in a comment; ignore unless it's time to leave the comment
+    LINE_COMMENT,   // we're in a multi-line comment; ignore unless it's time to leave the comment
     LINE_CONTINUE,  // newline has been escaped; append current line to buffer line & execute
 
     LINE_BGATHER,   // need to gather a line/block for buffer line
+    LINE_IF_TRUE,   // good to jump into a 'then'
     LINE_IF_FALSE,  // good to jump into 'else'
     // More states here as syntax gets more 'fancy'
 } line_state_t;
 
 line_state_t lstate = LINE_NORMAL;
 // static char *linebuffer;
+
+void run_line (char *inbuf)
+{
+    if (!*inbuf) return;
+
+    char *cmd = strndup (inbuf, MAX_LINE);
+
+    if (!*cmd) return;
+
+    // fork behavior here based on line state
+    if (strlen (cmd) > 2) {
+        char sv = cmd[3];
+        cmd[3] = 0;
+        if (!strcmp (cmd, "###")) {
+            if (lstate == LINE_COMMENT) lstate = LINE_NORMAL;
+            else lstate = LINE_COMMENT;
+        }
+        cmd[3] = sv;
+    }
+
+    if (lstate == LINE_COMMENT) return;
+
+    // eval() calls exec()
+    int stat = eval (cmd);
+    hist_add (inbuf);
+    free (cmd);
+}
 
 void parse_args (int argc, char **argv)
 {
@@ -49,24 +77,25 @@ int main (int argc, char **argv)
     term_init ();
     
     // read config file
+    char inbuf[MAX_LINE];
+    char *hdir = getenv ("HOME");
+    strcpy (inbuf, hdir);
+    strcpy (inbuf + strlen (hdir), "/.tinshrc");
+    FILE *cfg = fopen (inbuf, "r");
+    if (!cfg) perror ("fopen");
+    else {
+        while (fgets (inbuf, MAX_LINE, cfg)) {
+            run_line (inbuf);
+        }
+    }
+
+    lstate = LINE_NORMAL;
 
     // read input/listen for input
-    char inbuf[MAX_LINE];
     while (1) {
         // get input
         memset (inbuf, 0, MAX_LINE);
 		get_cmd (inbuf);
-        if (!*inbuf) continue;
-
-        char *cmd = strndup (inbuf, MAX_LINE);
-
-        if (!*cmd) continue;
-
-        // TODO: fork behavior here based on line state
-
-        // eval() calls exec()
-        int stat = eval (cmd);
-        hist_add (inbuf);
-        free (cmd);
+        run_line (inbuf);
     }
 }
