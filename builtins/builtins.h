@@ -4,7 +4,7 @@
 #include "../symtable.h"
 #include "../posix/ptypes.h"
 
-#define NUMBUILTINS 4
+#define NUMBUILTINS 5
 
 struct builtin {
     char *name;
@@ -18,6 +18,7 @@ int bi_exit (char **, int);
 int bi_cd (char **, int);
 int bi_history (char **, int);
 int bi_set (char **, int);
+int bi_unset (char **, int);
 
 extern struct builtin builtins[NUMBUILTINS];
 

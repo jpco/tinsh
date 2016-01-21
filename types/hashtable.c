@@ -174,10 +174,10 @@ int ht_rm (hashtable *ht, const char *key, void **elt)
         linkedlist *bucket = ht->buckets[knum];
         ll_iter *bucket_iter = ll_makeiter (bucket);
         keyval *ckv = NULL;
-        *elt = NULL;
+        if (elt) *elt = NULL;
         while ((ckv = (keyval *)ll_iter_get (bucket_iter)) != NULL) {
                 if (strcmp(ckv->key, key) == 0) {
-                        *elt = ckv->value;
+                        if (elt) *elt = ckv->value;
                         ll_iter_rm (bucket_iter);
                         free (ckv->key);
                         free (ckv);

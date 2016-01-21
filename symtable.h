@@ -32,6 +32,7 @@ void rehash_bins();
 void free_sym(void *voidsym);
 sym_t *sym_resolve (const char *key, int ptypes);
 
+int rm_sym (char *name);
 int add_sym (char *name, void *val, sym_type type);
 
 #endif

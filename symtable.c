@@ -80,19 +80,7 @@ void rehash_bins (void)
     hash_bins();
 }
 
-int add_sym (char *name, void *val, sym_type type)
-{
-    sym_t *nsym = malloc (sizeof (sym_t));
-    if (!nsym) return -1;
-    nsym->type = type;
-    nsym->value = (char *)val;
-
-    ht_add (cscope->symtable, name, nsym);
-
-    return 0;
-}
-
-sym_t *sym_resolve (const char *key, int ptypes)
+sym_t *find_sym (const char *key, int ptypes, struct scope **scopebuf)
 {
     sym_t *res;
     struct scope *cs = cscope;
@@ -101,8 +89,44 @@ sym_t *sym_resolve (const char *key, int ptypes)
         if (!ht_get (cs->symtable, key, (void **)&res)) continue;
         if (ptypes && res && !(res->type & ptypes)) continue;
 
+        if (scopebuf) *scopebuf = cs;
         return res;
     }
+
+    return NULL;
+}
+
+int rm_sym (char *name)
+{
+    struct scope *rscope;
+    sym_t *res = find_sym (name, 0, &rscope);
+    if (res) {
+        ht_rm (rscope->symtable, name, NULL);
+        return 0;
+    } else return 1;
+}
+
+int add_sym (char *name, void *val, sym_type type)
+{
+    struct scope *rscope;
+    sym_t *res = find_sym (name, type, &rscope);
+    if (!res) {
+        sym_t *nsym = malloc (sizeof (sym_t));
+        if (!nsym) return -1;
+        nsym->type = type;
+        nsym->value = (char *)val;
+        ht_add (cscope->symtable, name, nsym);
+    } else {
+        res->value = val;
+    }
+
+    return 0;
+}
+
+sym_t *sym_resolve (const char *key, int ptypes)
+{
+    sym_t *res = find_sym (key, ptypes, NULL);
+    if (res) return res;
 
     ht_get (bintable, key, (void **)&res);
     if (ptypes && res && !(res->type & ptypes)) return NULL;

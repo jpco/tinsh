@@ -15,8 +15,7 @@ struct tokendat {
 
 static struct tokendat gtkd;
 
-int settoken (char *tkstr, struct tokendat *tkd)
-{
+int settoken (char *tkstr, struct tokendat *tkd) {
     if (!tkd) tkd = &gtkd;
     strncpy (tkd->tokarr, tkstr, MAX_LINE);
     tkd->tokstr = tkd->tokarr;
@@ -119,6 +118,15 @@ end:
     return type;
 }
 
+int ntoken (struct tokendat *tkd)
+{
+    int i = 0;
+    char dumbuf[MAX_LINE];
+    while (gettoken (dumbuf, tkd)) i++;
+
+    return i;
+}
+
 job *make_job (void)
 {
     job *cjob = calloc (sizeof (job), 1);
@@ -138,6 +146,11 @@ char *_devar (const char *input, char *output)
     if (res) {
         char *val = res->value;
         for (; *val; *output++ = *val++);
+    } else {
+        char *envval;
+        if ((envval = getenv (input))) {
+            for (; *envval; *output++ = *envval++);
+        }
     }
     *output = 0;
     return output;
@@ -152,7 +165,7 @@ void devar_np (char *token)
 }
 
 // parse token and resolve all variables present
-void devar (char *token)
+void devar_tok (char *token)
 {
     char res[MAX_LINE];
     char *resi = res;
@@ -197,6 +210,17 @@ void devar (char *token)
 
     *resi = 0;
     strncpy (token, res, MAX_LINE);
+}
+
+void devar (char *word)
+{
+    struct tokendat tkd;
+    settoken (word, &tkd);
+    if (ntoken (&tkd) > 1) {
+        // need to subshell
+    } else {
+        devar_tok (word);
+    }
 }
 
 int dequote (char *tok)
@@ -279,8 +303,7 @@ int eval (char *cmdline)
         }
     }
 
-brk: ; // test for valid syntax
-
+brk: ;
     exec (cjob, jfg);
 
     return 0;

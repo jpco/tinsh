@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -13,8 +14,14 @@ TODO modifiers:
 local = cscope
 global = gscope
 strong = strong var (does not need parens to be devar'd) (useful for defining fun new syntax)
+env = environment var (conflicts with all others)
 
      */
+    // 0 = default
+    // 1 = local
+    // 2 = global
+    // 3 = env
+    int scope = 0;
     char *names[MAX_LINE] = { 0 };
     char **cname = names;
     int on_val = 0;
@@ -24,6 +31,8 @@ strong = strong var (does not need parens to be devar'd) (useful for defining fu
         if (!on_val) {
             if (!strcmp (curr, "=")) {
                 on_val = 1;
+            } else if (!strcmp (curr, "env")) {
+                scope = 3;
             } else {
                 *cname++ = curr;
             }
@@ -34,7 +43,11 @@ strong = strong var (does not need parens to be devar'd) (useful for defining fu
             }
             char **name;
             for (name = names; *name; name++) {
-                add_sym (*name, strdup(curr), SYM_VAR);
+                if (scope == 3) {
+                    setenv (*name, curr, 1);
+                } else {
+                    add_sym (*name, strdup(curr), SYM_VAR);
+                }
             }
         }
     }
