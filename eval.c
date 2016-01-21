@@ -1,12 +1,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "util/defs.h"
+
 #include "posix/ptypes.h"
+#include "posix/putils.h"
 
 #include "eval.h"
 #include "exec.h"
+
+job *n_eval (char *cmdline, int job_stdout, int force_bg);
 
 struct tokendat {
     char tokarr[MAX_LINE];
@@ -127,11 +132,11 @@ int ntoken (struct tokendat *tkd)
     return i;
 }
 
-job *make_job (void)
+job *make_job (int stdo)
 {
     job *cjob = calloc (sizeof (job), 1);
     cjob->stdin = STDIN_FILENO;
-    cjob->stdout = STDOUT_FILENO;
+    cjob->stdout = stdo;
     cjob->stderr = STDERR_FILENO;
     cjob->first = calloc (sizeof (process), 1);
 
@@ -164,8 +169,47 @@ void devar_np (char *token)
     free (tokdup);
 }
 
+char *devar_tok (char *input, char *output)
+{
+    struct tokendat tkd;
+    settoken (input, &tkd);
+    if (ntoken (&tkd) > 1) {
+        // need to sub-eval
+        int fds[2];
+        pipe (fds);
+        n_eval (input, fds[1], 0);
+        close (fds[1]);
+        int nread;
+        int ops = 128;
+        char *sshout = calloc (ops, 1);
+        char *outbuf = sshout;
+        char readbuf[64];
+        while ((nread = read (fds[0], readbuf, 64)) > 0) {
+            if (outbuf + nread > sshout + ops) {
+                ops *= 2;
+                output = realloc (sshout, ops);
+            }
+            strncpy (outbuf, readbuf, nread);
+            outbuf += nread;
+            update_status();
+        }
+        if (nread < 0) {
+            perror ("devar_tok read");
+        }
+        close (fds[0]);
+        close (fds[1]);
+        int len = strlen (sshout);
+        strncpy (output, sshout, len);
+        free (sshout);
+        return output + len;
+    } else {
+        return _devar (input, output);
+    }
+}
+
+
 // parse token and resolve all variables present
-void devar_tok (char *token)
+void devar (char *token)
 {
     char res[MAX_LINE];
     char *resi = res;
@@ -200,7 +244,7 @@ void devar_tok (char *token)
             else *wvari++ = cchr;
         } else if (_dv) { // need to resolve var
             *wvari = 0;
-            resi = _devar (wvar, resi);
+            resi = devar_tok (wvar, resi);
             wvari = wvar;
             _dv = 0;
         } else {          // just adding misc chars
@@ -210,17 +254,6 @@ void devar_tok (char *token)
 
     *resi = 0;
     strncpy (token, res, MAX_LINE);
-}
-
-void devar (char *word)
-{
-    struct tokendat tkd;
-    settoken (word, &tkd);
-    if (ntoken (&tkd) > 1) {
-        // need to subshell
-    } else {
-        devar_tok (word);
-    }
 }
 
 int dequote (char *tok)
@@ -243,10 +276,10 @@ int dequote (char *tok)
     return 0;
 }
 
-int eval (char *cmdline)
+job *n_eval (char *cmdline, int job_stdout, int force_bg)
 {
     // create first job/process
-    job *cjob = make_job ();
+    job *cjob = make_job (job_stdout);
     cjob->command = strdup (cmdline);
     process *cproc = cjob->first;
     cproc->argv = calloc (MAX_LINE, sizeof (char *));
@@ -258,7 +291,7 @@ int eval (char *cmdline)
     // tokenize!
     int ttype;
     char tokbuf[MAX_LINE];
-    int jfg = 1, ftok = 1;
+    int jfg = !force_bg, ftok = 1;
     while ((ttype = gettoken (tokbuf, NULL))) {
         switch (ttype) {
             case '|':
@@ -274,12 +307,12 @@ int eval (char *cmdline)
                 break;
             case ';':
                 exec (cjob, jfg);
-                cjob = make_job ();
+                cjob = make_job (job_stdout);
                 cjob->command = strdup (cmdline);
                 cproc = cjob->first;
                 cproc->argv = calloc (MAX_LINE, sizeof (char *));
                 carg = cproc->argv;
-                jfg = 1;
+                jfg = !force_bg;
                 ftok = 1;
                 break;
             case '&':
@@ -306,5 +339,11 @@ int eval (char *cmdline)
 brk: ;
     exec (cjob, jfg);
 
+    return cjob;
+}
+
+int eval (char *cmdline)
+{
+    n_eval (cmdline, STDOUT_FILENO, 0);
     return 0;
 }
