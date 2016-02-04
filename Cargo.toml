@@ -1,0 +1,8 @@
+[package]
+
+name = "tin_shell"
+version = "0.0.1"
+authors = [ "jpco <mail@jpconger.com>" ]
+
+[dependencies]
+libc = "*"
