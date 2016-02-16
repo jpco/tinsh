@@ -3,6 +3,9 @@
 name = "tin_shell"
 version = "0.0.1"
 authors = [ "jpco <mail@jpconger.com>" ]
+description = "Non-POSIX shell language."
+readme = "README.md"
 
 [dependencies]
+termios = "*"
 libc = "*"

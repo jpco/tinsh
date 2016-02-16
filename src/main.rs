@@ -3,9 +3,10 @@ mod prompt;
 
 use prompt::LineState;
 use prompt::Prompt;
+use std::process::exit;
 
-fn setup() -> Box<prompt::Prompt> {
-    Box::new(prompt::BasicPrompt)
+fn setup() -> Box<Prompt> {
+    Box::new(prompt::StdPrompt::init())
 }
 
 fn eval (cmd: &String) -> LineState {
@@ -21,7 +22,7 @@ fn eval (cmd: &String) -> LineState {
 }
 
 fn main() {
-    let pr = setup();
+    let mut pr = setup();
 
     let mut ls = LineState::Normal;
 
@@ -35,7 +36,13 @@ fn main() {
                     LineState::Comment
                 }
             },
-            LineState::Normal => eval (&input)
+            LineState::Normal => {
+                if input.trim() == "exit" {
+                    exit(0);
+                } else { 
+                    eval (&input)
+                }
+            }
         };
     }
 }
