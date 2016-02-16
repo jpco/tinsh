@@ -40,6 +40,7 @@ pub struct StdPrompt {
 
     ansi: String,
     buf: String,
+    prompt_l: usize,
     idx: usize
 }
 
@@ -48,14 +49,15 @@ impl StdPrompt {
         // create prompt && termios
         let mut pr = match File::open("/dev/tty") {
                 Ok(fi) => StdPrompt {
-                              termios: Termios::from_fd(fi.as_raw_fd()).unwrap(),
-                              term_fi: fi,
-                              in_tcflag: 0,
-                              out_tcflag: 0,
-                              ansi: String::new(),
-                              buf: String::new(),
-                              idx: 0
-                          },
+                    termios: Termios::from_fd(fi.as_raw_fd()).unwrap(),
+                    term_fi: fi,
+                    in_tcflag: 0,
+                    out_tcflag: 0,
+                    ansi: String::new(),
+                    buf: String::new(),
+                    prompt_l: 0,
+                    idx: 0
+                },
                 Err(_) => panic!("Could not open tty.")
             };
 
@@ -77,11 +79,12 @@ impl StdPrompt {
         tcsetattr(self.term_fi.as_raw_fd(), TCSAFLUSH, &self.termios).unwrap();
     }
 
-    fn print_prompt(&self, ls: &LineState) {
+    fn print_prompt(&mut self, ls: &LineState) {
         match *ls {
             LineState::Normal => print!("$ "),
             LineState::Comment => print!("; ")
         }
+        self.prompt_l = 3;
         io::stdout().flush().ok().expect("Could not flush stdout");
     }
 
@@ -117,7 +120,7 @@ impl StdPrompt {
         } else if len == 1 && ch == '[' {
             self.ansi.push(ch);
             return None;
-        } else if len >= 2 && (ch as u8) < 64 && (ch as u8) > 126 {
+        } else if len >= 2 && ((ch as u8) < 64 || (ch as u8) > 126) {
             self.ansi.push(ch);
             return None;
         }
@@ -125,23 +128,42 @@ impl StdPrompt {
         let mut ret = self.ansi.clone();
         ret.push(ch);
         self.ansi.clear();
-        return Some(ret);
+
+        Some(ret)
     }
 
-    fn interp(&mut self, input: &str) -> bool {
+    fn reprint_cursor(&self) {
+        print!("[{}G", self.prompt_l + self.idx);
+        io::stdout().flush().ok().expect("Could not flush stdout");
+    }
+
+    fn reprint(&self) {
+        print!("[{}G{}[K", self.prompt_l, self.buf);
+        self.reprint_cursor();
+    }
+
+    fn interp(&mut self, input: &str) -> bool {        
         match input {
             "\n" => return true,
-            "\x7E" => { },
-            "[A" => { },
-            "[B" => { },
-            "[C" => { },
-            "[D" => { },
-            "\x7F" => {
-                if self.buf.pop().is_some() {
-                    print!("[D[K");
-                    self.idx -= 1;
-                    io::stdout().flush().ok().expect("Could not flush stdout");
-                }
+            "\t" => return false,
+            "[3~" => if self.buf.len() > 0 && self.idx < self.buf.len() {
+                self.buf.remove(self.idx);
+                self.reprint();              
+            },
+            "[A" => { /* hist up */ },
+            "[B" => { /* hist down */ },
+            "[C" => if self.idx < self.buf.len() {
+                self.idx += 1;
+                self.reprint_cursor();
+            },
+            "[D" => if self.idx > 0 {
+                self.idx -= 1;
+                self.reprint_cursor();
+            },
+            "\x7F" => if self.buf.len() > 0 && self.idx > 0 {
+                self.buf.remove(self.idx - 1);
+                self.idx -= 1;
+                self.reprint();
             },
             _ => {
                 // this is bad but the case where it is bad would also be bad
@@ -150,8 +172,7 @@ impl StdPrompt {
                     self.buf.insert(self.idx, ch);
                     self.idx += 1;
                 }
-                print!("{}", input);
-                io::stdout().flush().ok().expect("Could not flush stdout");
+                self.reprint();
             }
         }
 
@@ -181,6 +202,7 @@ impl Prompt for StdPrompt {
 
         println!("");
         self.unprep_term();
+
         self.buf.clone()
     }
 }
