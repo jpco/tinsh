@@ -1,56 +1,30 @@
 mod exec;
 mod prompt;
 mod sym;
+mod builtins;
+mod eval;
+mod shell;
+mod hist;
 
 use prompt::LineState;
 use prompt::Prompt;
-use std::process::{Command, exit};
 
 fn setup() -> Box<Prompt> {
     Box::new(prompt::StdPrompt::init())
-}
-
-fn eval (cmd: &String, symt: &mut sym::Symtable) -> LineState {
-    let cmd = cmd.trim();
-
-    if cmd == "###" {
-        return LineState::Comment;
-    }
-
-    let mut cmdvec: Vec<&str> = cmd.split(' ').collect();
-
-    let cmdname = cmdvec.remove(0);
-    match symt.resolve(cmdname) {
-        Some(sym) => {
-            let sym::Sym::Binary(cmdpath) = sym;
-            let mut cmd = Command::new(cmdpath);
-
-            for arg in cmdvec {
-                cmd.arg(arg);
-            }
-
-            exec::exec(cmd);
-        },
-        None => {
-            // TODO: status code of 127.
-            println!("Command '{}' could not be found.", cmdname);
-        }
-    }
-
-    LineState::Normal
+    // Box::new(prompt::BasicPrompt)
 }
 
 fn main() {
-    let mut pr = setup();
-
-    let mut ls = LineState::Normal;
-
-    let mut symt = sym::Symtable::new();
-    symt.hash_bins();
+    let mut sh = shell::Shell {
+        pr: setup(),
+        ls: LineState::Normal,
+        st: sym::Symtable::new(),
+        ht: hist::Histvec::new()
+    };
 
     loop {
-        let input = pr.prompt(&ls);
-        ls = match ls {
+        let input = sh.pr.prompt(&sh.ls, &sh.st, &mut sh.ht);
+        sh.ls = match sh.ls {
             LineState::Comment => {
                 if input.trim() == "###" {
                     LineState::Normal
@@ -59,11 +33,14 @@ fn main() {
                 }
             },
             LineState::Normal => {
-                if input.trim() == "exit" {
-                    exit(0);
-                } else { 
-                    eval (&input, &mut symt)
-                }
+                sh.ht.hist_add (&input);
+                let (ls, cmd_line) = eval::eval (input);
+                match ls {
+                    LineState::Normal => eval::exec (cmd_line, &mut sh),
+                    _ => { }
+                };
+
+                ls
             }
         };
     }

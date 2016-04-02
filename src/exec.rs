@@ -6,5 +6,11 @@ use std::process::Command;
 // lots to do here)
 //////////
 pub fn exec (mut cmd: Command) {
-    cmd.spawn().unwrap().wait();
+    match cmd.spawn() {
+        Ok(mut ch) => match ch.wait() {
+            Ok(_) => { },
+            Err(e) => println!("Error waiting for child: {}", e)
+        },
+        Err(e) => println!("Error: {}", e)
+    }
 }

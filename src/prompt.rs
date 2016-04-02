@@ -3,8 +3,12 @@
 use std::io::prelude::*;
 use std::io;
 use std::str;
+use std::env;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
+
+use sym::Symtable;
+use hist::Histvec;
 
 extern crate termios;
 use self::termios::*;
@@ -15,12 +19,12 @@ pub enum LineState {
 }
 
 pub trait Prompt {
-    fn prompt(&mut self, ls: &LineState) -> String;
+    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> String;
 }
 
 pub struct BasicPrompt;
 impl Prompt for BasicPrompt {
-    fn prompt(&mut self, _ls: &LineState) -> String {
+    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> String {
         print!("$ ");
         io::stdout().flush().ok().expect("Could not flush stdout");
 
@@ -48,18 +52,18 @@ impl StdPrompt {
     pub fn init() -> StdPrompt {
         // create prompt && termios
         let mut pr = match File::open("/dev/tty") {
-                Ok(fi) => StdPrompt {
-                    termios: Termios::from_fd(fi.as_raw_fd()).unwrap(),
-                    term_fi: fi,
-                    in_tcflag: 0,
-                    out_tcflag: 0,
-                    ansi: String::new(),
-                    buf: String::new(),
-                    prompt_l: 0,
-                    idx: 0
-                },
-                Err(_) => panic!("Could not open tty.")
-            };
+            Ok(fi) => StdPrompt {
+                termios: Termios::from_fd(fi.as_raw_fd()).unwrap(),
+                term_fi: fi,
+                in_tcflag: 0,
+                out_tcflag: 0,
+                ansi: String::new(),
+                buf: String::new(),
+                prompt_l: 0,
+                idx: 0
+            },
+            Err(_) => panic!("Could not open tty.")
+        };
 
         // initialize termios settings
         pr.out_tcflag = pr.termios.c_lflag;
@@ -81,10 +85,16 @@ impl StdPrompt {
 
     fn print_prompt(&mut self, ls: &LineState) {
         match *ls {
-            LineState::Normal => print!("$ "),
-            LineState::Comment => print!("; ")
+            LineState::Normal => {
+                let prompt_str = env::var("PWD").unwrap_or("".to_string());
+                self.prompt_l = prompt_str.len() + 3;
+                print!("{}$ ", prompt_str);
+            },
+            LineState::Comment => {
+                self.prompt_l = 5;
+                print!("### ");
+            }
         }
-        self.prompt_l = 3;
         io::stdout().flush().ok().expect("Could not flush stdout");
     }
 
@@ -142,16 +152,28 @@ impl StdPrompt {
         self.reprint_cursor();
     }
 
-    fn interp(&mut self, input: &str) -> bool {        
+    fn interp(&mut self, input: &str, st: &Symtable, ht: &mut Histvec) -> bool { 
         match input {
             "\n" => return true,
-            "\t" => return false,
+            "\t" => { /* tab completion */ },
             "[3~" => if self.buf.len() > 0 && self.idx < self.buf.len() {
                 self.buf.remove(self.idx);
                 self.reprint();              
             },
-            "[A" => { /* hist up */ },
-            "[B" => { /* hist down */ },
+            "[A" => if let Some(nl) = ht.hist_up() {
+                self.buf = nl.to_string();
+                if self.buf.len() < self.idx {
+                    self.idx = self.buf.len();
+                }
+                self.reprint();
+            },
+            "[B" => if let Some(nl) = ht.hist_down() {
+                self.buf = nl.to_string();
+                if self.buf.len() < self.idx {
+                    self.idx = self.buf.len();
+                }
+                self.reprint();
+            },
             "[C" => if self.idx < self.buf.len() {
                 self.idx += 1;
                 self.reprint_cursor();
@@ -187,7 +209,7 @@ impl Prompt for StdPrompt {
     //  - coloration (?)
     //  - history
     //  - ANSI code interpretation
-    fn prompt(&mut self, ls: &LineState) -> String {
+    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> String {
         self.print_prompt(ls);
         self.prep_term();
 
@@ -196,7 +218,7 @@ impl Prompt for StdPrompt {
 
         while let Some(ch) = self.get_char() {
             if let Some(res) = self.ansi(ch) {
-                if self.interp(&res) { break; }
+                if self.interp(&res, st, ht) { break; }
             }
         }
 

@@ -1,24 +1,33 @@
+use builtins;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path;
 
 pub enum Sym {
-    Binary(path::PathBuf)
+    Binary(path::PathBuf),
+    Builtin(builtins::Builtin)
 }
 
+// We can use 'static for builtins because that's what builtins are: static.
 pub struct Symtable {
-    bins: HashMap<String, path::PathBuf>
+    bins: HashMap<String, path::PathBuf>,
+    builtins: HashMap<&'static str, builtins::Builtin>
 }
 
 impl Symtable {
     pub fn new() -> Symtable {
-        Symtable {
-            bins: HashMap::new()
-        }
+        let mut st = Symtable {
+            bins: HashMap::new(),
+            builtins: builtins::Builtin::map()
+        };
+
+        st.hash_bins();
+
+        st
     }
 
-    pub fn hash_bins(&mut self) {
+    fn hash_bins(&mut self) -> &mut Symtable {
         self.bins.clear();
 
         let path_str = env::var("PATH").unwrap_or("/bin:/usr/bin".to_string());
@@ -45,27 +54,31 @@ impl Symtable {
                 }
             }
         }
+
+        self
     }
 
     pub fn resolve(&mut self, sym_n: &str) -> Option<Sym> {
-        // TODO: functions, builtins, etc.
+        // TODO: functions, variables, etc.
+        if let Some(bi) = self.builtins.get(sym_n) {
+            return Some(Sym::Builtin(bi.clone()));
+        }
 
         // Check for Binary symbol by filename
         if let Some(bin_path) = self.bins.get(sym_n) {
             return Some(Sym::Binary(bin_path.clone()));
         }
 
-        // Re-hash and check again
-        // TODO: make re-hash optional, since it has a noticeable runtime.
-        self.hash_bins();
-        if let Some(bin_path) = self.bins.get(sym_n) {
-            return Some(Sym::Binary(bin_path.clone()));
+        // Check for executable file by full path
+        if let Ok(_) = fs::metadata(sym_n) {
+            // FIXME: needs more sanity checking for good files
+            return Some(Sym::Binary(path::PathBuf::from(sym_n)));
         }
 
-        // Check for Binary symbol by full path
-        let sym_bin = path::PathBuf::from(sym_n);
-        if self.bins.values().find(|&x| x == (&sym_bin).as_path()).is_some() {
-            return Some(Sym::Binary(sym_bin));
+        // Re-hash bins and check again
+        // TODO: make re-hash optional, since it has a noticeable runtime.
+        if let Some(bin_path) = self.hash_bins().bins.get(sym_n) {
+            return Some(Sym::Binary(bin_path.clone()));
         }
 
         // fail
