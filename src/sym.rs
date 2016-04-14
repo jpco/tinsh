@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use builtins;
 use std::collections::HashMap;
 use std::env;
@@ -6,25 +8,90 @@ use std::path;
 
 pub enum Sym {
     Binary(path::PathBuf),
-    Builtin(builtins::Builtin)
+    Builtin(builtins::Builtin),
+    Var(String)
+}
+
+struct VarVal {
+    val: String,
+    readonly: bool
+}
+
+// the 'is_fn' flag enables us to check
+// whether the current scope is the top-level scope of
+// a function -- aside from global ops, we don't want to act
+// through the function barrier.
+struct Scope {
+    vars: HashMap<String, VarVal>,
+    is_fn: bool,
+    is_gl: bool
 }
 
 // We can use 'static for builtins because that's what builtins are: static.
 pub struct Symtable {
-    bins: HashMap<String, path::PathBuf>,
-    builtins: HashMap<&'static str, builtins::Builtin>
+    bins:     HashMap<String, path::PathBuf>,
+    builtins: HashMap<&'static str, builtins::Builtin>,
+    scopes:   Vec<Scope>
 }
 
 impl Symtable {
     pub fn new() -> Symtable {
         let mut st = Symtable {
-            bins: HashMap::new(),
-            builtins: builtins::Builtin::map()
+            bins:     HashMap::new(),
+            builtins: builtins::Builtin::map(),
+            scopes:   Vec::new()
         };
+
+        st.scopes.push(Scope {
+            vars: HashMap::new(),
+            is_fn: false,
+            is_gl: true
+        });
 
         st.hash_bins();
 
         st
+    }
+
+    // TODO: -g vs -l vs default behaviors
+    // TODO: check readonly
+    pub fn set(&mut self, key: &str, val: String) -> &mut Symtable {
+        if val == "" {
+            self.scopes.last_mut().unwrap().vars.remove(key);
+        } else {
+            self.scopes.last_mut().unwrap().vars.insert(key.to_string(), VarVal { val: val, readonly: false } );
+        }
+
+        self
+    }
+
+    pub fn set_readonly(&mut self, key: &str, val: String) -> &mut Symtable {
+        self.scopes.last_mut().unwrap().vars.insert(key.to_string(), VarVal {
+            val: val,
+            readonly: true
+        });
+
+        self
+    }
+
+    pub fn new_scope(&mut self, is_fn: bool) -> &mut Symtable {
+        self.scopes.push(Scope {
+            vars: HashMap::new(),
+            is_fn: is_fn,
+            is_gl: false
+        });
+
+        self
+    }
+
+    pub fn del_scope(&mut self) -> &mut Symtable {
+        // we must always have a scope
+        // error handling re: a bogus '}' is elsewhere
+        if self.scopes.len() > 1 {
+            self.scopes.pop();
+        }
+
+        self
     }
 
     fn hash_bins(&mut self) -> &mut Symtable {
@@ -58,13 +125,32 @@ impl Symtable {
         self
     }
 
+    // TODO: set in args which symbol types we want to look for
+    // TODO: env vars, no?
     pub fn resolve(&mut self, sym_n: &str) -> Option<Sym> {
-        // TODO: functions, variables, etc.
+        // check for Var symbol
+        for scope in self.scopes.iter().rev() {
+            if scope.is_gl { break; }
+
+            if let Some(v) = scope.vars.get(sym_n) {
+                return Some(Sym::Var(v.val.clone()));
+            }
+            if scope.is_fn {
+                break;
+            }
+        }
+
+        // check global scope (this is done separately so we can break at is_fn)
+        if let Some(v) = self.scopes[0].vars.get(sym_n) {
+            return Some(Sym::Var(v.val.clone()));
+        }
+
+        // check for Builtin symbol
         if let Some(bi) = self.builtins.get(sym_n) {
             return Some(Sym::Builtin(bi.clone()));
         }
 
-        // Check for Binary symbol by filename
+        // check for Binary symbol by filename
         if let Some(bin_path) = self.bins.get(sym_n) {
             return Some(Sym::Binary(bin_path.clone()));
         }
@@ -81,7 +167,6 @@ impl Symtable {
             return Some(Sym::Binary(bin_path.clone()));
         }
 
-        // fail
         None
     }
 }

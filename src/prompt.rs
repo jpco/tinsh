@@ -13,18 +13,46 @@ use hist::Histvec;
 extern crate termios;
 use self::termios::*;
 
+#[derive(PartialEq)]
 pub enum LineState {
     Normal,
     Comment
 }
 
 pub trait Prompt {
-    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> String;
+    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<String>;
 }
 
+/// CmdPrompt: basic prompt which supplies a single command specified at creation.
+pub struct CmdPrompt {
+    cmd: Option<String>
+}
+impl CmdPrompt {
+    pub fn new(cmd: String) -> Self {
+        CmdPrompt {
+            cmd: Some(cmd)
+        }
+    }
+}
+
+impl Prompt for CmdPrompt {
+    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<String> {
+        if self.cmd.is_some() {
+            let cmd = self.cmd.clone();
+            self.cmd = None;
+
+            cmd
+        } else {
+            None
+        }
+    }
+}
+
+/// BasicPrompt: the simplest interactive prompt.
 pub struct BasicPrompt;
+
 impl Prompt for BasicPrompt {
-    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> String {
+    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<String> {
         print!("$ ");
         io::stdout().flush().ok().expect("Could not flush stdout");
 
@@ -32,10 +60,45 @@ impl Prompt for BasicPrompt {
         io::stdin().read_line(&mut buf)
             .expect("Could not read stdin");
 
-        buf
+        Some(buf)
     }
 }
 
+/// FilePrompt: read the lines from a file, woohoo.
+pub struct FilePrompt {
+    br: io::BufReader<File>
+}
+
+impl FilePrompt {
+    pub fn new(file: &str) -> Result<Self, io::Error> {
+        let f = try!(File::open(file));
+
+        Ok(FilePrompt {
+            br: io::BufReader::new(f)
+        })
+    }
+}
+
+impl Prompt for FilePrompt {
+    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<String> {
+        let mut line = String::new();
+        match self.br.read_line(&mut line) {
+            Ok(n) => { 
+                if n == 0 { return None; }
+            },
+            Err(_) => {
+                // TODO: I/O error
+                return None;
+            }
+        };
+
+        Some(line)
+    }
+}
+
+
+/// StdPrompt: the standard prompt of the Tin shell. Supports all manner of
+/// interactive goodness -- coloration, tab completion, etc.
 pub struct StdPrompt {
     term_fi: File,
     termios: Termios,
@@ -49,7 +112,7 @@ pub struct StdPrompt {
 }
 
 impl StdPrompt {
-    pub fn init() -> StdPrompt {
+    pub fn new() -> Self {
         // create prompt && termios
         let mut pr = match File::open("/dev/tty") {
             Ok(fi) => StdPrompt {
@@ -107,6 +170,10 @@ impl StdPrompt {
             match chres {
                 Ok(ch) => {
                     // println!("[31m{}[0m", ch as u8);
+
+                    // TODO: this is broken!! we need to see if the next
+                    // char is an ok char to start with before saying this one
+                    // is ok... UTF-8 is a bit of a nightmare
                     chrbuf.push(ch);
                     if let Ok(chr) = str::from_utf8(&chrbuf) {
                         return chr.chars().next();
@@ -152,7 +219,7 @@ impl StdPrompt {
         self.reprint_cursor();
     }
 
-    fn interp(&mut self, input: &str, st: &Symtable, ht: &mut Histvec) -> bool { 
+    fn interp(&mut self, input: &str, _st: &Symtable, ht: &mut Histvec) -> bool { 
         match input {
             "\n" => return true,
             "\t" => { /* tab completion */ },
@@ -207,9 +274,8 @@ impl Prompt for StdPrompt {
     //  - tab completion
     //  - proper POSIX terminal control
     //  - coloration (?)
-    //  - history
     //  - ANSI code interpretation
-    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> String {
+    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<String> {
         self.print_prompt(ls);
         self.prep_term();
 
@@ -225,7 +291,7 @@ impl Prompt for StdPrompt {
         println!("");
         self.unprep_term();
 
-        self.buf.clone()
+        Some(self.buf.clone())
     }
 }
 
@@ -234,5 +300,3 @@ impl Drop for StdPrompt {
         self.unprep_term();
     }
 }
-
-// todo: FilePrompt

@@ -5,6 +5,9 @@ use shell;
 use prompt::LineState;
 use std::process::Command;
 
+use err::debug;
+use err::warn;
+
 pub fn eval (cmd: String) -> (LineState, String) {
     let cmd = cmd.trim().to_string();
 
@@ -17,7 +20,9 @@ pub fn eval (cmd: String) -> (LineState, String) {
 }
 
 pub fn exec (cmd: String, sh: &mut shell::Shell) {
-    let mut cmdvec: Vec<String> = cmd.split_whitespace().map(|x| x.to_string()).collect();
+    let mut cmdvec: Vec<String> = cmd.split_whitespace()
+                                     .map(|x| x.to_string())
+                                     .collect();
 
     let cmdname = cmdvec.remove(0);
     match sh.st.resolve(&cmdname) {
@@ -33,9 +38,12 @@ pub fn exec (cmd: String, sh: &mut shell::Shell) {
         Some(sym::Sym::Builtin(bi_cmd)) => {
             (*bi_cmd.run)(cmdvec, sh);
         },
+        Some(sym::Sym::Var(var_val)) => {
+            debug(&mut sh.st, &format!("{}", var_val));
+        },
         None => {
             // TODO: status code of 127.
-            println!("Command '{}' could not be found.", cmdname);
+            warn(&mut sh.st, &format!("Command '{}' could not be found.", cmdname));
         }
     }
 }
