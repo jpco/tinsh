@@ -6,6 +6,8 @@ use std::env;
 use std::fs;
 use std::path;
 
+use err;
+
 pub enum Sym {
     Binary(path::PathBuf),
     Builtin(builtins::Builtin),
@@ -56,6 +58,23 @@ impl Symtable {
     // TODO: -g vs -l vs default behaviors
     // TODO: check readonly
     pub fn set(&mut self, key: &str, val: String) -> &mut Symtable {
+        if key == "__tin_debug" {
+            let i = match &val as &str {
+                "debug" => 0,
+                "warn"  => 1,
+                "err"   => 2,
+                _ => match val.parse::<u8>() {
+                    Ok(i)  => i,
+                    Err(_) => {
+                        err::warn(&format!("args: invalid __tin_debug level '{}' given", val));
+                        return self;
+                    }
+                }
+            };
+
+            err::debug_setthresh(i);
+        }
+
         if val == "" {
             self.scopes.last_mut().unwrap().vars.remove(key);
         } else {

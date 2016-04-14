@@ -23,7 +23,7 @@ impl Builtin {
                 desc: "Set a variable binding",
                 run: rc::Rc::new(|args: Vec<String>, sh: &mut Shell| -> i32 {
                     if args.len() < 2 {
-                        warn(&mut sh.st, "set: insufficient arguments.");
+                        warn("set: insufficient arguments.");
                         return 2;
                     }
                     sh.st.set(&args[0], args[1].clone());
@@ -36,20 +36,20 @@ impl Builtin {
             "cd",
             Builtin {
                 desc: "Change directory",
-                run: rc::Rc::new(|args: Vec<String>, sh: &mut Shell| -> i32 {
+                run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell| -> i32 {
                     // TODO: more smartly handle the case HOME is nothing?
                     if args.len() == 0 {
                         let home = match env::var("HOME") {
                             Ok(hm)  => hm,
                             Err(_)  => {
-                                warn(&mut sh.st, "cd: no HOME environment variable found.");
+                                warn("cd: no HOME environment variable found.");
                                 return 2; /* TODO: correct error code */
                             }
                         };
                         match env::set_current_dir (home.clone()) {
                             Ok(_) => env::set_var("PWD", home),
                             Err(e) => {
-                                warn(&mut sh.st, &format!("cd: {}", e));
+                                warn(&format!("cd: {}", e));
                                 return 2;
                             }
                         };
@@ -57,14 +57,14 @@ impl Builtin {
                         let dest = match fs::canonicalize(args[0].clone()) {
                             Ok(pt) => pt,
                             Err(e) => {
-                                warn(&mut sh.st, &format!("cd: {}", e));
+                                warn(&format!("cd: {}", e));
                                 return 2;
                             }
                         }.into_os_string().into_string().unwrap();
                         match env::set_current_dir (dest.clone()) {
                             Ok(_) => env::set_var("PWD", dest),
                             Err(e) => {
-                                warn(&mut sh.st, &format!("cd: {}", e));
+                                warn(&format!("cd: {}", e));
                                 return 2;
                             }
                         };
@@ -78,14 +78,14 @@ impl Builtin {
             "exit",
             Builtin {
                 desc: "Exit the tin shell",
-                run: rc::Rc::new(|args: Vec<String>, sh: &mut Shell| -> i32 {
+                run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell| -> i32 {
                     if args.len() == 0 {
                         exit(0);
                     } 
                     match args[0].parse::<i32>() {
                         Ok(i) => exit(i),
                         Err(_) => {
-                            warn(&mut sh.st, "exit: numeric argument required.");
+                            warn("exit: numeric argument required.");
                             exit(2)
                         }
                     }

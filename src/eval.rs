@@ -39,11 +39,11 @@ pub fn exec (cmd: String, sh: &mut shell::Shell) {
             (*bi_cmd.run)(cmdvec, sh);
         },
         Some(sym::Sym::Var(var_val)) => {
-            debug(&mut sh.st, &format!("{}", var_val));
+            debug(&format!("{}", var_val));
         },
         None => {
             // TODO: status code of 127.
-            warn(&mut sh.st, &format!("Command '{}' could not be found.", cmdname));
+            warn(&format!("Command '{}' could not be found.", cmdname));
         }
     }
 }

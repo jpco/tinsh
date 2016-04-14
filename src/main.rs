@@ -12,12 +12,27 @@ use std::env;
 use prompt::LineState;
 use prompt::Prompt;
 
+use err::warn;
+use err::info;
+use err::err;
+
 fn setup(opts: TinOpts) -> shell::Shell {
-    let mut sh = shell::Shell {
-        pr: {
-            let p: prompt::FilePrompt = prompt::FilePrompt::new(&opts.config).unwrap();
+    let exec_rc;
+
+    let rc_p: Box<Prompt> = match prompt::FilePrompt::new(&opts.config) {
+        Ok(p) => {
+            exec_rc = true;
             Box::new(p)
         },
+        Err(e) => {
+            exec_rc = false;
+            err::info(&format!("Error loading .tinrc file: {}; skipping", e));
+            Box::new(prompt::BasicPrompt)
+        }
+    };
+
+    let mut sh = shell::Shell {
+        pr: rc_p,
         ls: LineState::Normal,
         st: sym::Symtable::new(),
         ht: hist::Histvec::new()
@@ -28,7 +43,9 @@ fn setup(opts: TinOpts) -> shell::Shell {
     load_opts(opts.clone(), &mut sh.st);
 
     // exec .tinrc
-    main_loop(&mut sh);
+    if exec_rc {
+        main_loop(&mut sh);
+    }
 
     // TODO: make the TinOpts struct vars readonly (here?)
 
@@ -130,7 +147,7 @@ fn read_args() -> TinOpts {
                 _ => match arg.parse::<u8>() {
                     Ok(i)  => i,
                     Err(_) => {
-                        println!("args: invalid debug level '{}' given", arg);
+                        warn(&format!("args: invalid debug level '{}' given", arg));
                         std::process::exit(2);
                     }
                 }
@@ -139,7 +156,7 @@ fn read_args() -> TinOpts {
         } else if command_arg {
             // command to execute
             if opts.exec.is_some() {
-                println!("args: warning: multiple files/commands given to run");
+                warn("args: multiple files/commands given to run");
             }
             opts.exec = Some(arg);
             command_arg = false;
@@ -170,13 +187,13 @@ fn read_args() -> TinOpts {
                 }
                 if debug_arg && (command_arg || config_arg) ||
                         command_arg && config_arg {
-                    println!("args: ambiguous arguments given");
+                    err("args: ambiguous arguments given");
                     std::process::exit(2);
                 }
             }
         } else {
             if opts.exec.is_some() {
-                println!("args: warning: multiple files/commands given to run");
+                warn("args: multiple files/commands given to run");
             } else {
                 opts.file = true;
                 opts.exec = Some(arg);
@@ -217,7 +234,8 @@ fn main_loop(mut sh: &mut shell::Shell) {
     // TODO: clean up all state! tear down all non-global scopes, set up
     // appropriate warnings, etc.
     if sh.ls != LineState::Normal {
-        // warn
+        // warn or info?
+        info("File left line state non-normal, rectifying");
         sh.ls = LineState::Normal;
     }
 }
