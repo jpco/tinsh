@@ -1,0 +1,16 @@
+#!/bin/tinsh
+
+# TODO: check out the redirection in the for loop! big deal
+
+if ! (cat ~/.trash/trashregister) {
+    echo "No files in trash."
+    exit 0
+}
+
+echo "Deleted files currently in trash:"
+for line in (read) <- ~/.trash/trashregister {
+    let filename = (line%/*)
+    let unixtime = (echo (line) | awk -F"~" ' { print $NF }')
+    let date = (date -d @(unixtime) +%D\ %r)
+    echo "(filename) \((date)\)"
+}

@@ -1,0 +1,26 @@
+#!/bin/tinsh
+
+if (_1) == '--help' {
+    echo "Usage: emptytrash [-f]"
+    echo "Emptytrash: Empties the ~/.trash/ folder as created by rmpp."
+    echo "Warning: this is NOT UNDOABLE! It's about as unsafe as GNU 'rm -rf' has always been!"
+    echo ""
+    echo "Created by Jack Conger 2016."
+    exit 0
+} else if (_1) == '-f' {
+    set -g conf = y
+} else {
+    echo -n "Do you really want to empty the trash? \(y/N\): "
+    set -g conf = (read)
+}
+
+if conf !~ ^[yY], exit 0
+
+echo "..."
+
+for line in (read) <- ~/.trash/trashregister {
+    if (line), /bin/rm -rf ~/.trash/(line##*/)
+}
+
+echo '' -> ~/.trash/trashregister
+echo "Trash emptied."

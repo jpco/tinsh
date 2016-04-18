@@ -1,0 +1,86 @@
+#!/bin/tinsh
+
+###
+How to save what you just killed? Use unrm! :)
+Written by Jack Conger, 2016
+
+# TODO: 
+ - 'set -n' for mathematical setting
+ - check out that pipe into for
+###
+
+# ARGUMENT HANDLING
+
+if (_n) == 0 {
+    echo "unrm: missing operand."
+    echo "try 'unrm --help' for more information."
+    exit 1
+} else if (_1) == "--help" {
+    echo "Usage: unrm FILE..."
+	echo "Unrm: To bring back things which have been sent to the trash by rmpp."
+	echo "option --last: To bring back the latest removed thing."
+	echo ""
+	echo "Created by Jack Conger 2016."
+	exit 0
+}
+
+let wdir = (pwd)
+
+if (_1) == '--last' {
+    let lastline = (tail -1 ~/.trash/trashregister)
+    let lasttime = (lastline##*~)
+
+    for line in (read) <- ~/.trash/trashregister {
+        if (line) !~ (lasttime), continue
+        let tounrm = (echo (line) | cut -f 1)
+        unrm (tounrm)
+    }
+
+    exit (_?)
+}
+
+# THE MEAT
+
+for ftounrm in (_*) {
+    cd (dirname -- (ftounrm))
+    let fullpath = (pwd)
+    let justfname = (basename (ftounrm))
+    if ! (justfname) {
+        set justfname = (ftounrm%?##*/) # what the
+        set justfname = (justfname%?)   # fuck?
+    }
+
+    set justfname = (echo (justfname) | sed -r "s/\*/\.\*/g")
+
+    let filefound = ''
+
+    grep "^(fullpath)/(justfname)\>" ~/.trash/trashregister \
+            | for line in (read) {
+        let target = (line%/*)
+        let fnameintrash = (line##*/)
+        if (fnameintrash) {
+            set filefound = 1
+            if -e (target) {
+                let dups = 1
+                loop {
+                    if -e (target%/*)/(dups).(target##*/): let -n dups = (dups)+1
+                    else break
+                }
+                set target = (target%/*)/(dups).(target##*/)
+            }
+
+            mv -f ~/.trash/(fnameintrash) (target)
+        }
+    }
+
+    if ! (filefound) {
+        echo "File not found in trash."
+        cd (wdir)
+        exit 1
+    }
+
+    grep -v "^(fullpath)/(justfname)\>" ~/.trash/trashregister > ~/.trash/ntr
+    mv -f ~/.trash/ntr ~/.trash/trashregister
+}
+
+cd (wdir)
