@@ -220,9 +220,9 @@ fn main_loop(mut sh: &mut shell::Shell) {
             },
             LineState::Normal => {
                 sh.ht.hist_add (input.trim());
-                let (ls, cmd_line) = eval::eval (input);
+                let (ls, cmd_vec) = eval::eval (&mut sh, input);
                 match ls {
-                    LineState::Normal => eval::exec (cmd_line, &mut sh),
+                    LineState::Normal => eval::exec (cmd_vec, &mut sh),
                     _ => { }
                 };
 

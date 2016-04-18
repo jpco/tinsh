@@ -29,6 +29,15 @@ struct Scope {
     is_gl: bool
 }
 
+#[derive(PartialEq)]
+pub enum ScopeSpec {
+    Local,
+    Global,
+    Environment,
+    Default
+}
+
+
 // We can use 'static for builtins because that's what builtins are: static.
 pub struct Symtable {
     bins:     HashMap<String, path::PathBuf>,
@@ -54,31 +63,76 @@ impl Symtable {
 
         st
     }
-
-    // TODO: -g vs -l vs default behaviors
-    // TODO: check readonly
-    pub fn set(&mut self, key: &str, val: String) -> &mut Symtable {
-        if key == "__tin_debug" {
-            let i = match &val as &str {
-                "debug" => 0,
-                "warn"  => 1,
-                "err"   => 2,
-                _ => match val.parse::<u8>() {
-                    Ok(i)  => i,
-                    Err(_) => {
-                        err::warn(&format!("args: invalid __tin_debug level '{}' given", val));
-                        return self;
-                    }
+   
+    fn set_debug(&mut self, val: String) {
+        let i = match &val as &str {
+            "debug" => 0,
+            "warn"  => 1,
+            "err"   => 2,
+            _ => match val.parse::<u8>() {
+                Ok(i)  => i,
+                Err(_) => {
+                    err::warn(&format!("args: invalid __tin_debug level '{}' given", val));
+                    return;
                 }
-            };
+            }
+        };
 
-            err::debug_setthresh(i);
+        err::debug_setthresh(i);
+    }
+
+    pub fn set(&mut self, key: &str, val: String) -> &mut Symtable {
+        self.set_scope(key, val, ScopeSpec::Default)
+    }
+
+    // TODO: check readonly
+    pub fn set_scope(&mut self, key: &str, val: String, sc: ScopeSpec)
+            -> &mut Symtable {
+        if key == "__tin_debug" {
+            self.set_debug(val);
+            return self;
         }
 
-        if val == "" {
-            self.scopes.last_mut().unwrap().vars.remove(key);
-        } else {
-            self.scopes.last_mut().unwrap().vars.insert(key.to_string(), VarVal { val: val, readonly: false } );
+        match sc {
+            ScopeSpec::Environment => { env::set_var(key, val); },
+            ScopeSpec::Global =>
+            {
+                let ref mut scope = self.scopes[0].vars;
+                if val == "" {
+                    scope.remove(key);
+                } else {
+                    scope.insert(key.to_string(),
+                                     VarVal { val: val, readonly: false });
+                }
+           
+            },
+            ScopeSpec::Local =>
+            {
+                let ref mut scope = self.scopes.last_mut().unwrap().vars;
+                if val == "" {
+                    scope.remove(key);
+                } else {
+                    scope.insert(key.to_string(),
+                                 VarVal { val: val, readonly: false });
+                }
+            },
+            ScopeSpec::Default =>
+            {
+                let mut is_set = false;
+                for scope in self.scopes.iter_mut().rev() {
+                    if scope.vars.get(key).is_some() {
+                        if val == "" {
+
+                        }
+                        is_set = true;
+                        break;
+                    }
+                }
+
+                if !is_set {
+
+                }
+            }
         }
 
         self

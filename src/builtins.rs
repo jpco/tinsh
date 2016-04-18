@@ -3,12 +3,14 @@ use std::process::exit;
 use std::rc;
 use std::fs;
 use std::env;
+use sym;
+use err;
 
 use shell::Shell;
-use err::warn;
 
 #[derive(Clone)]
 pub struct Builtin {
+    pub name: &'static str,
     pub desc: &'static str,
     pub run:  rc::Rc<Fn(Vec<String>, &mut Shell) -> i32>
 }
@@ -20,13 +22,65 @@ impl Builtin {
         bi_map.insert(
             "set",
             Builtin {
+                name: "set",
                 desc: "Set a variable binding",
                 run: rc::Rc::new(|args: Vec<String>, sh: &mut Shell| -> i32 {
                     if args.len() < 2 {
-                        warn("set: insufficient arguments.");
+                        err::warn("set: insufficient arguments.");
                         return 2;
                     }
-                    sh.st.set(&args[0], args[1].clone());
+                    let mut key = String::new();
+                    let mut val = String::new();
+                    let mut spec = sym::ScopeSpec::Default;
+                    let mut phase: u8 = 0;
+
+                    for arg in args {
+                        if phase == 0 && arg.starts_with("-") {
+                            for c in arg.chars().skip(1) {
+                                match c {
+                                    'l' | 'g' | 'e' => {
+                                        if spec != sym::ScopeSpec::Default {
+                                            err::warn("set: Multiple settings for \
+                                                       binding specified");
+                                        }
+                                        err::debug(&format!("set: Using '{}' for \
+                                                            var", c));
+                                        spec = match c {
+                                            'l' => sym::ScopeSpec::Default,
+                                            'g' => sym::ScopeSpec::Global,
+                                            'e' => sym::ScopeSpec::Environment,
+                                            _   => { unreachable!() }
+                                        };
+                                    },
+                                    _   => {
+                                        err::warn(&format!("set: Unrecognized \
+                                                  argument '{}' found",
+                                                  c));
+                                    }
+                                }
+                            }
+                            continue;
+                        } else if phase == 0 {
+                            phase = 1;
+                        }
+
+                        if phase == 1 && arg == "=" {
+                            phase = 2;
+                            continue;
+                        } else if phase == 1 {
+                            if !key.is_empty() { key.push(' '); }
+                            key.push_str(&arg);
+                        } else {
+                            if !val.is_empty() { val.push(' '); }
+                            val.push_str(&arg);
+                        }
+                    }
+
+                    if phase != 2 {
+                        err::warn("set: Malformed syntax (no '=')");
+                    } else {
+                        sh.st.set_scope(&key, val, spec);
+                    }
 
                     0
                 })
@@ -35,6 +89,7 @@ impl Builtin {
         bi_map.insert(
             "cd",
             Builtin {
+                name: "cd",
                 desc: "Change directory",
                 run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell| -> i32 {
                     // TODO: more smartly handle the case HOME is nothing?
@@ -42,14 +97,14 @@ impl Builtin {
                         let home = match env::var("HOME") {
                             Ok(hm)  => hm,
                             Err(_)  => {
-                                warn("cd: no HOME environment variable found.");
+                                err::warn("cd: no HOME environment variable found.");
                                 return 2; /* TODO: correct error code */
                             }
                         };
                         match env::set_current_dir (home.clone()) {
                             Ok(_) => env::set_var("PWD", home),
                             Err(e) => {
-                                warn(&format!("cd: {}", e));
+                                err::warn(&format!("cd: {}", e));
                                 return 2;
                             }
                         };
@@ -57,14 +112,14 @@ impl Builtin {
                         let dest = match fs::canonicalize(args[0].clone()) {
                             Ok(pt) => pt,
                             Err(e) => {
-                                warn(&format!("cd: {}", e));
+                                err::warn(&format!("cd: {}", e));
                                 return 2;
                             }
                         }.into_os_string().into_string().unwrap();
                         match env::set_current_dir (dest.clone()) {
                             Ok(_) => env::set_var("PWD", dest),
                             Err(e) => {
-                                warn(&format!("cd: {}", e));
+                                err::warn(&format!("cd: {}", e));
                                 return 2;
                             }
                         };
@@ -77,6 +132,7 @@ impl Builtin {
         bi_map.insert(
             "exit",
             Builtin {
+                name: "exit",
                 desc: "Exit the tin shell",
                 run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell| -> i32 {
                     if args.len() == 0 {
@@ -85,7 +141,7 @@ impl Builtin {
                     match args[0].parse::<i32>() {
                         Ok(i) => exit(i),
                         Err(_) => {
-                            warn("exit: numeric argument required.");
+                            err::warn("exit: numeric argument required.");
                             exit(2)
                         }
                     }
@@ -95,6 +151,7 @@ impl Builtin {
         bi_map.insert(
             "history",
             Builtin {
+                name: "history",
                 desc: "List/control history",
                 run: rc::Rc::new(|_args: Vec<String>, sh: &mut Shell| -> i32 {
                     sh.ht.hist_print();

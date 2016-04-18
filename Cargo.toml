@@ -9,3 +9,4 @@ readme = "README.md"
 [dependencies]
 termios = "*"
 libc = "*"
+unicode-segmentation = "*"
