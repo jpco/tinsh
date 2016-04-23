@@ -3,15 +3,41 @@ use exec;
 use shell;
 use err;
 
+use std::collections::VecDeque;
 use std::process::Command;
 extern crate unicode_segmentation;
 use self::unicode_segmentation::UnicodeSegmentation;
 
 use prompt::LineState;
-use err::debug;
 use err::warn;
 
+static mut firstword: bool = true;
+
+fn finish_word(sh: &mut shell::Shell, cmdword: String, cmdvec: &mut Vec<String>) {
+    unsafe {
+        if firstword {
+            match sh.st.resolve_types(&cmdword, Some(vec![sym::SymType::Var])) {
+                Some(sym::Sym::Var(var_val)) => {
+                    let (_, nvec) = eval_fw(sh, var_val, false);
+                    for nwd in nvec {
+                        cmdvec.push(nwd);
+                    }
+                },
+                _ => { cmdvec.push(cmdword); }
+            }
+            firstword = false;
+        } else {
+            cmdvec.push(cmdword);
+        }
+    }
+}
+
 pub fn eval (sh: &mut shell::Shell, cmd: String) -> (LineState, Vec<String>) {
+    eval_fw(sh, cmd, true)
+}
+
+pub fn eval_fw (sh: &mut shell::Shell, cmd: String, fw: bool)
+               -> (LineState, Vec<String>) {
     let cmd = cmd.trim().to_string();
 
     let mut new_ls = LineState::Normal;
@@ -19,6 +45,7 @@ pub fn eval (sh: &mut shell::Shell, cmd: String) -> (LineState, Vec<String>) {
         new_ls = LineState::Comment;
     }
 
+    unsafe { firstword = fw; }
     let mut cmdword = String::new();
     let mut cmdvec = Vec::new();
 
@@ -32,16 +59,29 @@ pub fn eval (sh: &mut shell::Shell, cmd: String) -> (LineState, Vec<String>) {
     // backslash
     let mut bs = false;
 
-    for (i, c) in cmd.grapheme_indices(true) {
+    // construct the iterable vector
+    let mut wlist: VecDeque<String> = cmd.graphemes(true)
+                                         .map(|x| x.to_string()).collect();
+    let mut i: usize = 0;
+    let mut f = true;
+
+    while let Some(c) = {
+        if f { f = false } else { i = i + 1; } // terrible hacky
+        wlist.pop_front()
+    } {
+        let c = &c as &str;
+
+        // backslash
         if bs {
             cmdword.push_str(c);
             bs = false;
             continue;
         }
 
+        // new word border
         if c.trim().is_empty() {
             if parens == 0 && quotes == ' ' && !cmdword.is_empty() {
-                cmdvec.push(cmdword);
+                finish_word (sh, cmdword, &mut cmdvec);
                 cmdword = String::new();
             } else if quotes != ' ' {
                 cmdword.push_str(c);
@@ -49,6 +89,7 @@ pub fn eval (sh: &mut shell::Shell, cmd: String) -> (LineState, Vec<String>) {
             continue;
         }
 
+        // character evaluation
         match c {
             "\"" => {
                 if quotes == ' ' {
@@ -95,7 +136,7 @@ pub fn eval (sh: &mut shell::Shell, cmd: String) -> (LineState, Vec<String>) {
                                                      b.name));
                                 },
                                 None                       => {
-                                    err::debug(&format!("Could not resolve '({})'.",
+                                    err::debug(&format!("Could not resolve '{}'.",
                                               &cmd[paren_idx..i]));
                                 }
                             }
@@ -111,7 +152,7 @@ pub fn eval (sh: &mut shell::Shell, cmd: String) -> (LineState, Vec<String>) {
                     cmdword.push_str(c);
                 }
             }
-        }
+        };
     }
 
     if parens > 0 {
@@ -122,7 +163,7 @@ pub fn eval (sh: &mut shell::Shell, cmd: String) -> (LineState, Vec<String>) {
         err::warn("Unmatched quote in line");
     }
 
-    cmdvec.push(cmdword);
+    finish_word (sh, cmdword, &mut cmdvec);
 
     (new_ls, cmdvec)
 }
@@ -139,7 +180,8 @@ pub fn exec (mut cmdvec: Vec<String>, sh: &mut shell::Shell) {
     }
 
     let cmdname = cmdvec.remove(0);
-    match sh.st.resolve(&cmdname) {
+    match sh.st.resolve_types(&cmdname, Some(vec![sym::SymType::Binary, 
+                                             sym::SymType::Builtin])) {
         Some(sym::Sym::Binary(cmdpath)) => {
             let mut cmd = Command::new(cmdpath);
 
@@ -152,10 +194,7 @@ pub fn exec (mut cmdvec: Vec<String>, sh: &mut shell::Shell) {
         Some(sym::Sym::Builtin(bi_cmd)) => {
             (*bi_cmd.run)(cmdvec, sh);
         },
-        Some(sym::Sym::Var(var_val)) => {
-            debug(&format!("{}", var_val));
-        },
-        None => {
+        _ => {
             // TODO: status code of 127.
             warn(&format!("Command '{}' could not be found.", cmdname));
         }

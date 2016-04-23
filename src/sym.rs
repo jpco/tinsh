@@ -8,6 +8,14 @@ use std::path;
 
 use err;
 
+#[derive(PartialEq)]
+pub enum SymType {
+    Binary,
+    Builtin,
+    Var,
+    Environment
+}
+
 pub enum Sym {
     Binary(path::PathBuf),
     Builtin(builtins::Builtin),
@@ -191,46 +199,63 @@ impl Symtable {
         self
     }
 
-    // TODO: set in args which symbol types we want to look for
-    // TODO: env vars, no?
     pub fn resolve(&mut self, sym_n: &str) -> Option<Sym> {
-        // check for Var symbol
-        for scope in self.scopes.iter().rev() {
-            if scope.is_gl { break; }
+        self.resolve_types(sym_n, None)
+    }
 
-            if let Some(v) = scope.vars.get(sym_n) {
+    // TODO: env vars, no?
+    pub fn resolve_types(&mut self, sym_n: &str, types: Option<Vec<SymType>>) 
+                        -> Option<Sym> {
+
+        let types = match types {
+            Some(x) => { x },
+            None    => vec![SymType::Var,
+                            SymType::Binary,
+                            SymType::Builtin, 
+                            SymType::Environment]
+        };
+
+        if types.contains(&SymType::Var) {
+            // check for Var symbol
+            for scope in self.scopes.iter().rev() {
+                if let Some(v) = scope.vars.get(sym_n) {
+                    return Some(Sym::Var(v.val.clone()));
+                }
+                if scope.is_gl || scope.is_fn {
+                    break;
+                }
+            }
+
+            // check global scope (this is done separately so we can break at is_fn)
+            if let Some(v) = self.scopes[0].vars.get(sym_n) {
                 return Some(Sym::Var(v.val.clone()));
             }
-            if scope.is_fn {
-                break;
+        }
+
+        if types.contains(&SymType::Builtin) {
+            // check for Builtin symbol
+            if let Some(bi) = self.builtins.get(sym_n) {
+                return Some(Sym::Builtin(bi.clone()));
             }
         }
 
-        // check global scope (this is done separately so we can break at is_fn)
-        if let Some(v) = self.scopes[0].vars.get(sym_n) {
-            return Some(Sym::Var(v.val.clone()));
-        }
+        if types.contains(&SymType::Binary) {
+            // check for Binary symbol by filename
+            if let Some(bin_path) = self.bins.get(sym_n) {
+                return Some(Sym::Binary(bin_path.clone()));
+            }
 
-        // check for Builtin symbol
-        if let Some(bi) = self.builtins.get(sym_n) {
-            return Some(Sym::Builtin(bi.clone()));
-        }
+            // Check for executable file by full path
+            if let Ok(_) = fs::metadata(sym_n) {
+                // FIXME: needs more sanity checking for good files
+                return Some(Sym::Binary(path::PathBuf::from(sym_n)));
+            }
 
-        // check for Binary symbol by filename
-        if let Some(bin_path) = self.bins.get(sym_n) {
-            return Some(Sym::Binary(bin_path.clone()));
-        }
-
-        // Check for executable file by full path
-        if let Ok(_) = fs::metadata(sym_n) {
-            // FIXME: needs more sanity checking for good files
-            return Some(Sym::Binary(path::PathBuf::from(sym_n)));
-        }
-
-        // Re-hash bins and check again
-        // TODO: make re-hash optional, since it has a noticeable runtime.
-        if let Some(bin_path) = self.hash_bins().bins.get(sym_n) {
-            return Some(Sym::Binary(bin_path.clone()));
+            // Re-hash bins and check again
+            // TODO: make re-hash optional, since it has a noticeable runtime.
+            if let Some(bin_path) = self.hash_bins().bins.get(sym_n) {
+                return Some(Sym::Binary(bin_path.clone()));
+            }
         }
 
         None
