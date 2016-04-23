@@ -67,8 +67,9 @@ impl Symtable {
     fn set_debug(&mut self, val: String) {
         let i = match &val as &str {
             "debug" => 0,
-            "warn"  => 1,
-            "err"   => 2,
+            "info"  => 1,
+            "warn"  => 2,
+            "err"   => 3,
             _ => match val.parse::<u8>() {
                 Ok(i)  => i,
                 Err(_) => {
@@ -93,45 +94,37 @@ impl Symtable {
             return self;
         }
 
-        match sc {
-            ScopeSpec::Environment => { env::set_var(key, val); },
-            ScopeSpec::Global =>
-            {
-                let ref mut scope = self.scopes[0].vars;
-                if val == "" {
-                    scope.remove(key);
-                } else {
-                    scope.insert(key.to_string(),
-                                     VarVal { val: val, readonly: false });
-                }
-           
-            },
-            ScopeSpec::Local =>
-            {
-                let ref mut scope = self.scopes.last_mut().unwrap().vars;
-                if val == "" {
-                    scope.remove(key);
-                } else {
-                    scope.insert(key.to_string(),
-                                 VarVal { val: val, readonly: false });
-                }
-            },
-            ScopeSpec::Default =>
-            {
-                let mut is_set = false;
-                for scope in self.scopes.iter_mut().rev() {
-                    if scope.vars.get(key).is_some() {
-                        if val == "" {
+        if sc == ScopeSpec::Environment {
+            env::set_var(key, val);
+            return self;
+        }
 
+        { // need to scope this for borrowck
+            let scope = match sc {
+                ScopeSpec::Global => { &mut self.scopes[0].vars },
+                ScopeSpec::Local => { &mut self.scopes.last_mut().unwrap().vars },
+                ScopeSpec::Environment => { unreachable!() },
+                ScopeSpec::Default => {
+                    let mut ret = None;
+                    let last_idx = self.scopes.len() - 1;
+                    for (idx, scope) in self.scopes.iter_mut().rev().enumerate() {
+                        if scope.vars.get(key).is_some() {
+                            ret = Some(scope);
+                            break;
                         }
-                        is_set = true;
-                        break;
+
+                        if idx == last_idx {
+                            ret = Some(scope);
+                        }
                     }
+                    &mut ret.unwrap().vars
                 }
+            };
 
-                if !is_set {
-
-                }
+            if val == "" {
+                scope.remove(key);
+            } else {
+                scope.insert(key.to_string(), VarVal { val: val, readonly: false });
             }
         }
 
