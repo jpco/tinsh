@@ -199,6 +199,65 @@ impl Symtable {
         self
     }
 
+    pub fn prefix_resolve(&mut self, sym_n: &str) -> Option<String> {
+        self.prefix_resolve_types(sym_n, None)
+    }
+
+    // TODO: env vars, no?
+    pub fn prefix_resolve_types(&mut self, sym_n: &str, types: Option<Vec<SymType>>) 
+                               -> Option<String> {
+        let types = match types {
+            Some(x) => { x },
+            None    => vec![SymType::Var,
+                            SymType::Binary,
+                            SymType::Builtin, 
+                            SymType::Environment]
+        };
+
+        let mut res: Vec<String> = Vec::new();
+
+        if types.contains(&SymType::Var) {
+            // check for Var symbol
+            for scope in self.scopes.iter().rev() {
+                for v in scope.vars.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
+                    res.push(v.1.val.clone());
+                }
+                if scope.is_gl || scope.is_fn {
+                    break;
+                }
+            }
+
+            // check global scope (this is done separately so we can break at is_fn)
+            for v in self.scopes.first().unwrap().vars.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
+                res.push(v.1.val.clone());
+            }
+        }
+
+        if types.contains(&SymType::Builtin) {
+            // check for Builtin symbol
+            for v in self.builtins.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
+                res.push(v.1.name.to_string());
+            }
+        }
+
+        if types.contains(&SymType::Binary) {
+            // check for Binary symbol by filename
+            for v in self.bins.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
+                res.push(v.1.clone().file_name().unwrap()
+                            .to_os_string().into_string().unwrap());
+            }
+        }
+
+        if res.len() == 1 {
+            Some(res.pop().unwrap())
+        } else if res.len() > 1 {
+            None // TODO: partial completions
+        } else {
+            None
+        }
+    }
+
+
     pub fn resolve(&mut self, sym_n: &str) -> Option<Sym> {
         self.resolve_types(sym_n, None)
     }

@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use std::io;
 use std::str;
 use std::env;
+use std::fs;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
 
@@ -12,6 +13,70 @@ use hist::Histvec;
 
 extern crate termios;
 use self::termios::*;
+
+extern crate glob;
+
+fn common_prefix(mut strs: Vec<String>) -> String {
+    let mut c_prefix = String::new();
+    if strs.len() == 0 { return c_prefix; }
+
+    let delegate = strs.pop().unwrap().clone();
+    for (di, dc) in delegate.chars().enumerate() {
+        for ostr in &strs {
+            match ostr.chars().nth(di) {
+                Some(oc) => if dc != oc { return c_prefix; },
+                None     => { return c_prefix; }
+            }
+        }
+        c_prefix.push(dc);
+    }
+
+    c_prefix
+}
+
+// TODO: more completely handle globs in the to-complete string
+fn fs_complete(in_str: &str, print_multi: bool) -> String {
+    let mut input;
+    if in_str.starts_with("~/") {
+        let in_str = in_str.trim_left_matches("~");
+        input = env::var("HOME").unwrap_or("~/".to_string());
+        input.push_str(in_str);
+    } else {
+        input = in_str.to_string();
+    }
+    
+    if !input.ends_with('*') { input.push('*'); }
+
+    let res_vec = match glob::glob(&input) {
+        Ok(x) => x,
+        Err(_) => { return in_str.to_string(); }
+    }.filter_map(Result::ok).map(|x| format!("{}", x.display()))
+                            .collect::<Vec<String>>();
+
+    if res_vec.len() == 1 {
+        let ref res = res_vec[0];
+        let t = match fs::metadata(res) {
+            Ok(x) => if x.is_dir() { "/" } else { " " },
+            Err(_) => ""
+        };
+        let mut res = res.clone();
+        res.push_str(t);
+        return res;
+    } else if res_vec.len() > 0 {
+        if print_multi {
+            // TODO: prettier
+            for p in &res_vec {
+                println!("{}", p);
+            }
+        }
+        
+        // find common prefix
+        return common_prefix(res_vec);
+    }
+
+    in_str.to_string()
+}
+
 
 #[derive(PartialEq)]
 pub enum LineState {
@@ -222,21 +287,36 @@ impl StdPrompt {
     fn interp(&mut self, input: &str, _st: &Symtable, ht: &mut Histvec) -> bool { 
         match input {
             "\n" => return true,
-            "\t" => { /* tab completion */ },
+            "\t" => {
+                let bufclone = self.buf.clone();
+                let (pre, post) = bufclone.split_at(self.idx);
+                let (pre, wd_pre) = pre.split_at(match pre.rfind(char::is_whitespace) {
+                        Some(n) => n + 1,
+                        None    => 0
+                    });
+                let new_pre = fs_complete(&wd_pre, false);
+                self.buf = pre.to_string();
+                self.buf.push_str(&new_pre);
+                self.buf.push_str(post);
+                self.idx = pre.len() + new_pre.len();
+                self.reprint();
+            },
             "[3~" => if self.buf.len() > 0 && self.idx < self.buf.len() {
                 self.buf.remove(self.idx);
                 self.reprint();              
             },
             "[A" => if let Some(nl) = ht.hist_up() {
+                let at_end = self.idx == self.buf.len();
                 self.buf = nl.to_string();
-                if self.buf.len() < self.idx {
+                if at_end || self.buf.len() < self.idx {
                     self.idx = self.buf.len();
                 }
                 self.reprint();
             },
             "[B" => if let Some(nl) = ht.hist_down() {
+                let at_end = self.idx == self.buf.len();
                 self.buf = nl.to_string();
-                if self.buf.len() < self.idx {
+                if at_end || self.buf.len() < self.idx {
                     self.idx = self.buf.len();
                 }
                 self.reprint();
