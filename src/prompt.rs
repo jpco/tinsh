@@ -94,7 +94,11 @@ impl Prompt for FilePrompt {
             }
         };
 
-        Some(line)
+        if line.trim().is_empty() {
+            None
+        } else {
+            Some(line)
+        }
     }
 }
 
@@ -279,13 +283,23 @@ impl StdPrompt {
                 self.idx -= 1;
                 self.reprint();
             },
+            "\u{0001}" => { 
+                self.idx = 0;
+                self.reprint_cursor();
+            },
+            "\u{0005}" => {
+                self.idx = self.buf.len();
+                self.reprint_cursor();
+            },
             _ => {
                 // this is bad but the case where it is bad would also be bad
                 // on the part of the user... so we'll call it a draw for now.
                 for ch in input.chars() {
+                    // print!("{}-", ch as u8);
                     self.buf.insert(self.idx, ch);
                     self.idx += 1;
                 }
+                // println!("");
                 self.reprint();
             }
         }
