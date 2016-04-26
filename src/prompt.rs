@@ -4,81 +4,18 @@ use std::io::prelude::*;
 use std::io;
 use std::str;
 use std::env;
-use std::fs;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
 
 use sym::Symtable;
 use hist::Histvec;
+use compl::complete;
 
 extern crate termios;
 use self::termios::*;
 
-extern crate glob;
 
-fn common_prefix(mut strs: Vec<String>) -> String {
-    let mut c_prefix = String::new();
-    if strs.len() == 0 { return c_prefix; }
-
-    let delegate = strs.pop().unwrap().clone();
-    for (di, dc) in delegate.chars().enumerate() {
-        for ostr in &strs {
-            match ostr.chars().nth(di) {
-                Some(oc) => if dc != oc { return c_prefix; },
-                None     => { return c_prefix; }
-            }
-        }
-        c_prefix.push(dc);
-    }
-
-    c_prefix
-}
-
-// TODO: more completely handle globs in the to-complete string
-fn fs_complete(in_str: &str, print_multi: bool) -> String {
-    let mut input;
-    if in_str.starts_with("~/") {
-        let in_str = in_str.trim_left_matches("~");
-        input = env::var("HOME").unwrap_or("~/".to_string());
-        input.push_str(in_str);
-    } else {
-        input = in_str.to_string();
-    }
-    
-    if !input.ends_with('*') { input.push('*'); }
-
-    let res_vec = match glob::glob(&input) {
-        Ok(x) => x,
-        Err(_) => { return in_str.to_string(); }
-    }.filter_map(Result::ok).map(|x| format!("{}", x.display()))
-                            .collect::<Vec<String>>();
-
-    if res_vec.len() == 1 {
-        let ref res = res_vec[0];
-        let t = match fs::metadata(res) {
-            Ok(x) => if x.is_dir() { "/" } else { " " },
-            Err(_) => ""
-        };
-        let mut res = res.clone();
-        res.push_str(t);
-        return res;
-    } else if res_vec.len() > 0 {
-        if print_multi {
-            // TODO: prettier
-            for p in &res_vec {
-                println!("{}", p);
-            }
-        }
-        
-        // find common prefix
-        return common_prefix(res_vec);
-    }
-
-    in_str.to_string()
-}
-
-
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum LineState {
     Normal,
     Comment
@@ -170,6 +107,9 @@ pub struct StdPrompt {
     in_tcflag: tcflag_t,
     out_tcflag: tcflag_t,
 
+    print_multi: bool,
+    ls: LineState,
+
     ansi: String,
     buf: String,
     prompt_l: usize,
@@ -185,6 +125,8 @@ impl StdPrompt {
                 term_fi: fi,
                 in_tcflag: 0,
                 out_tcflag: 0,
+                ls: LineState::Normal,
+                print_multi: false,
                 ansi: String::new(),
                 buf: String::new(),
                 prompt_l: 0,
@@ -211,8 +153,8 @@ impl StdPrompt {
         tcsetattr(self.term_fi.as_raw_fd(), TCSAFLUSH, &self.termios).unwrap();
     }
 
-    fn print_prompt(&mut self, ls: &LineState) {
-        match *ls {
+    fn print_prompt(&mut self) {
+        match self.ls {
             LineState::Normal => {
                 let prompt_str = env::var("PWD").unwrap_or("".to_string());
                 self.prompt_l = prompt_str.len() + 3;
@@ -284,7 +226,8 @@ impl StdPrompt {
         self.reprint_cursor();
     }
 
-    fn interp(&mut self, input: &str, _st: &Symtable, ht: &mut Histvec) -> bool { 
+    fn interp(&mut self, input: &str, st: &Symtable, ht: &mut Histvec) -> bool {
+        if input != "\t" { self.print_multi = false; }
         match input {
             "\n" => return true,
             "\t" => {
@@ -294,11 +237,13 @@ impl StdPrompt {
                         Some(n) => n + 1,
                         None    => 0
                     });
-                let new_pre = fs_complete(&wd_pre, false);
+                let new_pre = complete(&wd_pre, st, pre.is_empty(), self.print_multi);
                 self.buf = pre.to_string();
                 self.buf.push_str(&new_pre);
                 self.buf.push_str(post);
                 self.idx = pre.len() + new_pre.len();
+                self.print_multi = true;
+                self.print_prompt(); // in case complete() printed options
                 self.reprint();
             },
             "[3~" => if self.buf.len() > 0 && self.idx < self.buf.len() {
@@ -356,7 +301,8 @@ impl Prompt for StdPrompt {
     //  - coloration (?)
     //  - ANSI code interpretation
     fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<String> {
-        self.print_prompt(ls);
+        self.ls = *ls;
+        self.print_prompt();
         self.prep_term();
 
         self.buf.clear();

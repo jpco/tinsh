@@ -19,7 +19,8 @@ pub enum SymType {
 pub enum Sym {
     Binary(path::PathBuf),
     Builtin(builtins::Builtin),
-    Var(String)
+    Var(String),
+    Environment(String)
 }
 
 struct VarVal {
@@ -199,13 +200,13 @@ impl Symtable {
         self
     }
 
-    pub fn prefix_resolve(&mut self, sym_n: &str) -> Option<String> {
+    pub fn prefix_resolve(&self, sym_n: &str) -> Vec<String> {
         self.prefix_resolve_types(sym_n, None)
     }
 
-    // TODO: env vars, no?
-    pub fn prefix_resolve_types(&mut self, sym_n: &str, types: Option<Vec<SymType>>) 
-                               -> Option<String> {
+    // simply resolves a vector of matching strings.
+    pub fn prefix_resolve_types(&self, sym_n: &str, types: Option<Vec<SymType>>) 
+                              -> Vec<String> {
         let types = match types {
             Some(x) => { x },
             None    => vec![SymType::Var,
@@ -248,13 +249,7 @@ impl Symtable {
             }
         }
 
-        if res.len() == 1 {
-            Some(res.pop().unwrap())
-        } else if res.len() > 1 {
-            None // TODO: partial completions
-        } else {
-            None
-        }
+        res
     }
 
 
@@ -288,6 +283,12 @@ impl Symtable {
             // check global scope (this is done separately so we can break at is_fn)
             if let Some(v) = self.scopes[0].vars.get(sym_n) {
                 return Some(Sym::Var(v.val.clone()));
+            }
+        }
+
+        if types.contains(&SymType::Environment) {
+            if let Ok(e) = env::var(sym_n) {
+                return Some(Sym::Environment(e));
             }
         }
 

@@ -6,6 +6,7 @@ mod eval;
 mod shell;
 mod hist;
 mod err;
+mod compl;
 
 use std::env;
 

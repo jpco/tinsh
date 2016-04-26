@@ -123,7 +123,8 @@ pub fn eval_fw (sh: &mut shell::Shell, cmd: String, fw: bool)
                     if parens == 0 { // end of paren group!
                         if paren_idx < i {
                             match sh.st.resolve(&cmd[paren_idx..i]) {
-                                Some(sym::Sym::Var(v)) => {
+                                Some(sym::Sym::Var(v)) |
+                                        Some(sym::Sym::Environment(v)) => {
                                     cmdword.push_str(&v);
                                 },
                                 Some(sym::Sym::Binary(b)) => {
