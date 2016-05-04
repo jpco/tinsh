@@ -1,0 +1,32 @@
+###
+Examples of why the empty command is actually a builtin, rather than an error.
+###
+
+# 1. Execute blocks unconditionally, but only after reading all of them.
+#    Usually reading and execution are interleaved; this forces reading
+#    to complete before all execution
+
+{
+    cmd_1 # if this happens, cmd_2 BETTER happen!
+    cmd_2 # boy I'll be mad if something bad happens before this command is executed
+}
+
+# 2. Suppose `cmd_with_title` has a first line which is entirely useless.
+#    We can use a block to process lines differently in an ordered way.
+#    (Given enough complexity, you'll want a function, but whatever.)
+
+cmd_with_title | {
+                     echo (read) -&> /dev/null
+                     for line in (read) {
+                         # process all the lines after the first
+                     }
+                 }
+
+# 2.5 Same principle applies with `file_with_title`:
+
+<- file_with_title {
+    echo (read) -&> /dev/null
+    for line in (read) {
+        # do some processing
+    }
+} # or <- file_with_title here, if you like
