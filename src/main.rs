@@ -211,11 +211,35 @@ fn read_args() -> TinOpts {
 }
 
 fn main_loop(mut sh: &mut shell::Shell) {
+    // saves previous inputs in the case of LineState::Continue
     let mut input_buf = String::new();
-    while let Some(input) = sh.pr.prompt(&sh.ls, &sh.st, &mut sh.ht) {
+    // saves "future" inputs in the case of multi-line input
+    let mut next_buf: Option<String> = None;
+    loop {
+        // get input
+        // "input" is the new input we are adding in this loop
+        let input;
+
+        if let Some(new_buf) = next_buf {
+            // we have new things to deal with without prompting for more
+            let (spl_input, spl_next_buf) = eval::spl_line(&new_buf);
+            input = spl_input;
+            next_buf = spl_next_buf;
+        } else if let Some(prompt_in) = sh.pr.prompt(&sh.ls, &sh.st, &mut sh.ht) {
+            // we needed more and we got more
+            let (spl_input, spl_next_buf) = eval::spl_line(&prompt_in);
+            input = spl_input;
+            next_buf = spl_next_buf;
+        } else {
+            // nothing's left
+            break;
+        }
+
+        // do stuff with input
         sh.ls = match sh.ls {
             LineState::Comment => {
                 if input.trim() == "###" {
+                    input_buf = String::new();
                     LineState::Normal
                 } else {
                     LineState::Comment
@@ -224,14 +248,14 @@ fn main_loop(mut sh: &mut shell::Shell) {
             LineState::Normal | LineState::Continue => {
                 input_buf.push_str(&input);
 
-                let (t_job, ls) = eval::eval (&mut sh, input_buf.clone());
+                let (t_job, ls) = eval::eval(&mut sh, input_buf.clone());
                 
                 if ls == LineState::Normal {
                     if let Some(t_job) = t_job {
                         sh.ht.hist_add (input_buf.trim());
                         t_job.exec(sh, true);
                     }
-                    if input_buf.len() > 0 { input_buf = String::new(); }
+                    input_buf = String::new();
                 }
 
                 ls

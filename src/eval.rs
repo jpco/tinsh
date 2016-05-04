@@ -270,6 +270,11 @@ fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
     res
 }
 
+// TODO: this whole function when I'm less tired
+pub fn spl_line(cmd: &str) -> (String, Option<String>) {
+    (cmd.to_string(), None)
+}
+
 pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
     let mut cmd = cmd.trim().to_string();
 
