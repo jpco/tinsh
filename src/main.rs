@@ -227,10 +227,11 @@ fn main_loop(mut sh: &mut shell::Shell) {
                 let (t_job, ls) = eval::eval (&mut sh, input_buf.clone());
                 
                 if ls == LineState::Normal {
-                    let t_job = t_job.unwrap();
-                    sh.ht.hist_add (input_buf.trim());
+                    if let Some(t_job) = t_job {
+                        sh.ht.hist_add (input_buf.trim());
+                        t_job.exec(sh, true);
+                    }
                     if input_buf.len() > 0 { input_buf = String::new(); }
-                    t_job.exec(sh, true);
                 }
 
                 ls

@@ -12,13 +12,13 @@ tinsh [-c configfile] [-iln] [-d [N]] [-e command|tinfile]
 ## PROCESS
 per-command:
  - read command
- - word splitting
- - strong var/alias resolution
  - command splitting/block gathering
+ - strong var/alias resolution
+ - word splitting
  - var resolution/shell expansion
  - redirection
  - execution
- - waiting/gathering (optional)
+ - waiting/gathering
 
 ## SYNTAX
  - commenting: '#' = line comment, '###' delimits block comments
@@ -26,33 +26,41 @@ per-command:
  - variable resolution: not the same
     - all variables, fns, binaries, statements, etc. caught in parens
         $ echo (foo); vim (which program.py)
-    - nested variables are fine; executed outside-in
+    - nested variables are fine; resolved inside-out
         $ echo (parse (opt1) (opt2))
+    - variable processing:
+        - slicing Python-style: (var[2:4]), (var[:-2]), (var[::-1])
+        - by default vars don't get split, captured commands do;
+          switch this behavior with an exclamation, i.e.,
+            $ let var = "-l --color=auto"; ls (var!)
  - blocks: C-like
     - single-line blocks declared with ':', arbitrary-line with '{ }'
         $ if (foo) == bar: ls
-        $ ifx not ls -A { echo "empty!" } else { echo "not!" }
+        $ if ! (ls -A) { echo "empty!" } else { echo "not!" }
     - line-break before block declarations is NOT valid
         $ if (foo) == bar: ls
-        $ ifx not ls -A {
+        $ if ! (ls -A) {
               echo "empty!"
           } else {
               echo "not!"
           }
-      but, this is valid:
-        $ if (foo) == bar: ls
-          else: echo "nope"
+    - if you do something like "ls { one; two; three }", tinsh will rewrite
+        the command such that each *line* of the block (trimmed) is an argument for
+        the binary
     - blockless commands
         $ if (foo) == bar, ls
     - tinsh is block-scoped: local variables first defined in block will be deleted upon leaving block
         - however, 'set foo = bar; { set foo = baz; } echo (foo)' will echo 'baz'
         - if a variable is set, by default, resetting it will change the outer variable's value
             - 'set foo = bar; : set -l foo = baz; echo (foo)' will mask the variable like in Rust
+ - globs
+    - '*' as we know it
+    - what in bash is 'foo.{a,b}' is in tinsh 'foo.[a,b]'
  - quoting
+    - like we all know it
  - redirection
  - job control
     - (basically) POSIX compliant
-        - dont do '&' on things like 'cd' because thats just silly and will be ignored
 
 ## BUILTINS
  - cd
@@ -79,6 +87,7 @@ per-command:
  - read
     - -l and -w args for word-split input and line-split input
     - read -l is the default
+    - argument can be supplied to read as input
  - subsh
  - exec(/eval?)
  - exit [N]
@@ -99,6 +108,14 @@ per-command:
     - intiness
         - isint
         - '<', '<=', '>', '>='
+ - str
+    - powers variable mangling in resolution
+    - does many things:
+        - str sub: slice a string
+        - str match: position of one string in another
+        - str pre: find (or remove) prefix in string
+        - str suf: find (or remove) suffix in string
+        - str repl: replace a substring with another
  - trap
  - umask
  - coproc
