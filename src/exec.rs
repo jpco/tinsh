@@ -2,6 +2,7 @@ use std::process::Command;
 use std::process::Stdio;
 use std::path::PathBuf;
 
+use sym;
 use builtins::Builtin;
 use shell::Shell;
 use err::warn;
@@ -46,7 +47,8 @@ impl Process for BuiltinProcess {
     }
     
     fn local_exec(&self, stdin: Option<i32>, sh: &mut Shell) {
-        (*self.to_exec.run)(self.argv.clone(), sh);
+        let c = (*self.to_exec.run)(self.argv.clone(), sh);
+        sh.st.set_scope("_?", c.to_string(), sym::ScopeSpec::Global);
     }
 
     fn has_args(&self) -> bool {
@@ -80,7 +82,6 @@ impl BinProcess {
             argv: Vec::new()
         }
     }
-
 }
 
 impl Process for BinProcess {
@@ -99,12 +100,15 @@ impl Process for BinProcess {
         let mut cmd = Command::new(self.to_exec.clone());
         cmd.args(&self.argv);
 
-        match cmd.spawn() {
-            Ok(mut ch) => match ch.wait() {
-                Ok(_) => { },
-                Err(e) => warn(&format!("Waiting for child: {}", e))
+        match cmd.status() {
+            Ok(s) => {
+                if let Some(c) = s.code() {
+                    sh.st.set_scope("_?", c.to_string(), sym::ScopeSpec::Global);
+                }
             },
-            Err(e) => warn(&format!("Could not fork '{}': {}", self.to_exec.display(), e))
+            Err(e) => {
+                warn(&format!("Could not fork '{}': {}", self.to_exec.display(), e));
+            }
         }
     }
 
