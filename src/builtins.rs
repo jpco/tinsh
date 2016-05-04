@@ -15,6 +15,33 @@ pub struct Builtin {
     pub run:  rc::Rc<Fn(Vec<String>, &mut Shell) -> i32>
 }
 
+// TODO:
+//  - fn (might actually be able to make 'fn' functional sugar for 'set foo = fn')
+//  - all flow control obviously, test, etc.
+//  - hash
+//  - read
+//  - __blank
+//  - __fn_exec
+
+fn blank_builtin() -> Builtin {
+    Builtin {
+        name: "__blank",
+        desc: "The blank builtin",
+        run: rc::Rc::new(|_args: Vec<String>, _sh: &mut Shell| -> i32 {
+            // do nothing
+            // TODO: run any attached blocks... then do nothing
+            // and return the last command's exit value
+            0
+        })
+    }
+}
+
+impl Default for Builtin {
+    fn default() -> Self {
+        blank_builtin()
+    }
+}
+
 impl Builtin {
     pub fn map() -> HashMap<&'static str, Self> {
         let mut bi_map = HashMap::new();

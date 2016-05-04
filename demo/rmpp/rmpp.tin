@@ -7,7 +7,7 @@ later.
 
 Written by Jack Conger, 2016
 
-TODO:
+TODO: WHAT THIS NEEDS TO WORK:
  - populate arg vars -- _n, _*, _1, etc.
  - test regex ~, !~
  - 'read' builtin
@@ -31,18 +31,18 @@ if (_n) == 0 {
     exit 1
 } else if (_1) == "--help" || (_1) == "-h" {
     echo "Usage: rm [OPTION]... FILE..."
-	echo "Rmpp--Safe rm: Does not unlink the file\(s\): rather, moves them to the user's"
+	echo "Rmpp--Safe rm: Does ! unlink the file\(s\): rather, moves them to the user's"
 	echo "~/.trash/ folder. See unrm and emptytrash for details on what you can"
 	echo "do once the files are there."
 	echo ""
 	echo "OPTIONS:"
-	echo "-o			Original: Use original /bin/rm, with all its associated"
+	echo "-o			original: Use original /bin/rm, with all its associated"
 	echo "			risk. Must be the first tag; all tags after the -o tag"
 	echo "			will be processed by /bin/rm."
 	echo "-r, -R			Recursive, 'remove' directories and their contents"
 	echo "			recursively."
 	echo "-i, -I			Interactive, prompt before each removal."
-	echo "--ignore-blacklist	Ignores the global- and user-blacklists. This is"
+	echo "--ignore-blacklist	ignores the global- and user-blacklists. This is"
 	echo "			dangerous."
 	echo ""
 	echo "That's it. No more options at this time. Created by Jack Conger 2014."
@@ -99,7 +99,7 @@ if ! -d ~/.trash {
 for ftorm in (_*) {
     # Existence check
     if ! -e (ftorm) && (ftorm) !~ ^- {
-        echo "File '(ftorm)' not found."}
+        echo "File '(ftorm)' not found."
         continue
     }
 

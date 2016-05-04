@@ -52,7 +52,8 @@ fn setup(opts: TinOpts) -> shell::Shell {
 
     // if file/exec, do that
     if opts.file {
-        let p: prompt::FilePrompt = prompt::FilePrompt::new(&opts.exec.unwrap()).unwrap();
+        let p: prompt::FilePrompt = prompt::FilePrompt::new(&opts.exec.unwrap())
+                                    .unwrap();
         sh.pr = Box::new(p);
         main_loop(&mut sh);
     } else if let Some(cmd) = opts.exec {
@@ -61,7 +62,7 @@ fn setup(opts: TinOpts) -> shell::Shell {
         main_loop(&mut sh);
     }
 
-    // if not inter, exit
+    // if not interactive, exit
     // TODO: exit with last command's exit status
     if !opts.inter {
         std::process::exit(0);
@@ -210,6 +211,7 @@ fn read_args() -> TinOpts {
 }
 
 fn main_loop(mut sh: &mut shell::Shell) {
+    let mut input_buf = String::new();
     while let Some(input) = sh.pr.prompt(&sh.ls, &sh.st, &mut sh.ht) {
         sh.ls = match sh.ls {
             LineState::Comment => {
@@ -219,16 +221,20 @@ fn main_loop(mut sh: &mut shell::Shell) {
                     LineState::Comment
                 }
             },
-            LineState::Normal => {
-                sh.ht.hist_add (input.trim());
-                let (ls, cmd_vec) = eval::eval (&mut sh, input);
-                match ls {
-                    LineState::Normal => eval::exec (cmd_vec, &mut sh),
-                    _ => { }
-                };
+            LineState::Normal | LineState::Continue => {
+                input_buf.push_str(&input);
+
+                let (t_job, ls) = eval::eval (&mut sh, input_buf.clone());
+                
+                if ls == LineState::Normal {
+                    let t_job = t_job.unwrap();
+                    sh.ht.hist_add (input_buf.trim());
+                    if input_buf.len() > 0 { input_buf = String::new(); }
+                    t_job.exec(sh, true);
+                }
 
                 ls
-            }
+            },
         };
     }
 
@@ -236,7 +242,7 @@ fn main_loop(mut sh: &mut shell::Shell) {
     // appropriate warnings, etc.
     if sh.ls != LineState::Normal {
         // warn or info?
-        info("File left line state non-normal, rectifying");
+        info("Line state left non-normal");
         sh.ls = LineState::Normal;
     }
 }

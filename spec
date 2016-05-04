@@ -76,6 +76,9 @@ per-command:
     - break [N]/continue [N]
     - return [N]
  - set/unset
+ - read
+    - -l and -w args for word-split input and line-split input
+    - read -l is the default
  - subsh
  - exec(/eval?)
  - exit [N]

@@ -34,7 +34,7 @@ fn print_completions(res_vec: &Vec<String>) {
 
 pub fn complete(in_str: &str, st: &Symtable, first_word: bool, print_multi: bool)
         -> String {
-    if first_word {
+    if first_word && !in_str.contains('/') {
         bin_complete(in_str, st, print_multi)
     } else {
         fs_complete(in_str, print_multi)

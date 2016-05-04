@@ -18,7 +18,8 @@ use self::termios::*;
 #[derive(PartialEq, Clone, Copy)]
 pub enum LineState {
     Normal,
-    Comment
+    Comment,
+    Continue
 }
 
 pub trait Prompt {
@@ -167,6 +168,10 @@ impl StdPrompt {
             LineState::Comment => {
                 self.prompt_l = 5;
                 print!("### ");
+            },
+            LineState::Continue => {
+                self.prompt_l = 5;
+                print!("... ");
             }
         }
         io::stdout().flush().ok().expect("Could not flush stdout");
@@ -328,7 +333,10 @@ impl Prompt for StdPrompt {
             }
         }
 
+        // fix this whole deal
+        self.buf.push('\n');
         println!("");
+
         self.unprep_term();
 
         Some(self.buf.clone())
