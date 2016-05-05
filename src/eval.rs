@@ -242,8 +242,13 @@ fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
                     Some(sym::Sym::Var(s)) => s,
                     Some(sym::Sym::Environment(s)) => s,
                     None => {
-                        // TODO: __tin_undef_fail
-                        "".to_string()
+                        let (sym_job, _) = eval(sh, sym_n);
+                        if let Some(sym_job) = sym_job {
+                            sym_job.collect(sh)
+                        } else {
+                            // TODO: __tin_undef_fail
+                            "".to_string()
+                        }
                     },
                     _ => unreachable!()
                 };

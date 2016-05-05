@@ -1,11 +1,13 @@
 [package]
 
-name = "tin_shell"
+name = "tinsh"
 version = "0.0.1"
-authors = [ "jpco <mail@jpconger.com>" ]
+authors = [ "jpco <mail@jpco.io>" ]
 description = "Non-POSIX shell language."
 readme = "README.md"
 
+# no dependencies which make hidden threads.
+# not allowed under any circumstances.
 [dependencies]
 termios = "*"
 libc = "*"
