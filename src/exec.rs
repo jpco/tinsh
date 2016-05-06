@@ -1,9 +1,11 @@
 use std::process::Command;
+use std::os::unix::prelude::CommandExt;
+
 use std::process::Child;
 use std::process::Stdio;
 use std::process::exit;
 
-use std::os::unix::io::{FromRawFd, IntoRawFd, AsRawFd};
+use std::os::unix::io::{FromRawFd, AsRawFd};
 use std::path::PathBuf;
 use std::str;
 
@@ -14,9 +16,12 @@ use std::fs::File;
 
 use sym::ScopeSpec;
 use builtins::Builtin;
+
 use shell::Shell;
+use shell::parent_exec;
+use shell::subproc_exec;
+
 use err::warn;
-use err::info;
 
 
 /// Awful struct which allows for both nice Rust-y Child structs from Process structs,
@@ -153,7 +158,7 @@ impl BuiltinProcess {
 impl Process for BuiltinProcess {
     fn exec(&self, sh: &mut Shell, stdin: Option<i32>, stdout: bool, quiet: bool) -> Option<Pseudochild> {
         if stdout {
-            unsafe { // we about to get like the wild west in here
+            unsafe { // we 'boutta get like the wild west in here
                 let mut fds = [0; 2];
                 if libc::pipe(fds.as_mut_ptr()) != 0 {
                     return None;
@@ -164,11 +169,13 @@ impl Process for BuiltinProcess {
                 } else if c_pid == 0 {
                     libc::close(fds[0]);
                     libc::dup2(fds[1], libc::STDOUT_FILENO);
+                    subproc_exec(0); // TODO: !stdout is the wrong thing
                     let res = (*self.to_exec.run)(self.argv.clone(), sh, stdin);
                     libc::close(fds[1]);
                     exit(res);
                 } else {
                     libc::close(fds[1]);
+                    parent_exec(!stdout, c_pid, 0); // TODO: wrong here too
                     Some(Pseudochild::new(c_pid, None, Some(fds[0]), None))
                 }
             }
@@ -212,22 +219,33 @@ impl BinProcess {
 }
 
 impl Process for BinProcess {
-    fn exec(&self, _sh: &mut Shell, stdin: Option<i32>, stdout: bool, quiet: bool) -> Option<Pseudochild> {
+    fn exec(&self, sh: &mut Shell, stdin: Option<i32>, stdout: bool, quiet: bool) -> Option<Pseudochild> {
         let mut cmd = Command::new(self.to_exec.clone());
         cmd.args(&self.argv);
 
         if let Some(stdin) = stdin {
             unsafe { cmd.stdin(Stdio::from_raw_fd(stdin)); }
         } else {
-            cmd.stdin(Stdio::null());
+            // TODO: check the cases where this is actaully called in Ion
+            // cmd.stdin(Stdio::null());
         }
 
         if stdout {
             cmd.stdout(Stdio::piped());
         }
 
+        /* if sh.interactive {
+            cmd.before_exec(|| {
+                subproc_exec(0);
+                Ok(())
+            });
+        } */
+
         match cmd.spawn() {
-            Ok(c) => Some(Pseudochild::from(c)),
+            Ok(c) => {
+                parent_exec(!stdout, c.id() as i32, 0);
+                Some(Pseudochild::from(c))
+            },
             Err(e) => {
                 if !quiet {
                     warn(&format!("Could not fork '{}': {}", self.to_exec.display(), e));

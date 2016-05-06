@@ -10,12 +10,16 @@ mod compl;
 
 use std::env;
 
+extern crate libc;
+
 use prompt::LineState;
 use prompt::Prompt;
 
 use err::warn;
 use err::info;
 use err::err;
+
+use shell::interactive_init;
 
 fn setup(opts: TinOpts) -> shell::Shell {
     let exec_rc;
@@ -33,6 +37,9 @@ fn setup(opts: TinOpts) -> shell::Shell {
     };
 
     let mut sh = shell::Shell {
+        interactive: unsafe {
+            libc::isatty(libc::STDIN_FILENO) != 0
+        },
         pr: rc_p,
         ls: LineState::Normal,
         st: sym::Symtable::new(),
@@ -46,6 +53,10 @@ fn setup(opts: TinOpts) -> shell::Shell {
     // exec .tinrc
     if exec_rc {
         main_loop(&mut sh);
+    }
+
+    if sh.interactive {
+        interactive_init();
     }
 
     // TODO: make the TinOpts struct vars readonly (here?)
@@ -62,13 +73,8 @@ fn setup(opts: TinOpts) -> shell::Shell {
         main_loop(&mut sh);
     }
 
-    // if not interactive, exit
-    // TODO: exit with last command's exit status
-    if !opts.inter {
-        std::process::exit(0);
-    }
-
     sh.pr = Box::new(prompt::StdPrompt::new());
+    // sh.pr = Box::new(prompt::BasicPrompt);
 
     sh
 }
