@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::process::Command;
 use std::os::unix::prelude::CommandExt;
 
@@ -10,6 +12,7 @@ use std::path::PathBuf;
 use std::str;
 
 use std::io::Read;
+use std::io::Error;
 
 extern crate libc;
 use std::fs::File;
@@ -18,15 +21,19 @@ use sym::ScopeSpec;
 use builtins::Builtin;
 
 use shell::Shell;
-use shell::parent_exec;
-use shell::subproc_exec;
+// use shell::parent_exec;
+// use shell::subproc_exec;
 
 use err::warn;
 
 
+extern {
+    fn tcsetpgrp(fd: libc::c_int, pgrp: libc::pid_t) -> libc::c_int;
+}
+
 /// Awful struct which allows for both nice Rust-y Child structs from Process structs,
 /// and hunks of int file descriptors and whatnot from libc::fork.
-struct Pseudochild {
+pub struct Pseudochild {
     child: Option<Child>,
     child_pid: i32,
     child_stdout: Option<i32>,
@@ -49,31 +56,27 @@ impl From<Child> for Pseudochild {
 impl Pseudochild {
     fn new(pid: i32, stdin: Option<i32>, stdout: Option<i32>, stderr: Option<i32>)
             -> Self {
-        unsafe {
-            Pseudochild {
-                child: None,
-                child_pid: pid,
-                child_stdout: if let Some(stdout) = stdout {
-                    Some(stdout)
-                } else { None },
-                child_stdin: if let Some(stdin) = stdin {
-                    Some(stdin)
-                } else { None },
-                child_stderr: if let Some(stderr) = stderr {
-                    Some(stderr)
-                } else { None }
-            }
+        Pseudochild {
+            child: None,
+            child_pid: pid,
+            child_stdout: if let Some(stdout) = stdout {
+                Some(stdout)
+            } else { None },
+            child_stdin: if let Some(stdin) = stdin {
+                Some(stdin)
+            } else { None },
+            child_stderr: if let Some(stderr) = stderr {
+                Some(stderr)
+            } else { None }
         }
     }
 
     fn stdout(&self) -> Option<i32> {
         if let Some(ref child) = self.child {
             if let Some(ref stdout) = child.stdout {
-                unsafe {
-                    return Some(stdout.as_raw_fd());
-                }
+                    Some(stdout.as_raw_fd())
             } else {
-                return None;
+                None
             }
         } else {
             self.child_stdout
@@ -156,7 +159,7 @@ impl BuiltinProcess {
 }
 
 impl Process for BuiltinProcess {
-    fn exec(&self, sh: &mut Shell, stdin: Option<i32>, stdout: bool, quiet: bool) -> Option<Pseudochild> {
+    fn exec(&self, sh: &mut Shell, stdin: Option<i32>, stdout: bool, _quiet: bool) -> Option<Pseudochild> {
         if stdout {
             unsafe { // we 'boutta get like the wild west in here
                 let mut fds = [0; 2];
@@ -169,13 +172,13 @@ impl Process for BuiltinProcess {
                 } else if c_pid == 0 {
                     libc::close(fds[0]);
                     libc::dup2(fds[1], libc::STDOUT_FILENO);
-                    subproc_exec(0); // TODO: !stdout is the wrong thing
+                    // subproc_exec(0); // TODO: !stdout is the wrong thing
                     let res = (*self.to_exec.run)(self.argv.clone(), sh, stdin);
                     libc::close(fds[1]);
                     exit(res);
                 } else {
                     libc::close(fds[1]);
-                    parent_exec(!stdout, c_pid, 0); // TODO: wrong here too
+                    // parent_exec(!stdout, c_pid, 0); // TODO: wrong here too
                     Some(Pseudochild::new(c_pid, None, Some(fds[0]), None))
                 }
             }
@@ -234,16 +237,34 @@ impl Process for BinProcess {
             cmd.stdout(Stdio::piped());
         }
 
-        /* if sh.interactive {
+        if sh.interactive {
             cmd.before_exec(|| {
-                subproc_exec(0);
-                Ok(())
+                unsafe {
+                    if libc::signal(libc::SIGINT,  libc::SIG_DFL) == libc::SIG_ERR {
+                        return Err(Error::last_os_error());
+                    }
+                    if libc::signal(libc::SIGQUIT,  libc::SIG_DFL) == libc::SIG_ERR {
+                        return Err(Error::last_os_error());
+                    }
+                    if libc::signal(libc::SIGTSTP,  libc::SIG_DFL) == libc::SIG_ERR {
+                        return Err(Error::last_os_error());
+                    }
+                    if libc::signal(libc::SIGTTIN,  libc::SIG_DFL) == libc::SIG_ERR {
+                        return Err(Error::last_os_error());
+                    }
+                    if libc::signal(libc::SIGTTOU,  libc::SIG_DFL) == libc::SIG_ERR {
+                        return Err(Error::last_os_error());
+                    }
+
+                    // TODO: set session leader, take terminal if fg
+
+                    Ok(())
+                }
             });
-        } */
+        }
 
         match cmd.spawn() {
             Ok(c) => {
-                parent_exec(!stdout, c.id() as i32, 0);
                 Some(Pseudochild::from(c))
             },
             Err(e) => {
@@ -321,7 +342,7 @@ impl Job {
                 Ok(out) => {
                     out
                 },
-                Err(e)  => {
+                Err(_)  => {
                     "".to_string()
                 }
             }

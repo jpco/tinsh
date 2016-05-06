@@ -159,6 +159,7 @@ impl StdPrompt {
     }
 
     fn print_prompt(&mut self) {
+        // TODO: prompt_l based on actual position in terminal buffer
         match self.ls {
             LineState::Normal => {
                 let prompt_str = env::var("PWD").unwrap_or("".to_string());

@@ -1,3 +1,5 @@
+#![feature(process_exec)]
+
 mod exec;
 mod prompt;
 mod sym;
@@ -37,9 +39,7 @@ fn setup(opts: TinOpts) -> shell::Shell {
     };
 
     let mut sh = shell::Shell {
-        interactive: unsafe {
-            libc::isatty(libc::STDIN_FILENO) != 0
-        },
+        interactive: opts.inter,
         pr: rc_p,
         ls: LineState::Normal,
         st: sym::Symtable::new(),
@@ -47,8 +47,7 @@ fn setup(opts: TinOpts) -> shell::Shell {
     };
 
     // load the TinOpts struct into the symtable
-    // TODO @me: learn to borrowck, scrub
-    load_opts(opts.clone(), &mut sh.st);
+    load_opts(&opts, &mut sh.st);
 
     // exec .tinrc
     if exec_rc {
@@ -96,7 +95,9 @@ struct TinOpts {
 impl Default for TinOpts {
     fn default() -> Self {
         TinOpts {
-            inter: true,
+            inter: unsafe {
+                libc::isatty(libc::STDIN_FILENO) != 0
+            },
             login: false,
             noexec: false,
             debug: 1,
@@ -107,7 +108,7 @@ impl Default for TinOpts {
     }
 }
 
-fn load_opts(opts: TinOpts, st: &mut sym::Symtable) {
+fn load_opts(opts: &TinOpts, st: &mut sym::Symtable) {
     if opts.inter {
         st.set("__tin_inter", "T".to_string());
     };
@@ -122,12 +123,12 @@ fn load_opts(opts: TinOpts, st: &mut sym::Symtable) {
     };
 
     st.set("__tin_debug", opts.debug.to_string());
-    st.set("__tinrc", opts.config);
+    st.set("__tinrc", opts.config.to_string());
 
-    if let Some(f) = opts.exec {
+    if let Some(ref f) = opts.exec {
         match opts.file {
-            true => { st.set("__tin_filename", f); },
-            false => { st.set("__tin_command", f); }
+            true => { st.set("__tin_filename", f.to_string()); },
+            false => { st.set("__tin_command", f.to_string()); }
         };
     }
 }

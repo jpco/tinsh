@@ -3,7 +3,7 @@ use std::process::exit;
 use std::rc;
 use std::fs;
 use std::fs::File;
-use std::os::unix::io::{FromRawFd, IntoRawFd, AsRawFd};
+use std::os::unix::io::{FromRawFd};
 use std::env;
 
 use std::io;
@@ -202,7 +202,7 @@ impl Builtin {
             Builtin {
                 name: "read",
                 desc: "Read from stdin or a file and echo to stdout",
-                run: rc::Rc::new(|args: Vec<String>, sh: &mut Shell,
+                run: rc::Rc::new(|_args: Vec<String>, _sh: &mut Shell,
                                  stdin: Option<i32>| -> i32 {
                     if let Some(stdin) = stdin {
                         let mut in_f = unsafe {

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use sym;
 use shell;
 
@@ -101,6 +103,19 @@ impl Iterator for Tokenizer {
             }
 
             match c {
+                // line comment
+                "#" => {
+                    if pdepth == 0 && bdepth == 0 && quot == Qu::None {
+                        if self.ctok_start < i {
+                            let res = self.complete[self.ctok_start..i].to_string();
+                            self.ctok_start = i;
+                            return Some(Ok((Some(res), TokenType::Word)));
+                        } else {
+                            return None;
+                        }
+                    }
+                }
+
                 // pipe
                 "|" => {
                     if pdepth == 0 && bdepth == 0 && quot == Qu::None {
