@@ -55,7 +55,7 @@ impl Prompt for CmdPrompt {
     }
 }
 
-/// BasicPrompt: the simplest interactive prompt.
+/// BasicPrompt: the simplest stdin prompt.
 pub struct BasicPrompt;
 
 impl Prompt for BasicPrompt {
@@ -107,8 +107,8 @@ impl Prompt for FilePrompt {
 }
 
 
-/// StdPrompt: the standard prompt of the Tin shell. Supports all manner of
-/// interactive goodness -- coloration, tab completion, etc.
+/// StdPrompt: the standard interactive prompt of the Tin shell.
+/// Supports all manner of interactive goodness -- coloration, tab completion, etc.
 pub struct StdPrompt {
     term_fi: File,
     termios: Termios,

@@ -24,6 +24,7 @@ syn keyword   tinKeyword     test read exit hash
 " operators
 syn keyword   tinOperator    in contained
 syn match     tinOperator    "\~"
+syn match     tinOperator    "!\="
 syn match     tinOperator    "\v\=\=?"
 
 " backslash escape

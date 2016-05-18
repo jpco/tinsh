@@ -143,7 +143,7 @@ Config options: (all options accessable as var __tin_<value>, unless specified
  - login:    login shell or not (readonly after startup)
  - noexec:   whether we actually execute commands (readonly after startup)
  - debug:    debug output level
- - config:   as __tinrc, config file (if extant) (readonly after startup)
+ - config:   as __config, config file (if extant) (readonly after startup)
  - filename: if running from file, name of file (readonly after startup)
  - command:  value of '-e' arg (readonly after startup)
  - argnum:   enforce number of arguments that a builtin or function takes.

@@ -22,24 +22,10 @@ use err::err;
 use shell::Shell;
 
 fn setup(opts: TinOpts) -> Shell {
-    let exec_rc;
-
-    let rc_p: Box<Prompt> = match prompt::FilePrompt::new(&opts.config) {
-        Ok(p) => {
-            exec_rc = true;
-            Box::new(p)
-        },
-        Err(e) => {
-            exec_rc = false;
-            err::info(&format!("Error loading .tinrc file: {}; skipping", e));
-            Box::new(prompt::BasicPrompt)
-        }
-    };
-
     let mut sh = Shell {
         jobs: Vec::new(),
         interactive: posix::is_interactive() || opts.inter,
-        pr: rc_p,
+        pr: Box::new(prompt::BasicPrompt),
         ls: LineState::Normal,
         st: sym::Symtable::new(),
         ht: hist::Histvec::new()
@@ -48,13 +34,18 @@ fn setup(opts: TinOpts) -> Shell {
     // load the TinOpts struct into the symtable
     load_opts(&opts, &mut sh.st);
 
-    // exec .tinrc
-    if exec_rc {
-        main_loop(&mut sh);
-    }
-
+    // interactive init (read rc file, posix::init)
     if sh.interactive {
-        posix::init();
+        match prompt::FilePrompt::new(&opts.config) {
+            Ok(p) => {
+                sh.pr = Box::new(p);
+                main_loop(&mut sh);
+                posix::init();
+            },
+            Err(e) => {
+                err::info(&format!("Error loading .tinrc file: {}; skipping", e));
+            }
+        };
     }
 
     // TODO: make the TinOpts struct vars readonly (here?)
@@ -73,8 +64,6 @@ fn setup(opts: TinOpts) -> Shell {
 
     if sh.interactive {
         sh.pr = Box::new(prompt::StdPrompt::new());
-    } else {
-        sh.pr = Box::new(prompt::BasicPrompt);
     }
 
     sh
@@ -101,7 +90,7 @@ impl Default for TinOpts {
             login: false,
             noexec: false,
             debug: 1,
-            config: format!("{}/.tinrc", env::var("HOME").unwrap_or("".to_string())),
+            config: format!("{}/.inter.tin", env::var("HOME").unwrap_or("".to_string())),
             file: false,
             exec: None
         }
