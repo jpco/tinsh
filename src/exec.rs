@@ -315,7 +315,7 @@ impl Job {
         self.spawned = true;
     }
 
-    pub fn wait_collect(&mut self) -> String {
+    /* pub fn wait_collect(&mut self) -> String {
         assert!(self.do_pipe_out && self.spawned);
         let ch_len = self.children.len();
 
@@ -339,9 +339,9 @@ impl Job {
 
         let _ = posix::set_signal_ignore(true);
         r
-    }
+    } */
 
-    pub fn wait(&mut self) -> Option<Status> {
+    pub fn wait(&mut self, sh: &Shell) -> Option<Status> {
         assert!(self.spawned && !self.do_pipe_out);
         let ch_len = self.children.len();
         for ch in self.children.drain(..ch_len) {
@@ -362,11 +362,13 @@ impl Job {
         } else { None };
 
         // do this before taking the terminal to prevent indefinite hang
-        if let Err(e) = posix::set_signal_ignore(true) {
-            warn(&format!("Couldn't ignore signals: {}", e));
-        } else {
-            if let Err(e) = posix::take_terminal() {
-                warn(&format!("Couldn't take terminal: {}", e));
+        if sh.interactive {
+            if let Err(e) = posix::set_signal_ignore(true) {
+                warn(&format!("Couldn't ignore signals: {}", e));
+            } else {
+                if let Err(e) = posix::take_terminal() {
+                    warn(&format!("Couldn't take terminal: {}", e));
+                }
             }
         }
         r

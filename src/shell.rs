@@ -37,7 +37,7 @@ impl Shell {
 
     fn wait(&mut self) {
         if let Some(mut job) = self.jobs.pop() {
-            job.wait();
+            job.wait(self);
         }
     }
 

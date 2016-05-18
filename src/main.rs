@@ -207,10 +207,6 @@ fn read_args() -> TinOpts {
         }
     }
 
-    if opts.exec.is_none() {
-        opts.inter = true;
-    }
-
     opts
 }
 
@@ -229,14 +225,22 @@ fn main_loop(mut sh: &mut Shell) {
             let (spl_input, spl_next_buf) = eval::spl_line(&new_buf);
             input = spl_input;
             next_buf = spl_next_buf;
-        } else if let Some(prompt_in) = sh.pr.prompt(&sh.ls, &sh.st, &mut sh.ht) {
-            // we needed more and we got more
-            let (spl_input, spl_next_buf) = eval::spl_line(&prompt_in);
-            input = spl_input;
-            next_buf = spl_next_buf;
         } else {
-            // nothing's left
-            break;
+            match sh.pr.prompt(&sh.ls, &sh.st, &mut sh.ht) {
+                Some(Ok(prompt_in)) => {
+                    // we needed more and we got more
+                    let (spl_input, spl_next_buf) = eval::spl_line(&prompt_in);
+                    input = spl_input;
+                    next_buf = spl_next_buf;
+                },
+                Some(Err(e)) => {
+                    err(&format!("Couldn't get input: {}", e));
+                    panic!("");
+                },
+                None => {
+                    break;
+                }
+            }
         }
 
         // do stuff with input
@@ -287,4 +291,5 @@ fn main() {
 
     // interactive
     main_loop(&mut sh);
+    println!("exit");
 }

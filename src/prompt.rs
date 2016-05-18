@@ -2,6 +2,7 @@
 
 use std::io::prelude::*;
 use std::io;
+use std::io::Result;
 use std::str;
 use std::env;
 use std::fs::File;
@@ -22,8 +23,11 @@ pub enum LineState {
     Continue
 }
 
+// None = EOF
+// Err(e) = obvious
+//
 pub trait Prompt {
-    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<String>;
+    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<Result<String>>;
 }
 
 /// CmdPrompt: basic prompt which supplies a single command specified at creation.
@@ -39,12 +43,12 @@ impl CmdPrompt {
 }
 
 impl Prompt for CmdPrompt {
-    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<String> {
+    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<Result<String>> {
         if self.cmd.is_some() {
             let cmd = self.cmd.clone();
             self.cmd = None;
 
-            cmd
+            Some(Ok(cmd.unwrap()))
         } else {
             None
         }
@@ -55,15 +59,18 @@ impl Prompt for CmdPrompt {
 pub struct BasicPrompt;
 
 impl Prompt for BasicPrompt {
-    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<String> {
+    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<Result<String>> {
         print!("$ ");
-        io::stdout().flush().ok().expect("Could not flush stdout");
+        if let Err(e) = io::stdout().flush() {
+            return Some(Err(e));
+        }
 
         let mut buf = String::new();
-        io::stdin().read_line(&mut buf)
-            .expect("Could not read stdin");
+        if let Err(e) = io::stdin().read_line(&mut buf) {
+            return Some(Err(e));
+        }
 
-        Some(buf)
+        Some(Ok(buf))
     }
 }
 
@@ -73,7 +80,7 @@ pub struct FilePrompt {
 }
 
 impl FilePrompt {
-    pub fn new(file: &str) -> Result<Self, io::Error> {
+    pub fn new(file: &str) -> Result<Self> {
         let f = try!(File::open(file));
 
         Ok(FilePrompt {
@@ -83,23 +90,18 @@ impl FilePrompt {
 }
 
 impl Prompt for FilePrompt {
-    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<String> {
+    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<Result<String>> {
         let mut line = String::new();
         match self.br.read_line(&mut line) {
             Ok(n) => { 
                 if n == 0 { return None; }
             },
-            Err(_) => {
-                // TODO: I/O error
-                return None;
+            Err(e) => {
+                return Some(Err(e));
             }
         };
 
-        if line.trim().is_empty() {
-            None
-        } else {
-            Some(line)
-        }
+        Some(Ok(line))
     }
 }
 
@@ -178,7 +180,7 @@ impl StdPrompt {
         io::stdout().flush().ok().expect("Could not flush stdout");
     }
 
-    fn get_char(&self) -> Option<char> {
+    fn get_char(&self) -> Option<Result<char>> {
         let mut chrbuf: Vec<u8> = Vec::new();
 
         // this whole thing is a nightmare, but there's no 
@@ -188,21 +190,24 @@ impl StdPrompt {
                 Ok(ch) => {
                     // println!("[31m{}[0m", ch as u8);
 
+                    if ch as u8 == 4 { // EOF
+                        return None;
+                    }
                     // TODO: this is broken!! we need to see if the next
                     // char is an ok char to start with before saying this one
                     // is ok... UTF-8 is a bit of a nightmare
                     chrbuf.push(ch);
                     if let Ok(chr) = str::from_utf8(&chrbuf) {
-                        return chr.chars().next();
+                        return Some(Ok(chr.chars().next().unwrap()));
                     }
                 },
                 Err(e) => {
-                    println!("{}", e);
-                    return None;
+                    return Some(Err(e));
                 }
             }
         }
 
+        // if we're *here*, we've hit EOF, and need to handle that case.
         None
     }
 
@@ -316,11 +321,10 @@ impl StdPrompt {
 
 impl Prompt for StdPrompt {
     // functionality to add:
-    //  - tab completion
     //  - proper POSIX terminal control
     //  - coloration (?)
     //  - ANSI code interpretation
-    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<String> {
+    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<Result<String>> {
         self.ls = *ls;
         self.print_prompt();
         self.prep_term();
@@ -328,9 +332,19 @@ impl Prompt for StdPrompt {
         self.buf.clear();
         self.idx = 0;
 
-        while let Some(ch) = self.get_char() {
-            if let Some(res) = self.ansi(ch) {
-                if self.interp(&res, st, ht) { break; }
+        loop {
+            match self.get_char() {
+                Some(Ok(ch)) => {
+                    if let Some(res) = self.ansi(ch) {
+                        if self.interp(&res, st, ht) { break; }
+                    }
+                },
+                Some(Err(e)) => {
+                    return Some(Err(e));
+                },
+                None         => {
+                    return None;
+                }
             }
         }
 
@@ -340,7 +354,7 @@ impl Prompt for StdPrompt {
 
         self.unprep_term();
 
-        Some(self.buf.clone())
+        Some(Ok(self.buf.clone()))
     }
 }
 
