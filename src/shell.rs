@@ -4,7 +4,6 @@ use sym::Symtable;
 use hist::Histvec;
 
 use exec::Job;
-use exec::Process;
 
 /// terrible God object to make state accessible to everyone everywhere
 pub struct Shell {
@@ -20,21 +19,27 @@ pub struct Shell {
 
 impl Shell {
     fn exec_mcl(&mut self, mut job: Job, collect: bool) -> Option<String> {
+        let int = self.interactive;
+        if collect {
+            self.interactive = false;
+            job.do_pipe_out = true;
+        }
         job.spawn(self);
         let fg = job.fg;
-        self.jobs.push(job);
-        if fg {
-            // maybe collect
-            self.wait();
-        }
-
         if collect {
-            Some("".to_string())
+            let r = job.wait_collect(self);
+            self.interactive = int;
+            Some(r)
         } else {
+            self.jobs.push(job);
+            if fg {
+                self.wait();
+            }
             None
         }
     }
 
+    // still stubby while we don't have real job control yet
     fn wait(&mut self) {
         if let Some(mut job) = self.jobs.pop() {
             job.wait(self);

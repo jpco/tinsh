@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 use std::process::exit;
 use std::any::Any;
+use std::io::Read;
+use std::mem;
 
 use std::ffi::CString;
 use std::ffi::OsStr;
@@ -49,7 +51,7 @@ impl Child {
 }
 
 pub trait Process : Any {
-    fn exec(self, &mut Shell, Option<Pgid>, bool) -> Option<Child>;
+    fn exec(self, &mut Shell, Option<Pgid>) -> Option<Child>;
     fn has_args(&self) -> bool;
     fn push_arg(&mut self, String) -> &Process;
     fn stdin(&mut self, ReadPipe) -> &Process;
@@ -57,16 +59,16 @@ pub trait Process : Any {
 }
 
 impl Process for Box<ProcStruct> {
-    fn exec(self, sh: &mut Shell, pgid: Option<Pgid>, tt: bool) -> Option<Child> {
+    fn exec(self, sh: &mut Shell, pgid: Option<Pgid>) -> Option<Child> {
         match *self {
-            BuiltinProc(bp) => { bp.exec(sh, pgid, tt) },
-            BinProc(bp)     => { bp.exec(sh, pgid, tt) }
+            BuiltinProc(bp) => { bp.exec(sh, pgid) },
+            BinProc(bp)     => { bp.exec(sh, pgid) }
         }
     }
     fn has_args(&self) -> bool {
         match **self {
             BuiltinProc(ref bp) => { bp.has_args() },
-            BinProc(ref bp)     => { true }
+            BinProc(_)     => { true }
         }
     }
     fn push_arg(&mut self, arg: String) -> &Process {
@@ -135,10 +137,29 @@ impl BuiltinProcess {
 }
 
 impl Process for BuiltinProcess {
-    fn exec(self, sh: &mut Shell, _pgid: Option<Pgid>, _tt: bool) -> Option<Child> {
-        // TODO: these need to fork sometimes
-        (*self.to_exec.run)(self.argv.to_owned(), sh, None);
-        None
+    fn exec(self, sh: &mut Shell, pgid: Option<Pgid>) -> Option<Child> {
+        // TODO: background => fork, not handled currently
+        if self.inner.ch_stdin.is_some() || self.inner.ch_stdout.is_some() {
+            match posix::fork(sh.interactive, pgid) {
+                Err(e) => {
+                    // oops. gotta bail.
+                    warn(&format!("Could not fork child: {}", e));
+                    None
+                },
+                Ok(None) => {
+                    // TODO: perform redirections in child
+                    self.inner.redirect();
+                    let r = (*self.to_exec.run)(self.argv.to_owned(), sh);
+                    exit(r);
+                },
+                Ok(Some(ch_pid)) => {
+                    Some(Child::new(ch_pid))
+                }
+            }
+        } else {
+            (*self.to_exec.run)(self.argv.to_owned(), sh);
+            None
+        }
     }
 
     fn has_args(&self) -> bool {
@@ -205,8 +226,7 @@ impl BinProcess {
 }
 
 impl Process for BinProcess {
-    fn exec(self, sh: &mut Shell, pgid: Option<Pgid>, tt: bool) -> Option<Child> {
-        // TODO: set up I/O
+    fn exec(self, sh: &mut Shell, pgid: Option<Pgid>) -> Option<Child> {
         match posix::fork(sh.interactive, pgid) {
             Err(e) => {
                 // oops. gotta bail.
@@ -292,8 +312,7 @@ impl Job {
                     }
                 }
             }
-            let tt = i == pr_len && self.fg;
-            if let Some(ch) = cproc.exec(sh, self.pgid, tt) {
+            if let Some(ch) = cproc.exec(sh, self.pgid) {
                 if sh.interactive {
                     if self.pgid.is_none() {
                         self.pgid = Some(ch.pid.to_pgid());
@@ -315,42 +334,65 @@ impl Job {
         self.spawned = true;
     }
 
-    /* pub fn wait_collect(&mut self) -> String {
-        assert!(self.do_pipe_out && self.spawned);
-        let ch_len = self.children.len();
+    pub fn wait_collect(&mut self, sh: &Shell) -> String {
+        assert!(self.spawned && self.do_pipe_out);
+        let ch_len = match self.children.len() {
+            0 => { return "".to_string(); },
+            x => x - 1
+        };
 
         for ch in self.children.drain(..ch_len) {
-            let _ = posix::wait_pid(&ch.pid, None);
+            let _ = posix::wait_pid(&ch.pid);
         }
 
-        // **should** always succeed
+        // this if let **should** always succeed
         let r = if let Some(ch) = self.children.pop() {
             let mut buf = String::new();
-            match posix::wait_pid(&ch.pid, Some(&mut buf)) {
-                Ok(_) => {
-                    buf
+            let mut read = mem::replace(&mut self.pipe_out, None).unwrap();
+            match read.read_to_string(&mut buf) {
+                Ok(_len) => {
+                    while buf.ends_with('\n') {
+                        buf.pop();
+                    }
+                    buf = buf.replace('\n', " ");
                 },
                 Err(e) => {
-                    warn(&format!("Error waiting for child: {}", e));
-                    "".to_string()
+                    println!("Error reading from child: {}", e);
                 }
             }
+            if let Err(e) = posix::wait_pid(&ch.pid) {
+                println!("Error waiting for child: {}", e);
+            }
+            buf
         } else { "".to_string() };
 
-        let _ = posix::set_signal_ignore(true);
+        if sh.interactive {
+            if let Err(e) = posix::set_signal_ignore(true) {
+                warn(&format!("Couldn't ignore signals: {}", e));
+            } else {
+                if let Err(e) = posix::take_terminal() {
+                    warn(&format!("Couldn't take terminal: {}", e));
+                }
+            }
+        }
+
         r
-    } */
+    }
 
     pub fn wait(&mut self, sh: &Shell) -> Option<Status> {
         assert!(self.spawned && !self.do_pipe_out);
-        let ch_len = self.children.len();
+        let ch_len = match self.children.len() {
+            0 => { return None; },
+            x => x - 1
+        };
+
         for ch in self.children.drain(..ch_len) {
-            let _ = posix::wait_pid(&ch.pid, None);
+            let _ = posix::wait_pid(&ch.pid);
         }
 
         // **should** always succeed
         let r = if let Some(ch) = self.children.pop() {
-            match posix::wait_pid(&ch.pid, None) {
+            match posix::wait_pid(&ch.pid) {
                 Ok(st) => {
                     st
                 },
@@ -361,8 +403,8 @@ impl Job {
             }
         } else { None };
 
-        // do this before taking the terminal to prevent indefinite hang
         if sh.interactive {
+            // do this before taking the terminal to prevent indefinite hang
             if let Err(e) = posix::set_signal_ignore(true) {
                 warn(&format!("Couldn't ignore signals: {}", e));
             } else {

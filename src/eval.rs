@@ -234,14 +234,20 @@ fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
             "'"  => {
                 quot = match quot {
                     Qu::None   => Qu::Single,
-                    Qu::Double => Qu::Double,
+                    Qu::Double => {
+                        res.push_str(c);
+                        Qu::Double
+                    },
                     Qu::Single => Qu::None
                 };
             },
             "\"" => {
                 quot = match quot {
                     Qu::None   => Qu::Double,
-                    Qu::Single => Qu::Single,
+                    Qu::Single => {
+                        res.push_str(c);
+                        Qu::Single
+                    },
                     Qu::Double => Qu::None
                 };
             },
@@ -331,6 +337,9 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                 match ttype {
                     TokenType::Word  => {
                         let tok = tok_resolve(sh, &tok.unwrap());
+                        // don't do anything with empty tokens, guh
+                        if tok.trim().is_empty() { continue; }
+
                         if !cproc.has_args() {
                             // first word -- convert process to appropriate thing
                             cproc = match sh.st.resolve_types(&tok,

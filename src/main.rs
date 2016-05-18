@@ -1,5 +1,3 @@
-#![feature(process_exec)]
-
 mod prompt;
 mod sym;
 mod builtins;

@@ -239,7 +239,7 @@ pub fn wait_pgid(_group: &Pgid)
 
 /// Waits for a child process to finish.  If output is Some,
 /// attempts to fill output with stdout from the child.
-pub fn wait_pid(child: &Pid, output: Option<&mut str>) -> Result<Option<Status>> {
+pub fn wait_pid(child: &Pid) -> Result<Option<Status>> {
     unsafe {
         let mut st = 0;
         if libc::waitpid(child.0, &mut st, 0) < 0 {
