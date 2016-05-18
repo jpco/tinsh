@@ -1,6 +1,5 @@
 #![feature(process_exec)]
 
-mod exec;
 mod prompt;
 mod sym;
 mod builtins;
@@ -9,10 +8,10 @@ mod shell;
 mod hist;
 mod err;
 mod compl;
+mod exec;
+mod posix;
 
 use std::env;
-
-extern crate libc;
 
 use prompt::LineState;
 use prompt::Prompt;
@@ -20,10 +19,9 @@ use prompt::Prompt;
 use err::warn;
 use err::info;
 use err::err;
+use shell::Shell;
 
-use shell::interactive_init;
-
-fn setup(opts: TinOpts) -> shell::Shell {
+fn setup(opts: TinOpts) -> Shell {
     let exec_rc;
 
     let rc_p: Box<Prompt> = match prompt::FilePrompt::new(&opts.config) {
@@ -38,8 +36,9 @@ fn setup(opts: TinOpts) -> shell::Shell {
         }
     };
 
-    let mut sh = shell::Shell {
-        interactive: opts.inter,
+    let mut sh = Shell {
+        jobs: Vec::new(),
+        interactive: posix::is_interactive() || opts.inter,
         pr: rc_p,
         ls: LineState::Normal,
         st: sym::Symtable::new(),
@@ -55,7 +54,7 @@ fn setup(opts: TinOpts) -> shell::Shell {
     }
 
     if sh.interactive {
-        interactive_init();
+        posix::init();
     }
 
     // TODO: make the TinOpts struct vars readonly (here?)
@@ -95,9 +94,7 @@ struct TinOpts {
 impl Default for TinOpts {
     fn default() -> Self {
         TinOpts {
-            inter: unsafe {
-                libc::isatty(libc::STDIN_FILENO) != 0
-            },
+            inter: posix::is_interactive(),
             login: false,
             noexec: false,
             debug: 1,
@@ -217,7 +214,7 @@ fn read_args() -> TinOpts {
     opts
 }
 
-fn main_loop(mut sh: &mut shell::Shell) {
+fn main_loop(mut sh: &mut Shell) {
     // saves previous inputs in the case of LineState::Continue
     let mut input_buf = String::new();
     // saves "future" inputs in the case of multi-line input
@@ -260,7 +257,7 @@ fn main_loop(mut sh: &mut shell::Shell) {
                 if ls == LineState::Normal {
                     if let Some(t_job) = t_job {
                         sh.ht.hist_add (input_buf.trim());
-                        t_job.exec(sh, true);
+                        sh.exec(t_job);
                     }
                     input_buf = String::new();
                 }

@@ -16,6 +16,9 @@ use exec::Job;
 use exec::Process;
 use exec::BuiltinProcess;
 use exec::BinProcess;
+use exec::ProcStruct;
+use exec::ProcStruct::BinProc;
+use exec::ProcStruct::BuiltinProc;
 
 #[derive(PartialEq)]
 enum TokenType {
@@ -251,7 +254,7 @@ fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
                 // time to resolve something!
                 // unmatched parens already handled in tokenize()
                 let sym_n = pstack.pop().unwrap();
-                let sym_res = match sh.st.resolve_types(&sym_n,
+                let sym_res: String = match sh.st.resolve_types(&sym_n,
                                         Some(vec![sym::SymType::Var,
                                                   sym::SymType::Environment])) {
                     Some(sym::Sym::Var(s)) => s,
@@ -259,7 +262,7 @@ fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
                     None => {
                         let (sym_job, _) = eval(sh, sym_n);
                         if let Some(sym_job) = sym_job {
-                            sym_job.collect(sh)
+                            sh.exec_collect(sym_job)
                         } else {
                             // TODO: __tin_undef_fail
                             "".to_string()
@@ -303,7 +306,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
     }
 
     let mut job = Job::new(cmd.clone());
-    let mut cproc: Box<Process> = Box::new(BuiltinProcess::default());
+    let mut cproc: Box<ProcStruct> = Box::new(BuiltinProc(BuiltinProcess::default()));
 
     // begin by evaluating any aliases
     let mut alias_tokenizer = tokenize(cmd.clone());
@@ -334,11 +337,11 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                                                       Some(vec![sym::SymType::Binary,
                                                            sym::SymType::Builtin])) {
                                 Some(sym::Sym::Builtin(b)) =>
-                                    Box::new(BuiltinProcess::new(&b)),
+                                    Box::new(BuiltinProc(BuiltinProcess::new(b))),
                                 Some(sym::Sym::Binary(b))  =>
-                                    Box::new(BinProcess::new(&b)),
+                                    Box::new(BinProc(BinProcess::new(b))),
                                 None =>
-                                    Box::new(BinProcess::new(&PathBuf::from(tok.clone()))),
+                                    Box::new(BinProc(BinProcess::new(PathBuf::from(tok.clone())))),
                                 _ =>
                                     unreachable!()
                             };
@@ -348,7 +351,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                     },
                     TokenType::Pipe  => {
                         job.procs.push(cproc);
-                        cproc = Box::new(BuiltinProcess::default());
+                        cproc = Box::new(BuiltinProc(BuiltinProcess::default()));
                     },
                     TokenType::Redir => {
                         println!("Redirects are still unimplemented");

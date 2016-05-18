@@ -1,199 +1,162 @@
-#![allow(dead_code)]
-
-use std::process::Command;
-use std::os::unix::prelude::CommandExt;
-
-use std::process::Child;
-use std::process::Stdio;
-use std::process::exit;
-
-use std::os::unix::io::{FromRawFd, AsRawFd};
 use std::path::PathBuf;
-use std::str;
+use std::process::exit;
+use std::any::Any;
 
-use std::io::Read;
-use std::io::Error;
+use std::ffi::CString;
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
 
+use posix;
+use posix::Pid;
+use posix::Pgid;
+use posix::ReadPipe;
+use posix::WritePipe;
+use posix::Status;
+
+// oh well. keep this minimal at least.
 extern crate libc;
-use std::fs::File;
-
-use sym::ScopeSpec;
-use builtins::Builtin;
+use self::libc::c_char;
+use self::libc::EINVAL;
 
 use shell::Shell;
-// use shell::parent_exec;
-// use shell::subproc_exec;
-
 use err::warn;
+use builtins::Builtin;
 
+use self::ProcStruct::BuiltinProc;
+use self::ProcStruct::BinProc;
 
-extern {
-    fn tcsetpgrp(fd: libc::c_int, pgrp: libc::pid_t) -> libc::c_int;
+pub enum ProcStruct {
+    BuiltinProc(BuiltinProcess),
+    BinProc(BinProcess),
 }
 
-/// Awful struct which allows for both nice Rust-y Child structs from Process structs,
-/// and hunks of int file descriptors and whatnot from libc::fork.
-pub struct Pseudochild {
-    child: Option<Child>,
-    child_pid: i32,
-    child_stdout: Option<i32>,
-    child_stdin: Option<i32>,
-    child_stderr: Option<i32>
+/// Struct describing a child process.  Allows the shell to wait for the process and
+/// control the process' inputs and outputs.
+pub struct Child {
+    pid: Pid,
+    stdout: Option<ReadPipe>,
+    stdin:  Option<WritePipe>
 }
 
-impl From<Child> for Pseudochild {
-    fn from(ch: Child) -> Self {
-        Pseudochild {
-            child: Some(ch),
-            child_pid: 0,
-            child_stdout: None,
-            child_stdin: None,
-            child_stderr: None
-        }
-    }
-}
-
-impl Pseudochild {
-    fn new(pid: i32, stdin: Option<i32>, stdout: Option<i32>, stderr: Option<i32>)
-            -> Self {
-        Pseudochild {
-            child: None,
-            child_pid: pid,
-            child_stdout: if let Some(stdout) = stdout {
-                Some(stdout)
-            } else { None },
-            child_stdin: if let Some(stdin) = stdin {
-                Some(stdin)
-            } else { None },
-            child_stderr: if let Some(stderr) = stderr {
-                Some(stderr)
-            } else { None }
-        }
-    }
-
-    fn stdout(&self) -> Option<i32> {
-        if let Some(ref child) = self.child {
-            if let Some(ref stdout) = child.stdout {
-                    Some(stdout.as_raw_fd())
-            } else {
-                None
-            }
-        } else {
-            self.child_stdout
-        }
-    }
-
-    fn wait(&mut self) -> Result<i32, ()> {
-        if let Some(ref mut child) = self.child {
-            match child.wait() {
-                Ok(s) => {
-                    if let Some(c) = s.code() {
-                        Ok(c)
-                    } else {
-                        Ok(0)
-                    }
-                },
-                Err(_) => { Err(()) }
-            }
-        } else {
-            unsafe {
-                let mut cstat: i32 = 0;
-                if libc::waitpid(self.child_pid, &mut cstat as *mut libc::c_int, 0) < 0 {
-                    Err(())
-                } else {
-                    Ok(cstat)
-                }
-            }
-        }
-    }
-
-    fn wait_with_output(self) -> Result<String, ()> {
-        if let Some(child) = self.child {
-            match child.wait_with_output() {
-                Ok(o) => {
-                    match str::from_utf8(&o.stdout) {
-                        Ok(st) => Ok(st.to_string()),
-                        Err(_) => Err(())
-                    }
-                },
-                Err(_) => { Err(()) }
-            }
-        } else {
-            unsafe {
-                let mut out = String::new();
-                let stdout = self.child_stdout.unwrap();
-                let mut f = File::from_raw_fd(stdout);
-                let res = f.read_to_string(&mut out);
-                if libc::waitpid(self.child_pid, 0 as *mut libc::c_int, 0) < 0 {
-                    Err(())
-                } else {
-                    match res {
-                        Ok(_) => Ok(out),
-                        Err(_) => Err(())
-                    }
-                }
-            }
+impl Child {
+    fn new(pid: Pid) -> Self {
+        Child {
+            pid: pid,
+            stdout: None,
+            stdin: None
         }
     }
 }
 
-pub trait Process {
-    fn exec(&self, &mut Shell, Option<i32>, bool, bool) -> Option<Pseudochild>;
+pub trait Process : Any {
+    fn exec(self, &mut Shell, Option<Pgid>, bool) -> Option<Child>;
     fn has_args(&self) -> bool;
     fn push_arg(&mut self, String) -> &Process;
+    fn stdin(&mut self, ReadPipe) -> &Process;
+    fn stdout(&mut self, WritePipe) -> &Process;
 }
 
-// builtins execute functions through __fn_exec
+impl Process for Box<ProcStruct> {
+    fn exec(self, sh: &mut Shell, pgid: Option<Pgid>, tt: bool) -> Option<Child> {
+        match *self {
+            BuiltinProc(bp) => { bp.exec(sh, pgid, tt) },
+            BinProc(bp)     => { bp.exec(sh, pgid, tt) }
+        }
+    }
+    fn has_args(&self) -> bool {
+        match **self {
+            BuiltinProc(ref bp) => { bp.has_args() },
+            BinProc(ref bp)     => { true }
+        }
+    }
+    fn push_arg(&mut self, arg: String) -> &Process {
+        match **self {
+            BuiltinProc(ref mut bp) => { bp.push_arg(arg) },
+            BinProc(ref mut bp)     => { bp.push_arg(arg) }
+        };
+        self
+    }
+    fn stdin(&mut self, arg: ReadPipe) -> &Process {
+        match **self {
+            BuiltinProc(ref mut bp) => { bp.stdin(arg) },
+            BinProc(ref mut bp)     => { bp.stdin(arg) }
+        };
+        self
+    }
+    fn stdout(&mut self, arg: WritePipe) -> &Process {
+        match **self {
+            BuiltinProc(ref mut bp) => { bp.stdout(arg) },
+            BinProc(ref mut bp)     => { bp.stdout(arg) }
+        };
+        self
+    }
+}
+
+/// Struct containing 
+struct ProcessInner {
+    ch_stdin:  Option<ReadPipe>,
+    ch_stdout: Option<WritePipe>
+}
+
+impl ProcessInner {
+    fn new() -> Self {
+        ProcessInner {
+            ch_stdin:  None,
+            ch_stdout: None
+        }
+    }
+
+    fn redirect(self) {
+        if let Some(read) = self.ch_stdin {
+            posix::set_stdin(read).expect("Could not redirect stdin");
+        }
+        if let Some(write) = self.ch_stdout {
+            posix::set_stdout(write).expect("Could not redirect stdout");
+        }
+    }
+}
+
+/// Struct representing a builtin to be executed -- essentially, anything which does
+/// not require a call to execv to run.
 pub struct BuiltinProcess {
     to_exec: Builtin,
-    argv: Vec<String>
+    argv: Vec<String>,
+    inner: ProcessInner
 }
 
 impl BuiltinProcess {
-    pub fn new(b: &Builtin) -> Self {
+    pub fn new(b: Builtin) -> Self {
         BuiltinProcess {
-            to_exec: b.clone(),
-            argv: Vec::new()
+            to_exec: b,
+            argv: Vec::new(),
+            inner: ProcessInner::new()
         }
     }
 }
 
 impl Process for BuiltinProcess {
-    fn exec(&self, sh: &mut Shell, stdin: Option<i32>, stdout: bool, _quiet: bool) -> Option<Pseudochild> {
-        if stdout {
-            unsafe { // we 'boutta get like the wild west in here
-                let mut fds = [0; 2];
-                if libc::pipe(fds.as_mut_ptr()) != 0 {
-                    return None;
-                }
-                let c_pid = libc::fork();
-                if c_pid < 0 {
-                    return None;
-                } else if c_pid == 0 {
-                    libc::close(fds[0]);
-                    libc::dup2(fds[1], libc::STDOUT_FILENO);
-                    // subproc_exec(0); // TODO: !stdout is the wrong thing
-                    let res = (*self.to_exec.run)(self.argv.clone(), sh, stdin);
-                    libc::close(fds[1]);
-                    exit(res);
-                } else {
-                    libc::close(fds[1]);
-                    // parent_exec(!stdout, c_pid, 0); // TODO: wrong here too
-                    Some(Pseudochild::new(c_pid, None, Some(fds[0]), None))
-                }
-            }
-        } else {
-            (*self.to_exec.run)(self.argv.clone(), sh, stdin);
-            None
-        }
+    fn exec(self, sh: &mut Shell, _pgid: Option<Pgid>, _tt: bool) -> Option<Child> {
+        // TODO: these need to fork sometimes
+        (*self.to_exec.run)(self.argv.to_owned(), sh, None);
+        None
     }
-    
+
     fn has_args(&self) -> bool {
         self.to_exec.name != "__blank"
     }
 
     fn push_arg(&mut self, new_arg: String) -> &Process {
         self.argv.push(new_arg);
+        self
+    }
+
+    fn stdin(&mut self, read: ReadPipe) -> &Process {
+        self.inner.ch_stdin = Some(read);
+        self
+    }
+    
+    fn stdout(&mut self, write: WritePipe) -> &Process {
+        self.inner.ch_stdout = Some(write);
         self
     }
 }
@@ -203,193 +166,224 @@ impl Default for BuiltinProcess {
         BuiltinProcess {
             to_exec:   Builtin::default(),
             argv:      Vec::new(),
+            inner:     ProcessInner::new()
         }
     }
 }
 
 pub struct BinProcess {
     to_exec: PathBuf,
-    pub argv: Vec<String>
+    argv: Vec<*const c_char>,
+    m_args: Vec<CString>,
+    inner: ProcessInner
 }
 
+fn os2c(s: &OsStr) -> CString {
+    CString::new(s.as_bytes()).unwrap_or_else(|_e| {
+        CString::new("<string-with-nul>").unwrap()
+    })
+}
+
+
+fn str2c(s: String) -> CString {
+    CString::new(s.as_bytes()).unwrap_or_else(|_e| {
+        CString::new("<string-with-nul>").unwrap()
+    })
+}
+
+
 impl BinProcess {
-    pub fn new(b: &PathBuf) -> Self {
+    pub fn new(b: PathBuf) -> Self {
+        let cb = os2c(b.as_os_str());
         BinProcess {
-            to_exec: b.clone(),
-            argv: Vec::new()
+            argv: vec![cb.as_ptr(), 0 as *const _],
+            to_exec: b,
+            m_args: vec![cb],
+            inner: ProcessInner::new()
         }
     }
 }
 
 impl Process for BinProcess {
-    fn exec(&self, sh: &mut Shell, stdin: Option<i32>, stdout: bool, quiet: bool) -> Option<Pseudochild> {
-        let mut cmd = Command::new(self.to_exec.clone());
-        cmd.args(&self.argv);
-
-        if let Some(stdin) = stdin {
-            unsafe { cmd.stdin(Stdio::from_raw_fd(stdin)); }
-        } else {
-            // TODO: check the cases where this is actaully called in Ion
-            // cmd.stdin(Stdio::null());
-        }
-
-        if stdout {
-            cmd.stdout(Stdio::piped());
-        }
-
-        if sh.interactive {
-            cmd.before_exec(|| {
-                unsafe {
-                    if libc::signal(libc::SIGINT,  libc::SIG_DFL) == libc::SIG_ERR {
-                        return Err(Error::last_os_error());
-                    }
-                    if libc::signal(libc::SIGQUIT,  libc::SIG_DFL) == libc::SIG_ERR {
-                        return Err(Error::last_os_error());
-                    }
-                    if libc::signal(libc::SIGTSTP,  libc::SIG_DFL) == libc::SIG_ERR {
-                        return Err(Error::last_os_error());
-                    }
-                    if libc::signal(libc::SIGTTIN,  libc::SIG_DFL) == libc::SIG_ERR {
-                        return Err(Error::last_os_error());
-                    }
-                    if libc::signal(libc::SIGTTOU,  libc::SIG_DFL) == libc::SIG_ERR {
-                        return Err(Error::last_os_error());
-                    }
-
-                    // TODO: set session leader, take terminal if fg
-
-                    Ok(())
-                }
-            });
-        }
-
-        match cmd.spawn() {
-            Ok(c) => {
-                Some(Pseudochild::from(c))
-            },
+    fn exec(self, sh: &mut Shell, pgid: Option<Pgid>, tt: bool) -> Option<Child> {
+        // TODO: set up I/O
+        match posix::fork(sh.interactive, pgid) {
             Err(e) => {
-                if !quiet {
-                    warn(&format!("Could not fork '{}': {}", self.to_exec.display(), e));
-                }
+                // oops. gotta bail.
+                warn(&format!("Could not fork child: {}", e));
                 None
+            },
+            Ok(None) => {
+                // gotta exec!
+                // TODO: perform redirections in child
+                self.inner.redirect();
+                let e = posix::execv(self.argv[0], self.argv.as_ptr());
+                warn(&format!("Could not exec: {}", e));
+                exit(e.raw_os_error().unwrap_or(EINVAL));
+            },
+            Ok(Some(ch_pid)) => {
+                Some(Child::new(ch_pid))
             }
         }
     }
 
-    fn has_args(&self) -> bool {
-        true
-    }
+    // A BinProcess always has at least its first argument -- the executable
+    // to be run.
+    fn has_args(&self) -> bool { true }
 
     fn push_arg(&mut self, new_arg: String) -> &Process {
-        self.argv.push(new_arg);
+        let arg = str2c(new_arg);
+        self.argv[self.m_args.len()] = arg.as_ptr();
+        self.argv.push(0 as *const _);
+
+        // for memory correctness
+        self.m_args.push(arg);
+
+        self
+    }
+
+    fn stdin(&mut self, read: ReadPipe) -> &Process {
+        self.inner.ch_stdin = Some(read);
+        self
+    }
+    
+    fn stdout(&mut self, write: WritePipe) -> &Process {
+        self.inner.ch_stdout = Some(write);
         self
     }
 }
 
 pub struct Job {
-    pub procs: Vec<Box<Process>>,
-    command: String
+    spawned: bool,
+    // TODO: make procs private
+    pub procs: Vec<Box<ProcStruct>>,
+    children: Vec<Child>,
+
+    command: String,
+    pgid: Option<Pgid>,
+    pub fg: bool,
+
+    pub do_pipe_out: bool,
+    pipe_out: Option<ReadPipe>
 }
 
 impl Job {
-    pub fn exec(&self, sh: &mut Shell, fg: bool) {
-        let mut children = self.spawn_procs(sh, false, false);
-        
-        if fg {
-            // TODO: read any_fail from symtable
-            let status = self.wait(&mut children, false);
-            sh.st.set_scope("_?", status.to_string(), ScopeSpec::Global);
+    pub fn spawn(&mut self, sh: &mut Shell) {
+        assert!(!self.spawned);
+        let pr_len = self.procs.len();
+        let mut i = 0;
+
+        let mut read = None;
+        for mut cproc in self.procs.drain(..) {
+            i = i + 1;
+            if let Some(read) = read {
+                cproc.stdin(read);
+            }
+            read = None;
+
+            if i < pr_len || self.do_pipe_out {
+                match posix::pipe() {
+                    Ok((nread, write)) => {
+                        cproc.stdout(write);
+                        read = Some(nread);
+                    },
+                    Err(e) => {
+                        warn(&format!("Could not create pipe: {}", e));
+                    }
+                }
+            }
+            let tt = i == pr_len && self.fg;
+            if let Some(ch) = cproc.exec(sh, self.pgid, tt) {
+                if sh.interactive {
+                    if self.pgid.is_none() {
+                        self.pgid = Some(ch.pid.to_pgid());
+                    }
+                }
+                self.children.push(ch);
+            }
         }
-    }
-
-    pub fn collect(&self, sh: &mut Shell) -> String {
-        let mut children = self.spawn_procs(sh, true, true);
-        self.wait_collect(&mut children).trim().replace("\n", " ")
-    }
-
-    fn spawn_procs(&self, sh: &mut Shell, pipe_out: bool, quiet: bool) -> Vec<Option<Pseudochild>> {
-        if self.procs.len() == 0 { return Vec::new(); }
-
-        let mut stdin: Option<i32> = None;
-        let mut children = Vec::new();
-
-        let last = self.procs.len() - 1;
-        for cproc in &self.procs[..last] {
-            let cchld = cproc.exec(sh, stdin, true, quiet);
-            stdin = if let Some(ref child) = cchld {
-                child.stdout()
-            } else {
-                None
-            };
-            children.push(cchld);
+        if self.do_pipe_out {
+            self.pipe_out = read;
         }
-        let lproc = self.procs.last().unwrap();
-        children.push(lproc.exec(sh, stdin, pipe_out, quiet));
 
-        children
-    }
-
-    fn wait_collect(&self, children: &mut Vec<Option<Pseudochild>>) -> String {
-        let last = children.len() - 1;
-        for child in children.drain(..last) {
-            if let Some(mut child) = child {
-                child.wait(); // don't care
+        if self.fg && sh.interactive && self.pgid.is_some() {
+            if let Err(e) = posix::give_terminal(self.pgid.unwrap()) {
+                warn(&format!("Could not give child the terminal: {}", e));
             }
         }
 
-        if let Some(mut child) = children.pop().unwrap() {
-            match child.wait_with_output() {
-                Ok(out) => {
-                    out
+        self.spawned = true;
+    }
+
+    pub fn wait_collect(&mut self) -> String {
+        assert!(self.do_pipe_out && self.spawned);
+        let ch_len = self.children.len();
+
+        for ch in self.children.drain(..ch_len) {
+            let _ = posix::wait_pid(&ch.pid, None);
+        }
+
+        // **should** always succeed
+        let r = if let Some(ch) = self.children.pop() {
+            let mut buf = String::new();
+            match posix::wait_pid(&ch.pid, Some(&mut buf)) {
+                Ok(_) => {
+                    buf
                 },
-                Err(_)  => {
+                Err(e) => {
+                    warn(&format!("Error waiting for child: {}", e));
                     "".to_string()
                 }
             }
-        } else {
-            "".to_string()
-        }
+        } else { "".to_string() };
+
+        let _ = posix::set_signal_ignore(true);
+        r
     }
 
-    fn wait(&self, children: &mut Vec<Option<Pseudochild>>, any_fail: bool) -> i32 {
-        let last = children.len() - 1;
-        let mut ccode = 0;
-        for child in children.drain(..last) {
-            if let Some(mut child) = child {
-                let xc = child.wait();
-                if any_fail {
-                    if let Ok(xc) = xc {
-                        if xc != 0 {
-                            ccode = xc;
-                        }
-                    }
-                }
-            }
+    pub fn wait(&mut self) -> Option<Status> {
+        assert!(self.spawned && !self.do_pipe_out);
+        let ch_len = self.children.len();
+        for ch in self.children.drain(..ch_len) {
+            let _ = posix::wait_pid(&ch.pid, None);
         }
 
-        if let Some(mut child) = children.pop().unwrap() {
-            match child.wait() {
-                Ok(status) => {
-                    if !any_fail || status != 0 {
-                        status
-                    } else {
-                        ccode
-                    }
+        // **should** always succeed
+        let r = if let Some(ch) = self.children.pop() {
+            match posix::wait_pid(&ch.pid, None) {
+                Ok(st) => {
+                    st
                 },
-                Err(_) => {
-                    warn(&format!("Could not wait for child."));
-                    127
+                Err(e) => {
+                    warn(&format!("Error waiting for child: {}", e));
+                    None
                 }
             }
+        } else { None };
+
+        // do this before taking the terminal to prevent indefinite hang
+        if let Err(e) = posix::set_signal_ignore(true) {
+            warn(&format!("Couldn't ignore signals: {}", e));
         } else {
-            2
+            if let Err(e) = posix::take_terminal() {
+                warn(&format!("Couldn't take terminal: {}", e));
+            }
         }
+        r
     }
 
     pub fn new(cmd: String) -> Self {
         Job {
+            spawned: false,
             procs: Vec::new(),
-            command: cmd
+            children: Vec::new(),
+
+            command: cmd,
+            pgid: None,
+            fg: true,
+
+            do_pipe_out: false,
+            pipe_out: None
         }
     }
 }
