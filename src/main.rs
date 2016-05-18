@@ -71,8 +71,11 @@ fn setup(opts: TinOpts) -> Shell {
         main_loop(&mut sh);
     }
 
-    sh.pr = Box::new(prompt::StdPrompt::new());
-    // sh.pr = Box::new(prompt::BasicPrompt);
+    if sh.interactive {
+        sh.pr = Box::new(prompt::StdPrompt::new());
+    } else {
+        sh.pr = Box::new(prompt::BasicPrompt);
+    }
 
     sh
 }
@@ -291,5 +294,7 @@ fn main() {
 
     // interactive
     main_loop(&mut sh);
-    println!("exit");
+    if sh.interactive {
+        println!("exit");
+    }
 }

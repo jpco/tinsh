@@ -60,17 +60,18 @@ pub struct BasicPrompt;
 
 impl Prompt for BasicPrompt {
     fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<Result<String>> {
-        print!("$ ");
-        if let Err(e) = io::stdout().flush() {
-            return Some(Err(e));
-        }
-
         let mut buf = String::new();
-        if let Err(e) = io::stdin().read_line(&mut buf) {
-            return Some(Err(e));
+        let res = io::stdin().read_line(&mut buf);
+        if let Err(e) = res {
+            Some(Err(e))
+        } else {
+            let x = res.unwrap();
+            if x == 0 {
+                None
+            } else {
+                Some(Ok(buf))
+            }
         }
-
-        Some(Ok(buf))
     }
 }
 
