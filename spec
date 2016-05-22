@@ -47,7 +47,7 @@ per-command:
     - if you do something like "ls { one; two; three }", tinsh will rewrite
         the command such that each *line* of the block (trimmed) is an argument for
         the binary
-    - blockless commands
+    - blockless commands (only certain commands allow for this)
         $ if (foo) == bar, ls
     - tinsh is block-scoped: local variables first defined in block will be deleted upon leaving block
         - however, 'set foo = bar; { set foo = baz; } echo (foo)' will echo 'baz'

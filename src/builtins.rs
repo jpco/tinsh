@@ -36,6 +36,7 @@ fn blank_builtin() -> Builtin {
             // do nothing
             // TODO: run any attached blocks... then do nothing
             // and return the last command's exit value
+            //  -- if there are no blocks, do not change the exit value
             0
         })
     }

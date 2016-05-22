@@ -348,9 +348,9 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                                 Some(sym::Sym::Builtin(b)) =>
                                     Box::new(BuiltinProc(BuiltinProcess::new(b))),
                                 Some(sym::Sym::Binary(b))  =>
-                                    Box::new(BinProc(BinProcess::new(b))),
+                                    Box::new(BinProc(BinProcess::new(&tok, b))),
                                 None =>
-                                    Box::new(BinProc(BinProcess::new(PathBuf::from(tok.clone())))),
+                                    Box::new(BinProc(BinProcess::new(&tok, PathBuf::from(tok.clone())))),
                                 _ =>
                                     unreachable!()
                             };

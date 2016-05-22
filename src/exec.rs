@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::any::Any;
 use std::io::Read;
+use std::io::ErrorKind;
 use std::mem;
 
 use std::ffi::CString;
@@ -94,7 +95,6 @@ impl Process for Box<ProcStruct> {
     }
 }
 
-/// Struct containing 
 struct ProcessInner {
     ch_stdin:  Option<ReadPipe>,
     ch_stdout: Option<WritePipe>
@@ -205,6 +205,9 @@ fn os2c(s: &OsStr) -> CString {
     })
 }
 
+fn pb2c(pb: PathBuf) -> CString {
+    os2c(pb.as_os_str())
+}
 
 fn str2c(s: String) -> CString {
     CString::new(s.as_bytes()).unwrap_or_else(|_e| {
@@ -214,8 +217,8 @@ fn str2c(s: String) -> CString {
 
 
 impl BinProcess {
-    pub fn new(b: PathBuf) -> Self {
-        let cb = os2c(b.as_os_str());
+    pub fn new(cmd: &String, b: PathBuf) -> Self {
+        let cb = str2c(cmd.to_owned());
         BinProcess {
             argv: vec![cb.as_ptr(), 0 as *const _],
             to_exec: b,
@@ -237,8 +240,13 @@ impl Process for BinProcess {
                 // gotta exec!
                 // TODO: perform redirections in child
                 self.inner.redirect();
-                let e = posix::execv(self.argv[0], self.argv.as_ptr());
-                warn(&format!("Could not exec: {}", e));
+                let e = posix::execv(pb2c(self.to_exec).as_ptr(), self.argv.as_ptr());
+                if e.kind() == ErrorKind::NotFound {
+                    // TODO: custom handler function
+                    println!("Command '{}' not found.", self.m_args[0].to_str().unwrap());
+                } else {
+                    warn(&format!("Could not exec: {}", e));
+                }
                 exit(e.raw_os_error().unwrap_or(EINVAL));
             },
             Ok(Some(ch_pid)) => {
