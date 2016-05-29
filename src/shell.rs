@@ -42,7 +42,9 @@ impl Shell {
     // still stubby while we don't have real job control yet
     fn wait(&mut self) {
         if let Some(mut job) = self.jobs.pop() {
-            job.wait(self);
+            if let Some(status) = job.wait(self) {
+                self.st.set("_?", status.to_string());
+            }
         }
     }
 

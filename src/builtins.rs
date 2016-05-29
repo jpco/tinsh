@@ -5,7 +5,6 @@ use std::fs;
 use std::env;
 
 use std::io;
-use std::io::BufRead;
 
 use sym;
 use err;

@@ -9,10 +9,11 @@ mod compl;
 mod exec;
 mod posix;
 
+#[macro_use] extern crate lazy_static;
+
 use std::env;
 
 use prompt::LineState;
-use prompt::Prompt;
 
 use err::warn;
 use err::info;

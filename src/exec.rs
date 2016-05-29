@@ -12,6 +12,7 @@ use std::os::unix::ffi::OsStrExt;
 use posix;
 use posix::Pid;
 use posix::Pgid;
+use posix::FileDesc;
 use posix::ReadPipe;
 use posix::WritePipe;
 use posix::Status;
@@ -33,8 +34,20 @@ pub enum ProcStruct {
     BinProc(BinProcess),
 }
 
+// out grammar: (-|~)(fd|&)?>(fd|+)?
+// in grammar:  (fd)?<<?(fd)?(-|~)
+pub enum Redir {
+    RdCmdOut(String),             // command substitutions
+    RdCmdIn(String),              //  - out/in controls WritePipe vs ReadPipe
+    RdFdOut(FileDesc, FileDesc),  // fd substitutions
+    RdFdIn(FileDesc, FileDesc),   //  - e.g. -2>1
+    RdFileOut(FileDesc, String),  // file substitutions
+    RdFileIn(FileDesc, String),   //  - e.g. -2> errs.txt
+    RdStringIn(FileDesc, String)  // here-string/here-documents
+}
+
 /// Struct describing a child process.  Allows the shell to wait for the process and
-/// control the process' inputs and outputs.
+/// control the process' input & output.
 pub struct Child {
     pid: Pid,
     stdout: Option<ReadPipe>,
@@ -421,6 +434,7 @@ impl Job {
                 }
             }
         }
+
         r
     }
 

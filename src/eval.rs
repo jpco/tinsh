@@ -1,10 +1,11 @@
-#![allow(dead_code)]
-
 use sym;
 use shell;
 
 extern crate unicode_segmentation;
 use self::unicode_segmentation::UnicodeSegmentation;
+
+extern crate regex;
+use self::regex::Regex;
 
 use std::path::PathBuf;
 
@@ -68,6 +69,21 @@ fn tokenize(s: String) -> Tokenizer {
     Tokenizer::new(s)
 }
 
+fn build_word(tok: String) -> (Option<String>, TokenType) {
+    lazy_static! {
+        static ref R_SYNTAX: Regex = Regex::new(r"^(~>|-(\d+|&)?>(\d+|\+)?)$").unwrap();
+        static ref L_SYNTAX: Regex = Regex::new(r"^((\d+)?<(<|\d+)?-|<~)$").unwrap();
+    }
+
+    let ttype = if R_SYNTAX.is_match(&tok) || L_SYNTAX.is_match(&tok) {
+        TokenType::Redir
+    } else {
+        TokenType::Word
+    };
+
+    (Some(tok), ttype)
+}
+
 impl Iterator for Tokenizer {
     type Item = Result<(Option<String>, TokenType), TokenException>;
 
@@ -101,7 +117,7 @@ impl Iterator for Tokenizer {
                 } else if pdepth == 0 && bdepth == 0 && quot == Qu::None {
                     let res = self.complete[self.ctok_start..i].to_string();
                     self.ctok_start = i;
-                    return Some(Ok((Some(res), TokenType::Word)));
+                    return Some(Ok(build_word(res)));
                 }
             }
 
@@ -112,7 +128,7 @@ impl Iterator for Tokenizer {
                         if self.ctok_start < i {
                             let res = self.complete[self.ctok_start..i].to_string();
                             self.ctok_start = i;
-                            return Some(Ok((Some(res), TokenType::Word)));
+                            return Some(Ok(build_word(res)));
                         } else {
                             return None;
                         }
@@ -125,7 +141,7 @@ impl Iterator for Tokenizer {
                         if self.ctok_start < i { // return word before pipe
                             let res = self.complete[self.ctok_start..i].to_string();
                             self.ctok_start = i;
-                            return Some(Ok((Some(res), TokenType::Word)));
+                            return Some(Ok(build_word(res)));
                         } else {                 // return the pipe itself
                             self.ctok_start = i + c.len();
                             return Some(Ok((None, TokenType::Pipe)));
@@ -172,7 +188,7 @@ impl Iterator for Tokenizer {
                             // need to return last word first
                             let res = self.complete[self.ctok_start..i].to_string();
                             self.ctok_start = i;
-                            return Some(Ok((Some(res), TokenType::Word)));
+                            return Some(Ok(build_word(res)));
                         } else {
                             bdepth += 1;
                         }
@@ -200,7 +216,7 @@ impl Iterator for Tokenizer {
         if pdepth == 0 && bdepth == 0 && quot == Qu::None && self.ctok_start < self.complete.len() {
             let res = self.complete[self.ctok_start..].to_string();
             self.ctok_start = self.complete.len();
-            return Some(Ok((Some(res), TokenType::Word)));
+            return Some(Ok(build_word(res)));
         }
 
         // if we've gotten this far...
@@ -208,7 +224,7 @@ impl Iterator for Tokenizer {
     }
 }
 
-// Eats quotes & backslashes && resolves parens
+// resolves a word token into a more useful word token
 fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
     let mut res = String::new();
     let mut pstack = Vec::new();
