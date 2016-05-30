@@ -3,6 +3,9 @@ use std::process::exit;
 use std::any::Any;
 use std::io::Read;
 use std::io::ErrorKind;
+use std::io::Result;
+use std::fs::OpenOptions;
+use std::os::unix::io::AsRawFd;
 use std::mem;
 
 use std::ffi::CString;
@@ -37,13 +40,13 @@ pub enum ProcStruct {
 // out grammar: (-|~)(fd|&)?>(fd|+)?
 // in grammar:  (fd)?<<?(fd)?(-|~)
 pub enum Redir {
-    RdCmdOut(String),             // command substitutions
-    RdCmdIn(String),              //  - out/in controls WritePipe vs ReadPipe
-    RdFdOut(FileDesc, FileDesc),  // fd substitutions
-    RdFdIn(FileDesc, FileDesc),   //  - e.g. -2>1
-    RdFileOut(FileDesc, String),  // file substitutions
-    RdFileIn(FileDesc, String),   //  - e.g. -2> errs.txt
-    RdStringIn(FileDesc, String)  // here-string/here-documents
+    RdArgOut(String),             // command substitutions
+    RdArgIn(String),              //  - out/in controls WritePipe vs ReadPipe
+    RdFdOut(i32, i32),  // fd substitutions
+    RdFdIn(i32, i32),   //  - e.g. -2>1
+    RdFileOut(i32, String, bool),  // file substitutions
+    RdFileIn(i32, String),   //  - e.g. -2> errs.txt
+    RdStringIn(i32, String)  // here-string/here-documents
 }
 
 /// Struct describing a child process.  Allows the shell to wait for the process and
@@ -68,6 +71,7 @@ pub trait Process : Any {
     fn exec(self, &mut Shell, Option<Pgid>) -> Option<Child>;
     fn has_args(&self) -> bool;
     fn push_arg(&mut self, String) -> &Process;
+    fn push_redir(&mut self, Redir) -> &Process;
     fn stdin(&mut self, ReadPipe) -> &Process;
     fn stdout(&mut self, WritePipe) -> &Process;
 }
@@ -92,6 +96,13 @@ impl Process for Box<ProcStruct> {
         };
         self
     }
+    fn push_redir(&mut self, redir: Redir) -> &Process {
+        match **self {
+            BuiltinProc(ref mut bp) => { bp.push_redir(redir) },
+            BinProc(ref mut bp)     => { bp.push_redir(redir) }
+        };
+        self
+    }
     fn stdin(&mut self, arg: ReadPipe) -> &Process {
         match **self {
             BuiltinProc(ref mut bp) => { bp.stdin(arg) },
@@ -110,24 +121,72 @@ impl Process for Box<ProcStruct> {
 
 struct ProcessInner {
     ch_stdin:  Option<ReadPipe>,
-    ch_stdout: Option<WritePipe>
+    ch_stdout: Option<WritePipe>,
+    rds:       Vec<Redir>
 }
 
 impl ProcessInner {
     fn new() -> Self {
         ProcessInner {
             ch_stdin:  None,
-            ch_stdout: None
+            ch_stdout: None,
+            rds:       Vec::new()
         }
     }
 
-    fn redirect(self) {
+    fn redirect(mut self) -> Result<()> {
         if let Some(read) = self.ch_stdin {
-            posix::set_stdin(read).expect("Could not redirect stdin");
+            try!(posix::set_stdin(read));
         }
         if let Some(write) = self.ch_stdout {
-            posix::set_stdout(write).expect("Could not redirect stdout");
+            try!(posix::set_stdout(write));
         }
+
+        while let Some(rd) = self.rds.pop() {
+            match rd {
+                Redir::RdArgOut(dest) => {
+                    // unimplemented
+                    println!(" ~> '{}'", dest);
+                },
+                Redir::RdArgIn(src) => {
+                    // unimplemented
+                    println!(" <~ '{}'", src);
+                },
+                Redir::RdFdOut(src, dest) => {
+                    try!(posix::dup_fds(src, dest));
+                    if src == -2 { // '&'
+                        try!(posix::dup_fds(1, dest));
+                        try!(posix::dup_fds(2, dest));
+                    } else {
+                        try!(posix::dup_fds(src, dest));
+                    }
+                },
+                Redir::RdFdIn(src, dest) => {
+                    try!(posix::dup_fds(src, dest));
+                },
+                Redir::RdFileOut(src, dest, app) => {
+                    let fi = try!(OpenOptions::new().write(true).create(true)
+                                                    .append(app).open(dest));
+                    if src == -2 { // '&'
+                        try!(posix::dup_fds(1, fi.as_raw_fd()));
+                        try!(posix::dup_fds(2, fi.as_raw_fd()));
+                    } else {
+                        try!(posix::dup_fds(src, fi.as_raw_fd()));
+                    }
+                    mem::forget(fi);
+                },
+                Redir::RdFileIn(dest, src) => {
+                    let fi = try!(OpenOptions::new().read(true).open(src));
+                    try!(posix::dup_fds(dest, fi.as_raw_fd()));
+                    mem::forget(fi);
+                },
+                Redir::RdStringIn(dest, src_str) => {
+                    // unimplemented
+                    println!(" string '{}' => fd '{}'", src_str, dest);
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -161,7 +220,10 @@ impl Process for BuiltinProcess {
                 },
                 Ok(None) => {
                     // TODO: perform redirections in child
-                    self.inner.redirect();
+                    if let Err(e) = self.inner.redirect() {
+                        warn(&format!("Could not redirect: {}", e));
+                        exit(e.raw_os_error().unwrap_or(7));
+                    }
                     let r = (*self.to_exec.run)(self.argv.to_owned(), sh);
                     exit(r);
                 },
@@ -181,6 +243,11 @@ impl Process for BuiltinProcess {
 
     fn push_arg(&mut self, new_arg: String) -> &Process {
         self.argv.push(new_arg);
+        self
+    }
+
+    fn push_redir(&mut self, new_redir: Redir) -> &Process {
+        self.inner.rds.push(new_redir);
         self
     }
 
@@ -250,9 +317,11 @@ impl Process for BinProcess {
                 None
             },
             Ok(None) => {
-                // gotta exec!
-                // TODO: perform redirections in child
-                self.inner.redirect();
+                if let Err(e) = self.inner.redirect() {
+                    warn(&format!("Could not redirect: {}", e));
+                    exit(e.raw_os_error().unwrap_or(7));
+                }
+
                 let e = posix::execv(pb2c(self.to_exec).as_ptr(), self.argv.as_ptr());
                 if e.kind() == ErrorKind::NotFound {
                     // TODO: custom handler function
@@ -280,6 +349,11 @@ impl Process for BinProcess {
         // for memory correctness
         self.m_args.push(arg);
 
+        self
+    }
+
+    fn push_redir(&mut self, new_redir: Redir) -> &Process {
+        self.inner.rds.push(new_redir);
         self
     }
 

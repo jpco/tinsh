@@ -20,6 +20,9 @@ use exec::BinProcess;
 use exec::ProcStruct;
 use exec::ProcStruct::BinProc;
 use exec::ProcStruct::BuiltinProc;
+use exec::Redir;
+
+use posix::FileDesc;
 
 #[derive(PartialEq)]
 enum TokenType {
@@ -320,6 +323,61 @@ pub fn spl_line(cmd: &str) -> (String, Option<String>) {
     (cmd.to_string(), None)
 }
 
+// An enum to indicate we are waiting for a redirection token.
+enum RedirBuf {
+    RdArgOut,
+    RdArgIn,
+    RdFileOut(i32, bool),
+    RdFileIn(i32),
+    RdStringIn(i32)
+}
+
+fn parse_redir(tok: &str) -> (Option<Redir>, Option<RedirBuf>) {
+    match tok {
+        "~>"  => (None, Some(RedirBuf::RdArgOut)),
+        "<~"  => (None, Some(RedirBuf::RdArgIn)),
+        "<<-" => (None, Some(RedirBuf::RdStringIn(0))),
+        _ => {
+            lazy_static! {
+                static ref rd_out: Regex
+                    = Regex::new(r"^-(&|\d*)>(\+|\d*)$").unwrap();
+                static ref rd_in: Regex
+                    = Regex::new(r"^(\d*)<(\d*)-$").unwrap();
+            }
+
+            if let Some(caps) = rd_out.captures(tok) {
+                let src_fd = match caps.at(1).unwrap() {
+                    "" => 1,
+                    "&" => -2,
+                    e  => e.parse::<i32>().unwrap()
+                };
+                match caps.at(2).unwrap() {
+                    "" => (None, Some(RedirBuf::RdFileOut(src_fd, false))),
+                    "+" => (None, Some(RedirBuf::RdFileOut(src_fd, true))),
+                    e  => {
+                        let dest_fd = e.parse::<i32>().unwrap();
+                        (Some(Redir::RdFdOut(src_fd, dest_fd)), None)
+                    }
+                }
+            } else if let Some(caps) = rd_in.captures(tok) {
+                let dest_fd = match caps.at(1).unwrap() {
+                    "" => 0,
+                    e  => e.parse::<i32>().unwrap()
+                };
+                match caps.at(2).unwrap() {
+                    "" => (None, Some(RedirBuf::RdFileIn(dest_fd))),
+                    e  => {
+                        let src_fd = e.parse::<i32>().unwrap();
+                        (Some(Redir::RdFdIn(src_fd, dest_fd)), None)
+                    }
+                }
+            } else {
+                unreachable!();  // if we get here I have gravely erred
+            }
+        }
+    }
+}
+
 pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
     let mut cmd = cmd.trim().to_string();
 
@@ -329,8 +387,11 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
 
     let mut job = Job::new(cmd.clone());
     let mut cproc: Box<ProcStruct> = Box::new(BuiltinProc(BuiltinProcess::default()));
+    let mut rd_buf = None;
 
     // begin by evaluating any aliases
+    // FIXME: this is insufficient; if someone types 'a | b' and 'b' is an alias,
+    //        it does not get resolved.
     let mut alias_tokenizer = tokenize(cmd.clone());
     if let Some(Ok((Some(w), TokenType::Word))) = alias_tokenizer.nth(0) {
         match sh.st.resolve_types(&w, Some(vec![SymType::Var])) {
@@ -356,8 +417,34 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                         // don't do anything with empty tokens, guh
                         if tok.trim().is_empty() { continue; }
 
+                        // gotta finish the redirect!
+                        if rd_buf.is_some() {
+                            match rd_buf.unwrap() {
+                                RedirBuf::RdArgOut          => {
+                                    cproc.push_redir(Redir::RdArgOut(tok));
+                                },
+                                RedirBuf::RdArgIn           => {
+                                    cproc.push_redir(Redir::RdArgIn(tok));
+                                },
+                                RedirBuf::RdFileOut(fd, ap) => {
+                                    cproc.push_redir(Redir::RdFileOut(fd, tok, ap));
+                                },
+                                RedirBuf::RdFileIn(fd)      => {
+                                    cproc.push_redir(Redir::RdFileIn(fd, tok));
+                                },
+                                RedirBuf::RdStringIn(fd)    => {
+                                    cproc.push_redir(Redir::RdStringIn(fd, tok));
+                                }
+                            }
+                            rd_buf = None;
+                            continue;
+                        }
+
                         if !cproc.has_args() {
                             // first word -- convert process to appropriate thing
+                            // TODO: in non-interactive shells we don't need to
+                            // evaluate every binary up-front; make resolution more
+                            // piecemeal to speed up startup
                             cproc = match sh.st.resolve_types(&tok,
                                                       Some(vec![sym::SymType::Binary,
                                                            sym::SymType::Builtin])) {
@@ -366,22 +453,39 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                                 Some(sym::Sym::Binary(b))  =>
                                     Box::new(BinProc(BinProcess::new(&tok, b))),
                                 None =>
+                                    // assume it's in the filesystem but not in PATH
+                                    // FIXME: this enables '.' in PATH by default
                                     Box::new(BinProc(BinProcess::new(&tok, PathBuf::from(tok.clone())))),
-                                _ =>
-                                    unreachable!()
+                                _ => unreachable!()
                             };
                         } else {
                             cproc.push_arg(tok);
                         }
                     },
                     TokenType::Pipe  => {
+                        if rd_buf.is_some() {
+                            warn("Syntax error: unfinished redirect.");
+                            rd_buf = None;
+                        }
                         job.procs.push(cproc);
                         cproc = Box::new(BuiltinProc(BuiltinProcess::default()));
                     },
                     TokenType::Redir => {
-                        println!("Redirects are still unimplemented");
+                        let tok = tok.unwrap();
+                        if rd_buf.is_some() {
+                            warn("Syntax error: unfinished redirect.");
+                        }
+                        let (rd, rdb) = parse_redir(&tok);
+                        rd_buf = rdb;
+                        if let Some(rd) = rd {
+                            cproc.push_redir(rd);
+                        }
                     },
                     TokenType::Block => {
+                        if rd_buf.is_some() {
+                            warn("Syntax error: unfinished redirect.");
+                            rd_buf = None;
+                        }
                         println!("Blocks are still unimplemented");
                     }
                 }
@@ -390,11 +494,11 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
             // TODO: cache && continue
             Err(e)     => match e {
                 TokenException::ExtraRightParen => {
-                    warn("Extra right parenthesis found");
+                    warn("Syntax error: extra right parenthesis found");
                     return (None, LineState::Normal);
                 },
                 TokenException::ExtraRightBrace => {
-                    warn("Extra right brace found");
+                    warn("Syntax error: extra right brace found");
                     return (None, LineState::Normal);
                 },
                 TokenException::Incomplete      => {
@@ -403,6 +507,10 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
             }
         }
     }
+    if rd_buf.is_some() {
+        warn("Syntax error: unfinished redirect.");
+    }
+
     job.procs.push(cproc);
 
     // (None, LineState::Normal)

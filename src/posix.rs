@@ -18,6 +18,12 @@ use std::io::Write;
 use std::io::Error;
 use std::io::ErrorKind;
 
+use std::fmt;
+
+use std::os::unix::io::AsRawFd;
+
+use std::fs::File;
+
 use err::warn;
 
 extern {
@@ -75,8 +81,20 @@ impl Status {
 }
 
 impl Pid {
+    pub fn current() -> i32 {
+        unsafe {
+            libc::getpid()
+        }
+    }
+
     pub fn to_pgid(&self) -> Pgid {
         Pgid(self.0)
+    }
+}
+
+impl fmt::Display for FileDesc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -135,6 +153,10 @@ impl Write for FileDesc {
 }
 
 impl FileDesc {
+    pub fn new(n: i32) -> Self {
+        FileDesc(n)
+    }
+
     pub fn into_raw(self) -> i32 {
         let fd = self.0;
         mem::forget(self);
@@ -145,6 +167,14 @@ impl FileDesc {
 impl Drop for FileDesc {
     fn drop(&mut self) {
         let _ = unsafe { libc::close(self.0) };
+    }
+}
+
+impl From<File> for FileDesc {
+    fn from(f: File) -> Self {
+        let fd = f.as_raw_fd();
+        mem::forget(f);
+        FileDesc(fd)
     }
 }
 
@@ -269,6 +299,13 @@ pub fn set_stdout(pipe: WritePipe) -> Result<()> {
         let fd = pipe.into_raw();
         etry!(libc::dup2(fd, libc::STDOUT_FILENO));
     };
+    Ok(())
+}
+
+pub fn dup_fds(src: i32, dest: i32) -> Result<()> {
+    unsafe {
+        etry!(libc::dup2(dest, src));
+    }
     Ok(())
 }
 
