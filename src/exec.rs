@@ -4,8 +4,12 @@ use std::any::Any;
 use std::io::Read;
 use std::io::ErrorKind;
 use std::io::Result;
+use std::io;
+use std::io::BufReader;
 use std::fs::OpenOptions;
+use std::fs::File;
 use std::os::unix::io::AsRawFd;
+use std::os::unix::io::FromRawFd;
 use std::mem;
 
 use std::ffi::CString;
@@ -210,8 +214,11 @@ impl BuiltinProcess {
 
 impl Process for BuiltinProcess {
     fn exec(self, sh: &mut Shell, pgid: Option<Pgid>) -> Option<Child> {
-        // TODO: background => fork, not handled currently
-        if self.inner.ch_stdin.is_some() || self.inner.ch_stdout.is_some() {
+        // TODO: fork happens iff
+        //  - proc is bg
+        //  - stdout is some
+        //  - there are output redirects
+        if self.inner.ch_stdout.is_some() {
             match posix::fork(sh.interactive, pgid) {
                 Err(e) => {
                     // oops. gotta bail.
@@ -224,7 +231,7 @@ impl Process for BuiltinProcess {
                         warn(&format!("Could not redirect: {}", e));
                         exit(e.raw_os_error().unwrap_or(7));
                     }
-                    let r = (*self.to_exec.run)(self.argv.to_owned(), sh);
+                    let r = (*self.to_exec.run)(self.argv.to_owned(), sh, None);
                     exit(r);
                 },
                 Ok(Some(ch_pid)) => {
@@ -232,7 +239,19 @@ impl Process for BuiltinProcess {
                 }
             }
         } else {
-            (*self.to_exec.run)(self.argv.to_owned(), sh);
+            unsafe {
+                let br = if self.inner.ch_stdin.is_some() {
+                    Some(BufReader::new(File::from_raw_fd(self
+                                                          .inner
+                                                          .ch_stdin
+                                                          .unwrap()
+                                                          .into_raw())))
+                } else {
+                    None
+                };
+                (*self.to_exec.run)(self.argv.to_owned(), sh, br);
+            }
+
             None
         }
     }

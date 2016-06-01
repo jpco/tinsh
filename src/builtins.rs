@@ -5,6 +5,8 @@ use std::fs;
 use std::env;
 
 use std::io;
+use std::io::BufReader;
+use std::io::BufRead;
 
 use sym;
 use err;
@@ -15,7 +17,7 @@ use shell::Shell;
 pub struct Builtin {
     pub name: &'static str,
     pub desc: &'static str,
-    pub run:  rc::Rc<Fn(Vec<String>, &mut Shell) -> i32>
+    pub run:  rc::Rc<Fn(Vec<String>, &mut Shell, Option<BufReader<fs::File>>) -> i32>
 }
 
 // TODO:
@@ -30,7 +32,7 @@ fn blank_builtin() -> Builtin {
     Builtin {
         name: "__blank",
         desc: "The blank builtin",
-        run: rc::Rc::new(|_args: Vec<String>, _sh: &mut Shell|
+        run: rc::Rc::new(|_args: Vec<String>, _sh: &mut Shell, _in: Option<BufReader<fs::File>>|
                          -> i32 {
             // do nothing
             // TODO: run any attached blocks... then do nothing
@@ -56,7 +58,8 @@ impl Builtin {
             Builtin {
                 name: "set",
                 desc: "Set a variable binding",
-                run: rc::Rc::new(|args: Vec<String>, sh: &mut Shell| -> i32 {
+                run: rc::Rc::new(|args: Vec<String>, sh: &mut Shell, 
+                                 _in: Option<BufReader<fs::File>>| -> i32 {
                     if args.len() < 2 {
                         err::warn("set: insufficient arguments.");
                         return 2;
@@ -123,7 +126,8 @@ impl Builtin {
             Builtin {
                 name: "cd",
                 desc: "Change directory",
-                run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell| -> i32 {
+                run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell,
+                                 _in: Option<BufReader<fs::File>>| -> i32 {
                     // TODO: more smartly handle the case HOME is nothing?
                     if args.len() == 0 {
                         let home = match env::var("HOME") {
@@ -166,7 +170,8 @@ impl Builtin {
             Builtin {
                 name: "exit",
                 desc: "Exit the tin shell",
-                run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell| -> i32 {
+                run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell,
+                                 _in: Option<BufReader<fs::File>>| -> i32 {
                     if args.len() == 0 {
                         exit(0);
                     } 
@@ -185,7 +190,8 @@ impl Builtin {
             Builtin {
                 name: "history",
                 desc: "List/control history",
-                run: rc::Rc::new(|_args: Vec<String>, sh: &mut Shell| -> i32 {
+                run: rc::Rc::new(|_args: Vec<String>, sh: &mut Shell,
+                                 _in: Option<BufReader<fs::File>>| -> i32 {
                     sh.ht.hist_print();
                     0
                 })
@@ -195,10 +201,15 @@ impl Builtin {
             Builtin {
                 name: "read",
                 desc: "Read from stdin or a file and echo to stdout",
-                run: rc::Rc::new(|_args: Vec<String>, _sh: &mut Shell| -> i32 {
+                run: rc::Rc::new(|_args: Vec<String>, _sh: &mut Shell,
+                                 mut inp: Option<BufReader<fs::File>>| -> i32 {
                     let mut in_buf = String::new();
-                    if io::stdin().read_line(&mut in_buf).is_ok() {
-                        // let in_buf = in_buf.trim();
+                    let res = if let Some(mut br) = inp {
+                        br.read_line(&mut in_buf)
+                    } else {
+                        io::stdin().read_line(&mut in_buf)
+                    };
+                    if res.is_ok() {
                         print!("{}", in_buf);
                         0
                     } else {
