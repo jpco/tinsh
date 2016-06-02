@@ -45,9 +45,9 @@ syn match     tinEscape      contained "\\\(x\x\+\|\o\{1,3}\|.\|$\)"
 
 " need regions: strings, parens, comments (with todos), etc.
 " strings
-syn region tinDoubleQuote start="\"" end="\"" contains=tinParen,tinEscape
-syn region tinSingleQuote start="'" end="'"
-syn region tinRegexQuote  start="`" end="`"
+syn region tinDoubleQuote start="\"" end="\"" skip="\\\"" contains=tinParen,tinEscape
+syn region tinSingleQuote start="'" end="'" skip="\\'"
+syn region tinRegexQuote  start="`" end="`" skip="\\`"
 " parens
 syn region tinParen start="(" end=")" contains=ALLBUT,tinForIdentifier,tinIdentifier,tinTodo,tinIdArgument
 syn region tinVarProc start="\[" end="\]" contained
