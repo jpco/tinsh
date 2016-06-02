@@ -60,11 +60,17 @@ pub fn bin_complete(in_str: &str, st: &Symtable, print_multi: bool) -> String {
 // TODO: more completely handle globs in the to-complete string
 pub fn fs_complete(in_str: &str, print_multi: bool) -> String {
     let mut input;
+    let mut tilde = false;
+    let mut cpref = false;
     if in_str.starts_with("~/") {
+        tilde = true;
         let in_str = in_str.trim_left_matches("~");
         input = env::var("HOME").unwrap_or("~/".to_string());
         input.push_str(in_str);
     } else {
+        if in_str.starts_with("./") {
+            cpref = true;
+        }
         input = in_str.to_string();
     }
     
@@ -76,24 +82,35 @@ pub fn fs_complete(in_str: &str, print_multi: bool) -> String {
     }.filter_map(Result::ok).map(|x| format!("{}", x.display()))
                             .collect::<Vec<String>>();
 
-    if res_vec.len() == 1 {
+    let mut ret = if res_vec.len() == 1 {
         let ref res = res_vec[0];
+
         let t = match fs::metadata(res) {
             Ok(x) => if x.is_dir() { "/" } else { " " },
             Err(_) => ""
         };
         let mut res = res.clone();
+        res.replace(" ", "\\ ");
         res.push_str(t);
-        return res;
+        res
     } else if res_vec.len() > 0 {
         if print_multi {
             print_completions(&res_vec);
         }
         
         // find common prefix
-        return common_prefix(res_vec);
+        common_prefix(res_vec)
+    } else {
+        in_str.to_string()
+    };
+
+    if tilde {
+        ret.replace(&env::var("HOME").unwrap(), "~")
+    } else {
+        if cpref && !ret.starts_with("./") {
+            ret.insert(0, '.');
+            ret.insert(1, '/');
+        }
+        ret
     }
-
-    in_str.to_string()
 }
-
