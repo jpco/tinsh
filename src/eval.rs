@@ -22,8 +22,6 @@ use exec::ProcStruct::BinProc;
 use exec::ProcStruct::BuiltinProc;
 use exec::Redir;
 
-use posix::FileDesc;
-
 #[derive(PartialEq)]
 enum TokenType {
     Word,
@@ -61,10 +59,6 @@ impl Tokenizer {
     // these next two methods are for re-tokenizing after a Continue
     fn get_start(&self) -> usize {
         self.ctok_start
-    }
-
-    fn set_start(&mut self, anustrt: usize) {
-        self.ctok_start = anustrt;
     }
 }
 
@@ -339,13 +333,13 @@ fn parse_redir(tok: &str) -> (Option<Redir>, Option<RedirBuf>) {
         "<<-" => (None, Some(RedirBuf::RdStringIn(0))),
         _ => {
             lazy_static! {
-                static ref rd_out: Regex
+                static ref RD_OUT: Regex
                     = Regex::new(r"^-(&|\d*)>(\+|\d*)$").unwrap();
-                static ref rd_in: Regex
+                static ref RD_IN: Regex
                     = Regex::new(r"^(\d*)<(\d*)-$").unwrap();
             }
 
-            if let Some(caps) = rd_out.captures(tok) {
+            if let Some(caps) = RD_OUT.captures(tok) {
                 let src_fd = match caps.at(1).unwrap() {
                     "" => 1,
                     "&" => -2,
@@ -359,7 +353,7 @@ fn parse_redir(tok: &str) -> (Option<Redir>, Option<RedirBuf>) {
                         (Some(Redir::RdFdOut(src_fd, dest_fd)), None)
                     }
                 }
-            } else if let Some(caps) = rd_in.captures(tok) {
+            } else if let Some(caps) = RD_IN.captures(tok) {
                 let dest_fd = match caps.at(1).unwrap() {
                     "" => 0,
                     e  => e.parse::<i32>().unwrap()

@@ -4,7 +4,6 @@ use std::any::Any;
 use std::io::Read;
 use std::io::ErrorKind;
 use std::io::Result;
-use std::io;
 use std::io::BufReader;
 use std::fs::OpenOptions;
 use std::fs::File;
@@ -19,7 +18,6 @@ use std::os::unix::ffi::OsStrExt;
 use posix;
 use posix::Pid;
 use posix::Pgid;
-use posix::FileDesc;
 use posix::ReadPipe;
 use posix::WritePipe;
 use posix::Status;
@@ -56,17 +54,13 @@ pub enum Redir {
 /// Struct describing a child process.  Allows the shell to wait for the process and
 /// control the process' input & output.
 pub struct Child {
-    pid: Pid,
-    stdout: Option<ReadPipe>,
-    stdin:  Option<WritePipe>
+    pid: Pid
 }
 
 impl Child {
     fn new(pid: Pid) -> Self {
         Child {
-            pid: pid,
-            stdout: None,
-            stdin: None
+            pid: pid
         }
     }
 }
@@ -393,7 +387,8 @@ pub struct Job {
     pub procs: Vec<Box<ProcStruct>>,
     children: Vec<Child>,
 
-    command: String,
+    // TODO: to be used with job control
+    // command: String,
     pgid: Option<Pgid>,
     pub fg: bool,
 
@@ -531,13 +526,13 @@ impl Job {
         r
     }
 
-    pub fn new(cmd: String) -> Self {
+    pub fn new(_cmd: String) -> Self {
         Job {
             spawned: false,
             procs: Vec::new(),
             children: Vec::new(),
 
-            command: cmd,
+            // command: cmd,
             pgid: None,
             fg: true,
 

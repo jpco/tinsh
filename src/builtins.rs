@@ -202,7 +202,7 @@ impl Builtin {
                 name: "read",
                 desc: "Read from stdin or a file and echo to stdout",
                 run: rc::Rc::new(|_args: Vec<String>, _sh: &mut Shell,
-                                 mut inp: Option<BufReader<fs::File>>| -> i32 {
+                                 inp: Option<BufReader<fs::File>>| -> i32 {
                     let mut in_buf = String::new();
                     let res = if let Some(mut br) = inp {
                         br.read_line(&mut in_buf)
