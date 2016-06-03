@@ -28,7 +28,6 @@ use self::libc::c_char;
 use self::libc::EINVAL;
 
 use shell::Shell;
-use err::warn;
 use builtins::Builtin;
 
 use self::ProcStruct::BuiltinProc;
@@ -216,13 +215,13 @@ impl Process for BuiltinProcess {
             match posix::fork(sh.interactive, pgid) {
                 Err(e) => {
                     // oops. gotta bail.
-                    warn(&format!("Could not fork child: {}", e));
+                    warn!("Could not fork child: {}", e);
                     None
                 },
                 Ok(None) => {
                     // TODO: perform redirections in child
                     if let Err(e) = self.inner.redirect() {
-                        warn(&format!("Could not redirect: {}", e));
+                        warn!("Could not redirect: {}", e);
                         exit(e.raw_os_error().unwrap_or(7));
                     }
                     let r = (*self.to_exec.run)(self.argv.to_owned(), sh, None);
@@ -326,12 +325,12 @@ impl Process for BinProcess {
         match posix::fork(sh.interactive, pgid) {
             Err(e) => {
                 // oops. gotta bail.
-                warn(&format!("Could not fork child: {}", e));
+                warn!("Could not fork child: {}", e);
                 None
             },
             Ok(None) => {
                 if let Err(e) = self.inner.redirect() {
-                    warn(&format!("Could not redirect: {}", e));
+                    warn!("Could not redirect: {}", e);
                     exit(e.raw_os_error().unwrap_or(7));
                 }
 
@@ -340,7 +339,7 @@ impl Process for BinProcess {
                     // TODO: custom handler function
                     println!("Command '{}' not found.", self.m_args[0].to_str().unwrap());
                 } else {
-                    warn(&format!("Could not exec: {}", e));
+                    warn!("Could not exec: {}", e);
                 }
                 exit(e.raw_os_error().unwrap_or(EINVAL));
             },
@@ -417,7 +416,7 @@ impl Job {
                         read = Some(nread);
                     },
                     Err(e) => {
-                        warn(&format!("Could not create pipe: {}", e));
+                        warn!("Could not create pipe: {}", e);
                     }
                 }
             }
@@ -436,7 +435,7 @@ impl Job {
 
         if self.fg && sh.interactive && self.pgid.is_some() {
             if let Err(e) = posix::give_terminal(self.pgid.unwrap()) {
-                warn(&format!("Could not give child the terminal: {}", e));
+                warn!("Could not give child the terminal: {}", e);
             }
         }
 
@@ -477,10 +476,10 @@ impl Job {
 
         if sh.interactive {
             if let Err(e) = posix::set_signal_ignore(true) {
-                warn(&format!("Couldn't ignore signals: {}", e));
+                warn!("Couldn't ignore signals: {}", e);
             } else {
                 if let Err(e) = posix::take_terminal() {
-                    warn(&format!("Couldn't take terminal: {}", e));
+                    warn!("Couldn't take terminal: {}", e);
                 }
             }
         }
@@ -506,7 +505,7 @@ impl Job {
                     st
                 },
                 Err(e) => {
-                    warn(&format!("Error waiting for child: {}", e));
+                    warn!("Error waiting for child: {}", e);
                     None
                 }
             }
@@ -515,10 +514,10 @@ impl Job {
         if sh.interactive {
             // do this before taking the terminal to prevent indefinite hang
             if let Err(e) = posix::set_signal_ignore(true) {
-                warn(&format!("Couldn't ignore signals: {}", e));
+                warn!("Couldn't ignore signals: {}", e);
             } else {
                 if let Err(e) = posix::take_terminal() {
-                    warn(&format!("Couldn't take terminal: {}", e));
+                    warn!("Couldn't take terminal: {}", e);
                 }
             }
         }

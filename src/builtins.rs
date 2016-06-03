@@ -9,7 +9,6 @@ use std::io::BufReader;
 use std::io::BufRead;
 
 use sym;
-use err;
 
 use shell::Shell;
 
@@ -21,10 +20,8 @@ pub struct Builtin {
 }
 
 // TODO:
-//  - fn (might actually be able to make 'fn' functional sugar for 'set foo = fn')
-//  - all flow control obviously, test, etc.
+//  - elementary flow control
 //  - hash
-//  - read
 //  - __blank
 //  - __fn_exec
 
@@ -61,7 +58,7 @@ impl Builtin {
                 run: rc::Rc::new(|args: Vec<String>, sh: &mut Shell, 
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     if args.len() < 2 {
-                        err::warn("set: insufficient arguments.");
+                        warn!("set: insufficient arguments.");
                         return 2;
                     }
                     let mut key = String::new();
@@ -75,11 +72,10 @@ impl Builtin {
                                 match c {
                                     'l' | 'g' | 'e' => {
                                         if spec != sym::ScopeSpec::Default {
-                                            err::warn("set: Multiple settings for \
+                                            warn!("set: Multiple settings for \
                                                        binding specified");
                                         }
-                                        err::debug(&format!("set: Using '{}' for \
-                                                            var", c));
+                                        debug!("set: Using '{}' for var", c);
                                         spec = match c {
                                             'l' => sym::ScopeSpec::Default,
                                             'g' => sym::ScopeSpec::Global,
@@ -88,9 +84,9 @@ impl Builtin {
                                         };
                                     },
                                     _   => {
-                                        err::warn(&format!("set: Unrecognized \
+                                        warn!("set: Unrecognized \
                                                   argument '{}' found",
-                                                  c));
+                                                  c);
                                     }
                                 }
                             }
@@ -112,7 +108,7 @@ impl Builtin {
                     }
 
                     if phase != 2 {
-                        err::warn("set: Malformed syntax (no '=')");
+                        warn!("set: Malformed syntax (no '=')");
                     } else {
                         sh.st.set_scope(&key, val, spec);
                     }
@@ -133,14 +129,14 @@ impl Builtin {
                         let home = match env::var("HOME") {
                             Ok(hm)  => hm,
                             Err(_)  => {
-                                err::warn("cd: no HOME environment variable found.");
+                                warn!("cd: no HOME environment variable found.");
                                 return 2; /* TODO: correct error code */
                             }
                         };
                         match env::set_current_dir (home.clone()) {
                             Ok(_) => env::set_var("PWD", home),
                             Err(e) => {
-                                err::warn(&format!("cd: {}", e));
+                                warn!("cd: {}", e);
                                 return 2;
                             }
                         };
@@ -148,14 +144,14 @@ impl Builtin {
                         let dest = match fs::canonicalize(args[0].clone()) {
                             Ok(pt) => pt,
                             Err(e) => {
-                                err::warn(&format!("cd: {}", e));
+                                warn!("cd: {}", e);
                                 return 2;
                             }
                         }.into_os_string().into_string().unwrap();
                         match env::set_current_dir (dest.clone()) {
                             Ok(_) => env::set_var("PWD", dest),
                             Err(e) => {
-                                err::warn(&format!("cd: {}", e));
+                                warn!("cd: {}", e);
                                 return 2;
                             }
                         };
@@ -178,7 +174,7 @@ impl Builtin {
                     match args[0].parse::<i32>() {
                         Ok(i) => exit(i),
                         Err(_) => {
-                            err::warn("exit: numeric argument required.");
+                            warn!("exit: numeric argument required.");
                             exit(2)
                         }
                     }

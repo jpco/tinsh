@@ -82,7 +82,7 @@ impl Symtable {
             _ => match val.parse::<u8>() {
                 Ok(i)  => i,
                 Err(_) => {
-                    err::warn(&format!("args: invalid __tin_debug level '{}' given", val));
+                    warn!("args: invalid __tin_debug level '{}' given", val);
                     return;
                 }
             }

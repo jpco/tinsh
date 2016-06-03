@@ -12,7 +12,6 @@ use std::path::PathBuf;
 use sym::SymType;
 use sym::Sym;
 use prompt::LineState;
-use err::warn;
 use exec::Job;
 use exec::Process;
 use exec::BuiltinProcess;
@@ -458,7 +457,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                     },
                     TokenType::Pipe  => {
                         if rd_buf.is_some() {
-                            warn("Syntax error: unfinished redirect.");
+                            warn!("Syntax error: unfinished redirect.");
                             rd_buf = None;
                         }
                         job.procs.push(cproc);
@@ -467,7 +466,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                     TokenType::Redir => {
                         let tok = tok.unwrap();
                         if rd_buf.is_some() {
-                            warn("Syntax error: unfinished redirect.");
+                            warn!("Syntax error: unfinished redirect.");
                         }
                         let (rd, rdb) = parse_redir(&tok);
                         rd_buf = rdb;
@@ -477,7 +476,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                     },
                     TokenType::Block => {
                         if rd_buf.is_some() {
-                            warn("Syntax error: unfinished redirect.");
+                            warn!("Syntax error: unfinished redirect.");
                             rd_buf = None;
                         }
                         println!("Blocks are still unimplemented");
@@ -488,11 +487,11 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
             // TODO: cache && continue
             Err(e)     => match e {
                 TokenException::ExtraRightParen => {
-                    warn("Syntax error: extra right parenthesis found");
+                    warn!("Syntax error: extra right parenthesis found");
                     return (None, LineState::Normal);
                 },
                 TokenException::ExtraRightBrace => {
-                    warn("Syntax error: extra right brace found");
+                    warn!("Syntax error: extra right brace found");
                     return (None, LineState::Normal);
                 },
                 TokenException::Incomplete      => {
@@ -502,7 +501,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
         }
     }
     if rd_buf.is_some() {
-        warn("Syntax error: unfinished redirect.");
+        warn!("Syntax error: unfinished redirect.");
     }
 
     job.procs.push(cproc);

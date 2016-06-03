@@ -1,10 +1,10 @@
+#[macro_use] mod err;
 mod prompt;
 mod sym;
 mod builtins;
 mod eval;
 mod shell;
 mod hist;
-mod err;
 mod compl;
 mod exec;
 mod posix;
@@ -15,9 +15,6 @@ use std::env;
 
 use prompt::LineState;
 
-use err::warn;
-use err::info;
-use err::err;
 use shell::Shell;
 
 fn setup(opts: TinOpts) -> Shell {
@@ -42,7 +39,7 @@ fn setup(opts: TinOpts) -> Shell {
                 posix::init();
             },
             Err(e) => {
-                err::info(&format!("Error loading .tinrc file: {}; skipping", e));
+                info!("Error loading .tinrc file: {}; skipping", e);
             }
         };
     }
@@ -144,7 +141,7 @@ fn read_args() -> TinOpts {
                 _ => match arg.parse::<u8>() {
                     Ok(i)  => i,
                     Err(_) => {
-                        warn(&format!("args: invalid debug level '{}' given", arg));
+                        warn!("args: invalid debug level '{}' given", arg);
                         std::process::exit(2);
                     }
                 }
@@ -153,7 +150,7 @@ fn read_args() -> TinOpts {
         } else if command_arg {
             // command to execute
             if opts.exec.is_some() {
-                warn("args: multiple files/commands given to run");
+                warn!("args: multiple files/commands given to run");
             }
             opts.exec = Some(arg);
             command_arg = false;
@@ -184,13 +181,13 @@ fn read_args() -> TinOpts {
                 }
                 if debug_arg && (command_arg || config_arg) ||
                         command_arg && config_arg {
-                    err("args: ambiguous arguments given");
+                    err!("args: ambiguous arguments given");
                     std::process::exit(2);
                 }
             }
         } else {
             if opts.exec.is_some() {
-                warn("args: multiple files/commands given to run");
+                warn!("args: multiple files/commands given to run");
             } else {
                 opts.file = true;
                 opts.exec = Some(arg);
@@ -225,7 +222,7 @@ fn main_loop(mut sh: &mut Shell) {
                     next_buf = spl_next_buf;
                 },
                 Some(Err(e)) => {
-                    err(&format!("Couldn't get input: {}", e));
+                    err!("Couldn't get input: {}", e);
                     panic!("");
                 },
                 None => {
@@ -266,7 +263,7 @@ fn main_loop(mut sh: &mut Shell) {
     // appropriate warnings, etc.
     if sh.ls != LineState::Normal {
         // warn or info?
-        info("Line state left non-normal");
+        info!("Line state left non-normal");
         sh.ls = LineState::Normal;
     }
 }

@@ -5,8 +5,6 @@ extern crate libc;
 
 use std::process::exit;
 
-use err::err;
-
 use std::mem;
 
 use std::ops::Drop;
@@ -23,8 +21,6 @@ use std::fmt;
 use std::os::unix::io::AsRawFd;
 
 use std::fs::File;
-
-use err::warn;
 
 extern {
     fn tcsetpgrp(fd: libc::c_int, prgp: libc::pid_t) -> libc::c_int;
@@ -226,13 +222,13 @@ pub fn init() {
         let pgid = libc::getpid();
         if pgid != libc::getpgrp() {
             if libc::setpgid(pgid, pgid) < 0 {
-                err(&format!("Couldn't put shell in its own process group: {}", Error::last_os_error()));
+                err!("Couldn't put shell in its own process group: {}", Error::last_os_error());
             }
         }
     }
 
     if let Err(e) = take_terminal() {
-        err(&format!("Couldn't take the terminal: {}", e));
+        err!("Couldn't take the terminal: {}", e);
     }
 }
 
@@ -337,7 +333,7 @@ pub fn fork(inter: bool, pgid: Option<Pgid>) -> Result<Option<Pid>> {
     if c_pid == 0 {
         if inter {
             if let Err(e) = set_signal_ignore(false) {
-                warn(&format!("Child could not listen to signals: {}", e));
+                warn!("Child could not listen to signals: {}", e);
                 exit(2);
             }
         }

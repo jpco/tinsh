@@ -6,7 +6,7 @@ pub fn debug_setthresh (new: u8) {
     }
 }
 
-fn debug_print(msg: &str, level: u8) {
+pub fn debug_print(msg: &str, level: u8) {
     let thresh;
     unsafe {
         thresh = dbg_thresh;
@@ -21,32 +21,22 @@ fn debug_print(msg: &str, level: u8) {
     }
 
     if level == 3 {
-        // TODO: we can do this later
-        /* let noerr = match st.resolve("__tin_noerr") {
-            Some(sym::Sym::Var(x)) => x,
-            _                      => "".to_string()
-        };
-
-        if noerr.len() == 0 { */
-            panic!("Unrecoverable error encountered");
-        // } else if thresh == 0 {
-            // println!("Debug: Recovering from error");
-        // }
+        panic!("Unrecoverable error encountered");
     }
 }
 
-pub fn debug (msg: &str) {
-    debug_print(msg, 0);
+macro_rules! debug {
+    ($($arg:tt)* ) => ($crate::err::debug_print(&format!($($arg)*), 0))
 }
 
-pub fn info (msg: &str) {
-    debug_print(msg, 1);
+macro_rules! info {
+    ( $($arg:tt)* ) => ($crate::err::debug_print(&format!($($arg)*), 1))
 }
 
-pub fn warn (msg: &str) {
-    debug_print(msg, 2);
+macro_rules! warn {
+    ( $($arg:tt)* ) => ($crate::err::debug_print(&format!($($arg)*), 2))
 }
 
-pub fn err (msg: &str) {
-    debug_print(msg, 3);
+macro_rules! err {
+    ( $($arg:tt)* ) => ($crate::err::debug_print(&format!($($arg)*), 3))
 }
