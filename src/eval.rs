@@ -20,6 +20,7 @@ use exec::ProcStruct;
 use exec::ProcStruct::BinProc;
 use exec::ProcStruct::BuiltinProc;
 use exec::Redir;
+use exec::Arg;
 
 #[derive(PartialEq)]
 enum TokenType {
@@ -61,7 +62,7 @@ impl Lexer {
     }
 }
 
-fn tokenize(s: String) -> Lexer {
+fn lex(s: String) -> Lexer {
     Lexer::new(s)
 }
 
@@ -195,7 +196,7 @@ impl Iterator for Lexer {
                         if bdepth > 1 {
                             bdepth -= 1;
                         } else if bdepth == 1 {
-                            let res = self.complete[self.ctok_start..i].to_string();
+                            let res = self.complete[self.ctok_start+1..i].to_string();
                             self.ctok_start = i + c.len();
                             return Some(Ok((Some(res), TokenType::Block)));
                         } else {
@@ -423,11 +424,11 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
     // begin by evaluating any aliases
     // FIXME: this is insufficient; if someone types 'a | b' and 'b' is an alias,
     //        it does not get resolved.
-    let mut alias_tokenizer = tokenize(cmd.clone());
-    if let Some(Ok((Some(w), TokenType::Word))) = alias_tokenizer.nth(0) {
+    let mut alias_lexer = lex(cmd.clone());
+    if let Some(Ok((Some(w), TokenType::Word))) = alias_lexer.nth(0) {
         match sh.st.resolve_types(&w, Some(vec![SymType::Var])) {
             Some(Sym::Var(nw)) => {
-                let suffix = cmd[alias_tokenizer.get_start()..].to_string();
+                let suffix = cmd[alias_lexer.get_start()..].to_string();
                 cmd = nw;
                 cmd.push_str(&suffix);
             },
@@ -439,7 +440,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
     // TODO: on an Incomplete, we can ``cache'' our already-okay
     // evaluated results to reduce redundancy. For large block-based
     // scripts && functions this should improve performance greatly
-    for token_res in tokenize(cmd) {
+    for token_res in lex(cmd) {
         match token_res {
             Ok((tok, ttype)) => {
                 match ttype {
@@ -491,7 +492,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                                 _ => unreachable!()
                             };
                         } else {
-                            cproc.push_arg(tok);
+                            cproc.push_arg(Arg::Str(tok));
                         }
                     },
                     TokenType::Pipe  => {
@@ -518,7 +519,11 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                             warn!("Syntax error: unfinished redirect.");
                             rd_buf = None;
                         }
-                        println!("Blocks are still unimplemented");
+                        let tokv = tok.unwrap().split('\n').filter_map(|l| {
+                            if l.trim().is_empty() { None }
+                            else { Some(l.trim().to_string()) }
+                        }).collect();
+                        cproc.push_arg(Arg::Bl(tokv));
                     }
                 }
             },

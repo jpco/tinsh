@@ -33,11 +33,6 @@ use builtins::Builtin;
 use self::ProcStruct::BuiltinProc;
 use self::ProcStruct::BinProc;
 
-pub enum ProcStruct {
-    BuiltinProc(BuiltinProcess),
-    BinProc(BinProcess),
-}
-
 // out grammar: (-|~)(fd|&)?>(fd|+)?
 // in grammar:  (fd)?<<?(fd)?(-|~)
 pub enum Redir {
@@ -48,6 +43,36 @@ pub enum Redir {
     RdFileOut(i32, String, bool),  // file substitutions
     RdFileIn(i32, String),   //  - e.g. -2> errs.txt
     RdStringIn(i32, String)  // here-string/here-documents
+}
+
+pub enum Arg {
+    Str(String),
+    Bl(Vec<String>),
+    Pat(String)
+}
+
+pub fn downconvert(args: Vec<Arg>) -> Vec<String> {
+    let mut v = Vec::new();
+    for a in args {
+        match a {
+            Arg::Str(s) => {
+                v.push(s);
+            },
+            Arg::Bl(lines) => {
+                for l in lines {
+                    if !l.trim().is_empty() {
+                        v.push(l.trim().to_owned());
+                    }
+                }
+            },
+            Arg::Pat(p) => {
+                // TODO: properly process p
+                v.push(p);
+            }
+        }
+    }
+
+    v
 }
 
 /// Struct describing a child process.  Allows the shell to wait for the process and
@@ -67,10 +92,15 @@ impl Child {
 pub trait Process : Any {
     fn exec(self, &mut Shell, Option<Pgid>) -> Option<Child>;
     fn has_args(&self) -> bool;
-    fn push_arg(&mut self, String) -> &Process;
+    fn push_arg(&mut self, Arg) -> &Process;
     fn push_redir(&mut self, Redir) -> &Process;
     fn stdin(&mut self, ReadPipe) -> &Process;
     fn stdout(&mut self, WritePipe) -> &Process;
+}
+
+pub enum ProcStruct {
+    BuiltinProc(BuiltinProcess),
+    BinProc(BinProcess),
 }
 
 impl Process for Box<ProcStruct> {
@@ -86,7 +116,7 @@ impl Process for Box<ProcStruct> {
             BinProc(_)     => { true }
         }
     }
-    fn push_arg(&mut self, arg: String) -> &Process {
+    fn push_arg(&mut self, arg: Arg) -> &Process {
         match **self {
             BuiltinProc(ref mut bp) => { bp.push_arg(arg) },
             BinProc(ref mut bp)     => { bp.push_arg(arg) }
@@ -191,7 +221,7 @@ impl ProcessInner {
 /// not require a call to execv to run.
 pub struct BuiltinProcess {
     to_exec: Builtin,
-    argv: Vec<String>,
+    argv: Vec<Arg>,
     inner: ProcessInner
 }
 
@@ -224,7 +254,7 @@ impl Process for BuiltinProcess {
                         warn!("Could not redirect: {}", e);
                         exit(e.raw_os_error().unwrap_or(7));
                     }
-                    let r = (*self.to_exec.run)(self.argv.to_owned(), sh, None);
+                    let r = (*self.to_exec.run)(self.argv, sh, None);
                     exit(r);
                 },
                 Ok(Some(ch_pid)) => {
@@ -242,7 +272,7 @@ impl Process for BuiltinProcess {
                 } else {
                     None
                 };
-                (*self.to_exec.run)(self.argv.to_owned(), sh, br);
+                (*self.to_exec.run)(self.argv, sh, br);
             }
 
             None
@@ -253,7 +283,7 @@ impl Process for BuiltinProcess {
         self.to_exec.name != "__blank"
     }
 
-    fn push_arg(&mut self, new_arg: String) -> &Process {
+    fn push_arg(&mut self, new_arg: Arg) -> &Process {
         self.argv.push(new_arg);
         self
     }
@@ -353,13 +383,32 @@ impl Process for BinProcess {
     // to be run.
     fn has_args(&self) -> bool { true }
 
-    fn push_arg(&mut self, new_arg: String) -> &Process {
-        let arg = str2c(new_arg);
-        self.argv[self.m_args.len()] = arg.as_ptr();
-        self.argv.push(0 as *const _);
+    fn push_arg(&mut self, new_arg: Arg) -> &Process {
+        // downconvert args to Strings as we add them
+        let mut v = Vec::new();
+        match new_arg {
+            Arg::Str(s) => {
+                v.push(s);
+            },
+            Arg::Bl(lines) => {
+                for l in lines {
+                    v.push(l);
+                }
+            },
+            Arg::Pat(p) => {
+                // TODO: properly process p
+                v.push(p);
+            }
+        }
 
-        // for memory correctness
-        self.m_args.push(arg);
+        for new_arg in v {
+            let arg = str2c(new_arg);
+            self.argv[self.m_args.len()] = arg.as_ptr();
+            self.argv.push(0 as *const _);
+
+            // for memory correctness
+            self.m_args.push(arg);
+        }
 
         self
     }

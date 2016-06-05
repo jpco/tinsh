@@ -9,14 +9,16 @@ use std::io::BufReader;
 use std::io::BufRead;
 
 use sym;
+use exec;
 
+use exec::Arg;
 use shell::Shell;
 
 #[derive(Clone)]
 pub struct Builtin {
     pub name: &'static str,
     pub desc: &'static str,
-    pub run:  rc::Rc<Fn(Vec<String>, &mut Shell, Option<BufReader<fs::File>>) -> i32>
+    pub run:  rc::Rc<Fn(Vec<Arg>, &mut Shell, Option<BufReader<fs::File>>) -> i32>
 }
 
 // TODO:
@@ -29,7 +31,7 @@ fn blank_builtin() -> Builtin {
     Builtin {
         name: "__blank",
         desc: "The blank builtin",
-        run: rc::Rc::new(|_args: Vec<String>, _sh: &mut Shell, _in: Option<BufReader<fs::File>>|
+        run: rc::Rc::new(|_args: Vec<Arg>, _sh: &mut Shell, _in: Option<BufReader<fs::File>>|
                          -> i32 {
             // do nothing
             // TODO: run any attached blocks... then do nothing
@@ -55,7 +57,7 @@ impl Builtin {
             Builtin {
                 name: "set",
                 desc: "Set a variable binding",
-                run: rc::Rc::new(|args: Vec<String>, sh: &mut Shell, 
+                run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell, 
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     if args.len() < 2 {
                         warn!("set: insufficient arguments.");
@@ -65,6 +67,8 @@ impl Builtin {
                     let mut val = String::new();
                     let mut spec = sym::ScopeSpec::Default;
                     let mut phase: u8 = 0;
+
+                    let args = exec::downconvert(args);
 
                     for arg in args {
                         if phase == 0 && arg.starts_with("-") {
@@ -122,7 +126,7 @@ impl Builtin {
             Builtin {
                 name: "cd",
                 desc: "Change directory",
-                run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell,
+                run: rc::Rc::new(|args: Vec<Arg>, _sh: &mut Shell,
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     // TODO: more smartly handle the case HOME is nothing?
                     if args.len() == 0 {
@@ -141,6 +145,7 @@ impl Builtin {
                             }
                         };
                     } else {
+                        let args = exec::downconvert(args);
                         let dest = match fs::canonicalize(args[0].clone()) {
                             Ok(pt) => pt,
                             Err(e) => {
@@ -166,11 +171,14 @@ impl Builtin {
             Builtin {
                 name: "exit",
                 desc: "Exit the tin shell",
-                run: rc::Rc::new(|args: Vec<String>, _sh: &mut Shell,
+                run: rc::Rc::new(|args: Vec<Arg>, _sh: &mut Shell,
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     if args.len() == 0 {
                         exit(0);
-                    } 
+                    }
+
+                    let args = exec::downconvert(args);
+                    
                     match args[0].parse::<i32>() {
                         Ok(i) => exit(i),
                         Err(_) => {
@@ -186,7 +194,7 @@ impl Builtin {
             Builtin {
                 name: "history",
                 desc: "List/control history",
-                run: rc::Rc::new(|_args: Vec<String>, sh: &mut Shell,
+                run: rc::Rc::new(|_args: Vec<Arg>, sh: &mut Shell,
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     sh.ht.hist_print();
                     0
@@ -197,7 +205,7 @@ impl Builtin {
             Builtin {
                 name: "read",
                 desc: "Read from stdin or a file and echo to stdout",
-                run: rc::Rc::new(|_args: Vec<String>, _sh: &mut Shell,
+                run: rc::Rc::new(|_args: Vec<Arg>, _sh: &mut Shell,
                                  inp: Option<BufReader<fs::File>>| -> i32 {
                     let mut in_buf = String::new();
                     let res = if let Some(mut br) = inp {
