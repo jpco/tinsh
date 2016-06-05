@@ -33,12 +33,12 @@ fn blank_builtin() -> Builtin {
     Builtin {
         name: "__blank",
         desc: "The blank builtin",
-        run: rc::Rc::new(|args: Vec<Arg>, _sh: &mut Shell,
+        run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                             _in: Option<BufReader<fs::File>>| -> i32 {
             // do nothing
             for a in args {
                 match a {
-                    Arg::Bl(_bv) => { println!("gotta exec block"); },
+                    Arg::Bl(bv) => { sh.input_loop(Some(bv)); }
                     _ => { } // TODO: how to properly deal with this?
                 }
             }

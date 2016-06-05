@@ -35,7 +35,7 @@ fn setup(opts: TinOpts) -> Shell {
         match prompt::FilePrompt::new(&opts.config) {
             Ok(p) => {
                 sh.pr = Box::new(p);
-                main_loop(&mut sh);
+                sh.input_loop(None);
                 posix::init();
             },
             Err(e) => {
@@ -51,11 +51,11 @@ fn setup(opts: TinOpts) -> Shell {
         let p: prompt::FilePrompt = prompt::FilePrompt::new(&opts.exec.unwrap())
                                     .unwrap();
         sh.pr = Box::new(p);
-        main_loop(&mut sh);
+        sh.input_loop(None);
     } else if let Some(cmd) = opts.exec {
         let p = prompt::CmdPrompt::new(cmd);
         sh.pr = Box::new(p);
-        main_loop(&mut sh);
+        sh.input_loop(None);
     }
 
     if sh.interactive {
@@ -198,76 +198,6 @@ fn read_args() -> TinOpts {
     opts
 }
 
-fn main_loop(mut sh: &mut Shell) {
-    // saves previous inputs in the case of LineState::Continue
-    let mut input_buf = String::new();
-    // saves "future" inputs in the case of multi-line input
-    let mut next_buf: Option<String> = None;
-    loop {
-        // get input
-        // "input" is the new input we are adding in this loop
-        let input;
-
-        if let Some(new_buf) = next_buf {
-            // we have new things to deal with without prompting for more
-            let (spl_input, spl_next_buf) = eval::spl_line(&new_buf);
-            input = spl_input;
-            next_buf = spl_next_buf;
-        } else {
-            match sh.pr.prompt(&sh.ls, &sh.st, &mut sh.ht) {
-                Some(Ok(prompt_in)) => {
-                    // we needed more and we got more
-                    let (spl_input, spl_next_buf) = eval::spl_line(&prompt_in);
-                    input = spl_input;
-                    next_buf = spl_next_buf;
-                },
-                Some(Err(e)) => {
-                    err!("Couldn't get input: {}", e);
-                    panic!("");
-                },
-                None => {
-                    break;
-                }
-            }
-        }
-
-        // do stuff with input
-        sh.ls = match sh.ls {
-            LineState::Comment => {
-                if input.trim() == "###" {
-                    input_buf = String::new();
-                    LineState::Normal
-                } else {
-                    LineState::Comment
-                }
-            },
-            LineState::Normal | LineState::Continue => {
-                input_buf.push_str(&input);
-
-                let (t_job, ls) = eval::eval(&mut sh, input_buf.clone());
-                
-                if ls == LineState::Normal {
-                    if let Some(t_job) = t_job {
-                        sh.ht.hist_add (input_buf.trim());
-                        sh.exec(t_job);
-                    }
-                    input_buf = String::new();
-                }
-
-                ls
-            },
-        };
-    }
-
-    // TODO: clean up all state! tear down all non-global scopes, set up
-    // appropriate warnings, etc.
-    if sh.ls != LineState::Normal {
-        // warn or info?
-        info!("Line state left non-normal");
-        sh.ls = LineState::Normal;
-    }
-}
-
 fn main() {
     let mut sh;
 
@@ -278,7 +208,7 @@ fn main() {
     }
 
     // interactive
-    main_loop(&mut sh);
+    sh.input_loop(None);
     if sh.interactive {
         println!("exit");
     }
