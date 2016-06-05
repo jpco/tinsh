@@ -76,6 +76,7 @@ pub fn fs_complete(in_str: &str, print_multi: bool) -> String {
     
     if !input.ends_with('*') { input.push('*'); }
 
+    let mut postfix = "";
     let res_vec = match glob::glob(&input) {
         Ok(x) => x,
         Err(_) => { return in_str.to_string(); }
@@ -85,14 +86,12 @@ pub fn fs_complete(in_str: &str, print_multi: bool) -> String {
     let mut ret = if res_vec.len() == 1 {
         let ref res = res_vec[0];
 
-        let t = match fs::metadata(res) {
+        postfix = match fs::metadata(res) {
             Ok(x) => if x.is_dir() { "/" } else { " " },
             Err(_) => ""
         };
-        let mut res = res.clone();
-        res.replace(" ", "\\ ");
-        res.push_str(t);
-        res
+
+        res.clone()
     } else if res_vec.len() > 0 {
         if print_multi {
             print_completions(&res_vec);
@@ -103,6 +102,10 @@ pub fn fs_complete(in_str: &str, print_multi: bool) -> String {
     } else {
         in_str.to_string()
     };
+
+    // post-facto formatting
+    ret = ret.replace(" ", "\\ ");
+    ret.push_str(postfix);
 
     if tilde {
         ret.replace(&env::var("HOME").unwrap(), "~")
