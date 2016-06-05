@@ -337,7 +337,7 @@ impl Process for BinProcess {
                 let e = posix::execv(pb2c(self.to_exec).as_ptr(), self.argv.as_ptr());
                 if e.kind() == ErrorKind::NotFound {
                     // TODO: custom handler function
-                    println!("Command '{}' not found.", self.m_args[0].to_str().unwrap());
+                    warn!("Command '{}' not found.", self.m_args[0].to_str().unwrap());
                 } else {
                     warn!("Could not exec: {}", e);
                 }

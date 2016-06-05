@@ -1,3 +1,6 @@
+use std::io;
+use std::io::Write;
+
 static mut dbg_thresh: u8 = 1;
 
 pub fn debug_setthresh (new: u8) {
@@ -12,7 +15,7 @@ pub fn debug_print(msg: &str, level: u8) {
         thresh = dbg_thresh;
     }
     if level >= thresh {
-        println!("{}: {}", match level {
+        let _ = writeln!(&mut io::stderr(), "{}: {}", match level {
             3 => "Error",
             2 => "Warning",
             1 => "Info",

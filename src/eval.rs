@@ -42,14 +42,14 @@ enum Qu {
     Double
 }
 
-struct Tokenizer {
+struct Lexer {
     complete: String,
     ctok_start: usize
 }
 
-impl Tokenizer {
+impl Lexer {
     fn new(line: String) -> Self {
-        Tokenizer {
+        Lexer {
             complete: line,
             ctok_start: 0
         }
@@ -61,8 +61,8 @@ impl Tokenizer {
     }
 }
 
-fn tokenize(s: String) -> Tokenizer {
-    Tokenizer::new(s)
+fn tokenize(s: String) -> Lexer {
+    Lexer::new(s)
 }
 
 fn build_word(tok: String) -> (Option<String>, TokenType) {
@@ -80,7 +80,7 @@ fn build_word(tok: String) -> (Option<String>, TokenType) {
     (Some(tok), ttype)
 }
 
-impl Iterator for Tokenizer {
+impl Iterator for Lexer {
     type Item = Result<(Option<String>, TokenType), TokenException>;
 
     fn next(&mut self) -> Option<Result<(Option<String>, TokenType), TokenException>> {
@@ -220,91 +220,157 @@ impl Iterator for Tokenizer {
     }
 }
 
+fn p_resolve(sh: &mut shell::Shell, pstmt: String) -> String {
+    match sh.st.resolve_types(&pstmt,
+                              Some(vec![sym::SymType::Var,
+                                        sym::SymType::Environment])) {
+        Some(sym::Sym::Var(s)) | Some(sym::Sym::Environment(s)) => s,
+        None => {
+            let (sym_job, _) = eval(sh, pstmt);
+            if let Some(sym_job) = sym_job {
+                sh.exec_collect(sym_job)
+            } else {
+                // TODO: __tin_eundef
+                "".to_string()
+            }
+        },
+        _ => unreachable!()
+    }
+}
+
+// an enum to indicate the token parser's state
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ParseState {
+    Normal,
+    Paren,
+    Dquot,
+    Squot,
+    Pquot
+}
+
 // resolves a word token into a more useful word token
 fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
+    // println!("token: {}", tok);
+
     let mut res = String::new();
-    let mut pstack = Vec::new();
-
+    let mut pbuf = String::new();
+    let mut res_buf: String;
+    let mut ps_stack = Vec::new();
     let mut bs = false;
-    let mut quot = Qu::None;
+    let mut pctr: usize = 0;
 
+    ps_stack.push(ParseState::Normal);
+   
+    // FIXME: backslash is entirely broken
     for c in tok.graphemes(true) {
-        if bs { // the last character was a backspace
-            bs = false;
-            if pstack.is_empty() {
-                res.push_str(c);
+        /* print!("c: {}, pctr: {}, bs: {}, pstate {:?} => ",
+               c, pctr, bs, ps_stack.last().unwrap()); */
+        let to_push = match *ps_stack.last().unwrap() {
+            ParseState::Normal => {
+                if !bs {
+                    match c {
+                        "\"" => {
+                            ps_stack.push(ParseState::Dquot);
+                            None
+                        },
+                        "'"  => {
+                            ps_stack.push(ParseState::Squot);
+                            None
+                        },
+                        "`"  => {
+                            ps_stack.push(ParseState::Pquot);
+                            Some(c)
+                        },
+                        "("  => {
+                            ps_stack.push(ParseState::Paren);
+                            None
+                        },
+                        _    => {
+                            Some(c)
+                        }
+                    }
+                } else {
+                    Some(c)
+                }
+            },
+            ParseState::Paren  => {
+                if !bs {
+                    match c {
+                        "(" => {
+                            pctr += 1;
+                            Some(c)
+                        },
+                        ")" => {
+                            if pctr == 0 {
+                                let loc_buf = pbuf;
+                                pbuf = String::new();
+                                ps_stack.pop();
+                                res_buf = p_resolve(sh, loc_buf);
+                                Some(&res_buf as &str)
+                            } else {
+                                pctr -= 1;
+                                Some(c)
+                            }
+                        },
+                        "'" => {
+                            ps_stack.push(ParseState::Squot);
+                            None
+                        },
+                        "`" => {
+                            ps_stack.push(ParseState::Pquot);
+                            Some(c)
+                        }
+                        _ => {
+                            Some(c)
+                        }
+                    }
+                } else {
+                    Some(c)
+                }
+            },
+            ParseState::Dquot  => {
+                if c == "\"" && !bs {
+                    ps_stack.pop();
+                    None
+                } else if c == "(" && !bs {
+                    ps_stack.push(ParseState::Paren);
+                    None
+                } else {
+                    Some(c)
+                }
+            },
+            ParseState::Squot  => {
+                if c == "'" && !bs {
+                    ps_stack.pop();
+                    None
+                } else {
+                    Some(c)
+                }
+            },
+            ParseState::Pquot  => {
+                if c == "`" && !bs {
+                    ps_stack.pop();
+                }
+                Some(c)
             }
-            continue;
+        };
+
+        // print!("{:?} - ", ps_stack.last().unwrap());
+        if let Some(to_push) = to_push {
+            // println!("pushing '{}'", to_push);
+            if ps_stack.last().unwrap() == &ParseState::Paren {
+                pbuf.push_str(to_push);
+            } else {
+                res.push_str(to_push);
+            }
+        } else {
+            // println!("no push");
         }
 
-        match c {
-            // masks
-            "\\" => {
-                if quot != Qu::Single { bs = true; }
-                else { res.push_str(c); }
-            },
-            "'"  => {
-                quot = match quot {
-                    Qu::None   => Qu::Single,
-                    Qu::Double => {
-                        res.push_str(c);
-                        Qu::Double
-                    },
-                    Qu::Single => Qu::None
-                };
-            },
-            "\"" => {
-                quot = match quot {
-                    Qu::None   => Qu::Double,
-                    Qu::Single => {
-                        res.push_str(c);
-                        Qu::Single
-                    },
-                    Qu::Double => Qu::None
-                };
-            },
-
-            // parens
-            "("  => {
-                pstack.push(String::new());
-            },
-            ")"  => {
-                // time to resolve something!
-                // unmatched parens already handled in tokenize()
-                let sym_n = pstack.pop().unwrap();
-                let sym_res: String = match sh.st.resolve_types(&sym_n,
-                                        Some(vec![sym::SymType::Var,
-                                                  sym::SymType::Environment])) {
-                    Some(sym::Sym::Var(s)) => s,
-                    Some(sym::Sym::Environment(s)) => s,
-                    None => {
-                        let (sym_job, _) = eval(sh, sym_n);
-                        if let Some(sym_job) = sym_job {
-                            sh.exec_collect(sym_job)
-                        } else {
-                            // TODO: __tin_undef_fail
-                            "".to_string()
-                        }
-                    },
-                    _ => unreachable!()
-                };
-                if let Some(mut s) = pstack.pop() { // nested vars
-                    s.push_str(&sym_res);
-                    pstack.push(s);
-                } else {                        // un-nested
-                    res.push_str(&sym_res);
-                }
-            },
-
-            // default
-            _    => {
-                if let Some(mut s) = pstack.pop() {
-                    s.push_str(c);
-                    pstack.push(s);
-                } else {
-                    res.push_str(c);
-                }
-            }
+        if c == "\\" {
+            bs = true;
+        } else {
+            bs = false;
         }
     }
 
