@@ -249,7 +249,7 @@ enum ParseState {
 }
 
 // resolves a word token into a more useful word token
-fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
+fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
     // println!("token: {}", tok);
 
     let mut res = String::new();
@@ -263,43 +263,23 @@ fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
    
     // FIXME: backslash is entirely broken
     for c in tok.graphemes(true) {
-        /* print!("c: {}, pctr: {}, bs: {}, pstate {:?} => ",
-               c, pctr, bs, ps_stack.last().unwrap()); */
         let to_push = match *ps_stack.last().unwrap() {
             ParseState::Normal => {
                 if !bs {
                     match c {
-                        "\"" => {
-                            ps_stack.push(ParseState::Dquot);
-                            None
-                        },
-                        "'"  => {
-                            ps_stack.push(ParseState::Squot);
-                            None
-                        },
-                        "`"  => {
-                            ps_stack.push(ParseState::Pquot);
-                            Some(c)
-                        },
-                        "("  => {
-                            ps_stack.push(ParseState::Paren);
-                            None
-                        },
-                        _    => {
-                            Some(c)
-                        }
+                        "\"" => { ps_stack.push(ParseState::Dquot); None },
+                        "'"  => { ps_stack.push(ParseState::Squot); None },
+                        "`"  => { ps_stack.push(ParseState::Pquot); Some(c) },
+                        "("  => { ps_stack.push(ParseState::Paren); None },
+                        "\\" => { None },
+                        _    => Some(c)
                     }
-                } else {
-                    Some(c)
-                }
+                } else { Some(c) }
             },
-            ParseState::Paren  => {
+            ParseState::Paren => {
                 if !bs {
                     match c {
-                        "(" => {
-                            pctr += 1;
-                            Some(c)
-                        },
+                        "(" => { pctr += 1; Some(c) },
                         ")" => {
                             if pctr == 0 {
                                 let loc_buf = pbuf;
@@ -312,29 +292,21 @@ fn tok_resolve(sh: &mut shell::Shell, tok: &str) -> String {
                                 Some(c)
                             }
                         },
-                        "'" => {
-                            ps_stack.push(ParseState::Squot);
-                            None
-                        },
-                        "`" => {
-                            ps_stack.push(ParseState::Pquot);
-                            Some(c)
-                        }
-                        _ => {
-                            Some(c)
-                        }
+                        "'" => { ps_stack.push(ParseState::Squot); None },
+                        "`" => { ps_stack.push(ParseState::Pquot); Some(c) }
+                        _ => { Some(c) }
                     }
-                } else {
-                    Some(c)
-                }
+                } else { Some(c) }
             },
-            ParseState::Dquot  => {
-                if c == "\"" && !bs {
-                    ps_stack.pop();
-                    None
-                } else if c == "(" && !bs {
-                    ps_stack.push(ParseState::Paren);
-                    None
+            ParseState::Dquot => {
+                if !bs {
+                    if c == "\"" {
+                        ps_stack.pop();
+                        None
+                    } else if c == "(" {
+                        ps_stack.push(ParseState::Paren);
+                        None
+                    } else { Some(c) }
                 } else {
                     Some(c)
                 }
@@ -391,7 +363,7 @@ enum RedirBuf {
     RdStringIn(i32)
 }
 
-fn parse_redir(tok: &str) -> (Option<Redir>, Option<RedirBuf>) {
+fn redir_parse(tok: &str) -> (Option<Redir>, Option<RedirBuf>) {
     match tok {
         "~>"  => (None, Some(RedirBuf::RdArgOut)),
         "<~"  => (None, Some(RedirBuf::RdArgIn)),
@@ -472,7 +444,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
             Ok((tok, ttype)) => {
                 match ttype {
                     TokenType::Word  => {
-                        let tok = tok_resolve(sh, &tok.unwrap());
+                        let tok = tok_parse(sh, &tok.unwrap());
                         // don't do anything with empty tokens, guh
                         if tok.trim().is_empty() { continue; }
 
@@ -514,7 +486,8 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                                 None =>
                                     // assume it's in the filesystem but not in PATH
                                     // FIXME: this enables '.' in PATH by default
-                                    Box::new(BinProc(BinProcess::new(&tok, PathBuf::from(tok.clone())))),
+                                    Box::new(BinProc(BinProcess::new(&tok,
+                                                        PathBuf::from(tok.clone())))),
                                 _ => unreachable!()
                             };
                         } else {
@@ -534,7 +507,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                         if rd_buf.is_some() {
                             warn!("Syntax error: unfinished redirect.");
                         }
-                        let (rd, rdb) = parse_redir(&tok);
+                        let (rd, rdb) = redir_parse(&tok);
                         rd_buf = rdb;
                         if let Some(rd) = rd {
                             cproc.push_redir(rd);
