@@ -280,7 +280,7 @@ impl Process for BuiltinProcess {
     }
 
     fn has_args(&self) -> bool {
-        self.to_exec.name != "__blank"
+        self.to_exec.name != "__blank" || self.argv.len() > 0
     }
 
     fn push_arg(&mut self, new_arg: Arg) -> &Process {

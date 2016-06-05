@@ -10,6 +10,8 @@ use std::io::BufRead;
 
 use sym;
 use exec;
+use eval;
+use prompt::LineState;
 
 use exec::Arg;
 use shell::Shell;
@@ -31,12 +33,16 @@ fn blank_builtin() -> Builtin {
     Builtin {
         name: "__blank",
         desc: "The blank builtin",
-        run: rc::Rc::new(|_args: Vec<Arg>, _sh: &mut Shell, _in: Option<BufReader<fs::File>>|
-                         -> i32 {
+        run: rc::Rc::new(|args: Vec<Arg>, _sh: &mut Shell,
+                            _in: Option<BufReader<fs::File>>| -> i32 {
             // do nothing
-            // TODO: run any attached blocks... then do nothing
-            // and return the last command's exit value
-            //  -- if there are no blocks, do not change the exit value
+            for a in args {
+                match a {
+                    Arg::Bl(_bv) => { println!("gotta exec block"); },
+                    _ => { } // TODO: how to properly deal with this?
+                }
+            }
+
             0
         })
     }
@@ -51,6 +57,53 @@ impl Default for Builtin {
 impl Builtin {
     pub fn map() -> HashMap<&'static str, Self> {
         let mut bi_map = HashMap::new();
+
+        bi_map.insert(
+            "eval",
+            Builtin {
+                name: "eval",
+                desc: "Evaluate a passed-in statement",
+                run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
+                                    _in: Option<BufReader<fs::File>>| -> i32 {
+                    let mut cmd = String::new();
+                    for a in args {
+                        match a {
+                            Arg::Str(s) => {
+                                cmd.push_str(&s);
+                            },
+                            Arg::Bl(bv) => {
+                                cmd.push('{');
+                                for l in bv {
+                                    cmd.push_str(&l);
+                                    cmd.push(';');
+                                }
+                                cmd.push('}');
+                            },
+                            Arg::Pat(p) => {
+                                cmd.push('`');
+                                cmd.push_str(&p);
+                                cmd.push('`');
+                            }
+                        }
+                        cmd.push(' ');
+                    }
+
+                    let (j, ls) = eval::eval(sh, cmd);
+                    if ls == LineState::Normal {
+                        if let Some(job) = j {
+                            sh.exec(job);
+                        }
+                    } else {
+                        warn!("eval: Could not evaluate passed command.");
+                    }
+
+                    if let Some(sym::Sym::Var(st)) = sh.st.resolve("_?") {
+                        if let Ok(x) = st.parse::<i32>() {
+                            x
+                        } else { unreachable!() }
+                    } else { 0 }
+                })
+            });
 
         bi_map.insert(
             "set",
