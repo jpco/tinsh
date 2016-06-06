@@ -498,51 +498,6 @@ impl Job {
         self.spawned = true;
     }
 
-    pub fn wait_collect(&mut self) -> String {
-        assert!(self.spawned && self.do_pipe_out);
-        let ch_len = match self.children.len() {
-            0 => { return "".to_string(); },
-            x => x - 1
-        };
-
-        for ch in self.children.drain(..ch_len) {
-            let _ = posix::wait_pid(&ch.pid);
-        }
-
-        // this if let **should** always succeed
-        let r = if let Some(ch) = self.children.pop() {
-            let mut buf = String::new();
-            let mut read = mem::replace(&mut self.pipe_out, None).unwrap();
-            match read.read_to_string(&mut buf) {
-                Ok(_len) => {
-                    while buf.ends_with('\n') {
-                        buf.pop();
-                    }
-                    buf = buf.replace('\n', " ");
-                },
-                Err(e) => {
-                    println!("Error reading from child: {}", e);
-                }
-            }
-            if let Err(e) = posix::wait_pid(&ch.pid) {
-                println!("Error waiting for child: {}", e);
-            }
-            buf
-        } else { "".to_string() };
-
-        if opts::is_set("__tin_inter") {
-            if let Err(e) = posix::set_signal_ignore(true) {
-                warn!("Couldn't ignore signals: {}", e);
-            } else {
-                if let Err(e) = posix::take_terminal() {
-                    warn!("Couldn't take terminal: {}", e);
-                }
-            }
-        }
-
-        r
-    }
-
     pub fn wait(&mut self) -> Option<Status> {
         assert!(self.spawned && !self.do_pipe_out);
         let ch_len = match self.children.len() {

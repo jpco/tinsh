@@ -33,16 +33,17 @@ fn table() -> &'static mut HashMap<&'static str, Opt> {
     }
 }
 
+macro_rules! bool2str {
+    ($x:expr) => (if $x {
+        Some("y".to_string())
+    } else {
+        None
+    });
+}
+
 pub fn init(inter: bool, login: bool, noexec: bool, 
             tinrc: String) {
     // fill table
-    macro_rules! bool2str {
-        ($x:expr) => (if $x {
-            Some("y".to_string())
-        } else {
-            None
-        });
-    };
     macro_rules! ro_opt {
         () => (Opt {
             val: None,
@@ -53,6 +54,7 @@ pub fn init(inter: bool, login: bool, noexec: bool,
             wr_cond: Arc::new(|_| false)
         });
     };
+
     macro_rules! rw_opt {
         () => (Opt {
             val: None,
@@ -98,6 +100,10 @@ pub fn init(inter: bool, login: bool, noexec: bool,
 
 pub fn is_opt(key: &str) -> bool {
     table().contains_key(key)
+}
+
+pub fn set_inter(n: bool) {
+    table().get_mut("__tin_inter").unwrap().val = bool2str!(n);
 }
 
 pub fn is_set(key: &str) -> bool {

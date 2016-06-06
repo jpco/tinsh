@@ -60,7 +60,7 @@ pub struct WritePipe(FileDesc);
 pub struct Pgid(i32);
 
 /// Struct representing a process' pid
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Pid(i32);
 
 /// Struct representing a process' status
@@ -178,11 +178,19 @@ impl ReadPipe {
     pub fn into_raw(self) -> i32 {
         self.0.into_raw()
     }
+
+    pub fn close(self) {
+        drop(self)
+    }
 }
 
 impl WritePipe {
     pub fn into_raw(self) -> i32 {
         self.0.into_raw()
+    }
+
+    pub fn close(self) {
+        drop(self)
     }
 }
 
@@ -263,8 +271,7 @@ pub fn wait_pgid(_group: &Pgid)
 }
 
 
-/// Waits for a child process to finish.  If output is Some,
-/// attempts to fill output with stdout from the child.
+/// Waits for a child process to finish.
 pub fn wait_pid(child: &Pid) -> Result<Option<Status>> {
     unsafe {
         let mut st = 0;

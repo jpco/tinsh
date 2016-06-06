@@ -1,10 +1,15 @@
+use std::io::Read;
+
 use prompt::Prompt;
 use prompt::LineState;
 use sym::Symtable;
 use hist::Histvec;
-
 use exec::Job;
+use std::process::exit;
+
 use parser;
+use posix;
+use opts;
 
 /// terrible God object to make state accessible to everyone everywhere
 pub struct Shell {
@@ -17,22 +22,14 @@ pub struct Shell {
 }
 
 impl Shell {
-    fn exec_mcl(&mut self, mut job: Job, collect: bool) -> Option<String> {
-        if collect {
-            job.do_pipe_out = true;
-        }
+    pub fn exec(&mut self, mut job: Job) -> Option<String> {
         job.spawn(self);
         let fg = job.fg;
-        if collect {
-            let r = job.wait_collect();
-            Some(r)
-        } else {
-            self.jobs.push(job);
-            if fg {
-                self.wait();
-            }
-            None
+        self.jobs.push(job);
+        if fg {
+            self.wait();
         }
+        None
     }
 
     // still stubby while we don't have real job control yet
@@ -42,14 +39,6 @@ impl Shell {
                 self.st.set("_?", status.to_string());
             }
         }
-    }
-
-    pub fn exec(&mut self, job: Job) {
-        self.exec_mcl(job, false);
-    }
-
-    pub fn exec_collect(&mut self, job: Job) -> String {
-        self.exec_mcl(job, true).unwrap()
     }
 
     fn get_line(&mut self, in_lines: &mut Option<Vec<String>>) -> Option<String> {
@@ -76,6 +65,9 @@ impl Shell {
         let mut input_buf = String::new();
         // saves "future" inputs in the case of multi-line input
         let mut next_buf: Option<String> = None;
+
+        let mut output_buf = String::new();
+
         loop {
             // get input
             // "input" is the new input we are adding in this loop
@@ -112,13 +104,14 @@ impl Shell {
                 },
                 LineState::Normal | LineState::Continue => {
                     input_buf.push_str(&input);
-
                     let (t_job, ls) = parser::eval(self, input_buf.clone());
-                    
+
                     if ls == LineState::Normal {
                         if let Some(t_job) = t_job {
                             self.ht.hist_add (input_buf.trim());
-                            self.exec(t_job);
+                            if let Some(out) = self.exec(t_job) {
+                                output_buf.push_str(&out);
+                            }
                         }
                         input_buf = String::new();
                     }
@@ -132,6 +125,42 @@ impl Shell {
             // warn or info?
             warn!("Line state left non-normal");
             self.ls = LineState::Normal;
+        }
+    }
+
+    pub fn input_loop_collect(&mut self, in_lines: Option<Vec<String>>) -> String {
+        let (mut re, wr) = posix::pipe().unwrap();
+        match posix::fork(false, None) {
+            Err(e) => {
+                err!("Could not fork: {}", e);
+                "".to_string()
+            },
+            Ok(None) => {
+                re.close();
+                if let Err(e) = posix::set_stdout(wr) {
+                    err!("Could not set stdout: {}", e);
+                }
+                opts::set_inter(false);
+
+                self.input_loop(in_lines);
+                exit(0);
+            },
+            Ok(Some(ch)) => {
+                wr.close();
+                let mut output = String::new();
+                match re.read_to_string(&mut output) {
+                    Ok(_len) => {
+                        while output.ends_with('\n') { output.pop(); }
+                        output = output.replace('\n', " ");
+                    },
+                    Err(e) => { warn!("Error reading from child: {}", e) }
+                }
+                if let Err(e) = posix::wait_pid(&ch) {
+                    warn!("Could not wait for child: {}", e);
+                }
+
+                output
+            }
         }
     }
 }

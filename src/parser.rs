@@ -30,15 +30,7 @@ fn p_resolve(sh: &mut shell::Shell, pstmt: String) -> String {
                               Some(vec![sym::SymType::Var,
                                         sym::SymType::Environment])) {
         Some(sym::Sym::Var(s)) | Some(sym::Sym::Environment(s)) => s,
-        None => {
-            let (sym_job, _) = eval(sh, pstmt);
-            if let Some(sym_job) = sym_job {
-                sh.exec_collect(sym_job)
-            } else {
-                // TODO: __tin_eundef
-                "".to_string()
-            }
-        },
+        None => sh.input_loop_collect(Some(vec![pstmt])),
         _ => unreachable!()
     }
 }
@@ -55,18 +47,13 @@ enum ParseState {
 
 // resolves a word token into a more useful word token
 fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
-    // println!("token: {}", tok);
-
     let mut res = String::new();
     let mut pbuf = String::new();
     let mut res_buf: String;
-    let mut ps_stack = Vec::new();
+    let mut ps_stack = vec![ParseState::Normal];
     let mut bs = false;
     let mut pctr: usize = 0;
-
-    ps_stack.push(ParseState::Normal);
    
-    // FIXME: backslash is entirely broken
     for c in tok.graphemes(true) {
         let to_push = match *ps_stack.last().unwrap() {
             ParseState::Normal => {
@@ -156,7 +143,50 @@ fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
 
 // TODO: this whole function when I'm less tired
 pub fn spl_line(cmd: &str) -> (String, Option<String>) {
-    (cmd.to_string(), None)
+    let mut ps_stack = vec![ParseState::Normal];
+    let mut bs = false;
+    let mut pctr: usize = 0;
+    let mut spl = None;
+   
+    for (i, c) in cmd.grapheme_indices(true) {
+        if !bs {
+            match *ps_stack.last().unwrap() {
+                ParseState::Normal => match c {
+                        "\"" => { ps_stack.push(ParseState::Dquot); },
+                        "'"  => { ps_stack.push(ParseState::Squot); },
+                        "`"  => { ps_stack.push(ParseState::Pquot); },
+                        "("  => { ps_stack.push(ParseState::Paren); },
+                        ";"  => { spl = Some(i); break; }
+                        _    => { }
+                },
+                ParseState::Paren => match c {
+                    "(" => { pctr += 1; },
+                    ")" => {
+                        if pctr == 0 { ps_stack.pop(); }
+                        else { pctr -= 1; }
+                    },
+                    "'" => { ps_stack.push(ParseState::Squot); },
+                    "`" => { ps_stack.push(ParseState::Pquot); },
+                    _ => { } 
+                },
+                ParseState::Dquot => {
+                    if c == "\"" { ps_stack.pop(); }
+                    else if c == "(" { ps_stack.push(ParseState::Paren); }
+                },
+                ParseState::Squot => if c == "'" { ps_stack.pop(); },
+                ParseState::Pquot  => if c == "`" { ps_stack.pop(); }
+            }
+        }
+
+        if c == "\\" { bs = true; }
+        else { bs = false; }
+    }
+
+    if let Some(spl) = spl {
+        (cmd[0..spl].to_string(), Some(cmd[spl+1..].to_string()))
+    } else {
+        (cmd.to_string(), None)
+    }
 }
 
 // An enum to indicate we are waiting for a redirection token.
