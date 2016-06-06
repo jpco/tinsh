@@ -52,6 +52,12 @@ pub enum Arg {
     Pat(String)
 }
 
+pub fn block_exec(sh: &mut Shell, bv: Vec<String>) {
+    sh.st.new_scope(false);
+    sh.input_loop(Some(bv));
+    sh.st.del_scope();
+}
+
 pub fn downconvert(args: Vec<Arg>) -> Vec<String> {
     let mut v = Vec::new();
     for a in args {

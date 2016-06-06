@@ -38,7 +38,7 @@ fn blank_builtin() -> Builtin {
             // do nothing
             for a in args {
                 match a {
-                    Arg::Bl(bv) => { sh.input_loop(Some(bv)); }
+                    Arg::Bl(bv) => { exec::block_exec(sh, bv); }
                     _ => { } // TODO: how to properly deal with this?
                 }
             }
@@ -134,7 +134,7 @@ impl Builtin {
                                         }
                                         debug!("set: Using '{}' for var", c);
                                         spec = match c {
-                                            'l' => sym::ScopeSpec::Default,
+                                            'l' => sym::ScopeSpec::Local,
                                             'g' => sym::ScopeSpec::Global,
                                             'e' => sym::ScopeSpec::Environment,
                                             _   => { unreachable!() }

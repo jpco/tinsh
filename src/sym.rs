@@ -135,11 +135,8 @@ impl Symtable {
     }
 
     pub fn del_scope(&mut self) -> &mut Symtable {
-        // we must always have a scope
         // error handling re: a bogus '}' is elsewhere
-        if self.scopes.len() > 1 {
-            self.scopes.pop();
-        }
+        self.scopes.pop();
 
         self
     }
