@@ -29,6 +29,7 @@ use self::libc::EINVAL;
 
 use shell::Shell;
 use builtins::Builtin;
+use opts;
 
 use self::ProcStruct::BuiltinProc;
 use self::ProcStruct::BinProc;
@@ -242,7 +243,7 @@ impl Process for BuiltinProcess {
         //  - stdout is some
         //  - there are output redirects
         if self.inner.ch_stdout.is_some() {
-            match posix::fork(sh.interactive, pgid) {
+            match posix::fork(opts::is_set("__tin_inter"), pgid) {
                 Err(e) => {
                     // oops. gotta bail.
                     warn!("Could not fork child: {}", e);
@@ -351,8 +352,8 @@ impl BinProcess {
 }
 
 impl Process for BinProcess {
-    fn exec(self, sh: &mut Shell, pgid: Option<Pgid>) -> Option<Child> {
-        match posix::fork(sh.interactive, pgid) {
+    fn exec(self, _sh: &mut Shell, pgid: Option<Pgid>) -> Option<Child> {
+        match posix::fork(opts::is_set("__tin_inter"), pgid) {
             Err(e) => {
                 // oops. gotta bail.
                 warn!("Could not fork child: {}", e);
@@ -470,7 +471,7 @@ impl Job {
                 }
             }
             if let Some(ch) = cproc.exec(sh, self.pgid) {
-                if sh.interactive {
+                if opts::is_set("__tin_inter") {
                     if self.pgid.is_none() {
                         self.pgid = Some(ch.pid.to_pgid());
                     }
@@ -482,7 +483,7 @@ impl Job {
             self.pipe_out = read;
         }
 
-        if self.fg && sh.interactive && self.pgid.is_some() {
+        if self.fg && opts::is_set("__tin_inter") && self.pgid.is_some() {
             if let Err(e) = posix::give_terminal(self.pgid.unwrap()) {
                 warn!("Could not give child the terminal: {}", e);
             }
@@ -491,7 +492,7 @@ impl Job {
         self.spawned = true;
     }
 
-    pub fn wait_collect(&mut self, sh: &Shell) -> String {
+    pub fn wait_collect(&mut self) -> String {
         assert!(self.spawned && self.do_pipe_out);
         let ch_len = match self.children.len() {
             0 => { return "".to_string(); },
@@ -523,7 +524,7 @@ impl Job {
             buf
         } else { "".to_string() };
 
-        if sh.interactive {
+        if opts::is_set("__tin_inter") {
             if let Err(e) = posix::set_signal_ignore(true) {
                 warn!("Couldn't ignore signals: {}", e);
             } else {
@@ -536,7 +537,7 @@ impl Job {
         r
     }
 
-    pub fn wait(&mut self, sh: &Shell) -> Option<Status> {
+    pub fn wait(&mut self) -> Option<Status> {
         assert!(self.spawned && !self.do_pipe_out);
         let ch_len = match self.children.len() {
             0 => { return None; },
@@ -560,7 +561,7 @@ impl Job {
             }
         } else { None };
 
-        if sh.interactive {
+        if opts::is_set("__tin_inter") {
             // do this before taking the terminal to prevent indefinite hang
             if let Err(e) = posix::set_signal_ignore(true) {
                 warn!("Couldn't ignore signals: {}", e);

@@ -6,7 +6,7 @@ use std::env;
 use std::fs;
 use std::path;
 
-use err;
+use opts;
 
 #[derive(PartialEq)]
 pub enum SymType {
@@ -73,24 +73,6 @@ impl Symtable {
         st
     }
    
-    fn set_debug(&mut self, val: String) {
-        let i = match &val as &str {
-            "debug" => 0,
-            "info"  => 1,
-            "warn"  => 2,
-            "err"   => 3,
-            _ => match val.parse::<u8>() {
-                Ok(i)  => i,
-                Err(_) => {
-                    warn!("args: invalid __tin_debug level '{}' given", val);
-                    return;
-                }
-            }
-        };
-
-        err::debug_setthresh(i);
-    }
-
     pub fn set(&mut self, key: &str, val: String) -> &mut Symtable {
         self.set_scope(key, val, ScopeSpec::Default)
     }
@@ -98,8 +80,10 @@ impl Symtable {
     // TODO: check readonly
     pub fn set_scope(&mut self, key: &str, val: String, sc: ScopeSpec)
             -> &mut Symtable {
-        if key == "__tin_debug" {
-            self.set_debug(val);
+        if opts::is_opt(key) {
+            if let Err(e) = opts::set(key, val) {
+                warn!("{}", e);
+            }
             return self;
         }
 
@@ -136,15 +120,6 @@ impl Symtable {
                 scope.insert(key.to_string(), VarVal { val: val, readonly: false });
             }
         }
-
-        self
-    }
-
-    pub fn set_readonly(&mut self, key: &str, val: String) -> &mut Symtable {
-        self.scopes.last_mut().unwrap().vars.insert(key.to_string(), VarVal {
-            val: val,
-            readonly: true
-        });
 
         self
     }
@@ -270,6 +245,14 @@ impl Symtable {
         };
 
         if types.contains(&SymType::Var) {
+            // check for opt
+            if opts::is_opt(sym_n) {
+                match opts::get(sym_n) {
+                    Some(s) => return Some(Sym::Var(s)),
+                    None    => return None
+                }
+            }
+
             // check for Var symbol
             for scope in self.scopes.iter().rev() {
                 if let Some(v) = scope.vars.get(sym_n) {

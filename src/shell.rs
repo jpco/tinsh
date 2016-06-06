@@ -8,8 +8,6 @@ use eval;
 
 /// terrible God object to make state accessible to everyone everywhere
 pub struct Shell {
-    pub interactive: bool,
-
     pub jobs: Vec<Job>,
 
     pub pr: Box<Prompt>,
@@ -20,16 +18,13 @@ pub struct Shell {
 
 impl Shell {
     fn exec_mcl(&mut self, mut job: Job, collect: bool) -> Option<String> {
-        let int = self.interactive;
         if collect {
-            self.interactive = false;
             job.do_pipe_out = true;
         }
         job.spawn(self);
         let fg = job.fg;
         if collect {
-            let r = job.wait_collect(self);
-            self.interactive = int;
+            let r = job.wait_collect();
             Some(r)
         } else {
             self.jobs.push(job);
@@ -43,7 +38,7 @@ impl Shell {
     // still stubby while we don't have real job control yet
     fn wait(&mut self) {
         if let Some(mut job) = self.jobs.pop() {
-            if let Some(status) = job.wait(self) {
+            if let Some(status) = job.wait() {
                 self.st.set("_?", status.to_string());
             }
         }
