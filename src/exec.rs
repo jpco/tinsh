@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::process::exit;
 use std::any::Any;
-use std::io::Read;
 use std::io::ErrorKind;
 use std::io::Result;
 use std::io::BufReader;

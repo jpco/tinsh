@@ -84,7 +84,7 @@ fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
                                 Some(c)
                             }
                         },
-                        "'" => { ps_stack.push(ParseState::Squot); None },
+                        "'" => { ps_stack.push(ParseState::Squot); Some(c) },
                         "`" => { ps_stack.push(ParseState::Pquot); Some(c) }
                         _ => { Some(c) }
                     }
@@ -106,7 +106,8 @@ fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
             ParseState::Squot  => {
                 if c == "'" && !bs {
                     ps_stack.pop();
-                    None
+                    if ps_stack.contains(&ParseState::Paren) { Some(c) }
+                    else { None }
                 } else {
                     Some(c)
                 }
@@ -119,16 +120,12 @@ fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
             }
         };
 
-        // print!("{:?} - ", ps_stack.last().unwrap());
         if let Some(to_push) = to_push {
-            // println!("pushing '{}'", to_push);
-            if ps_stack.last().unwrap() == &ParseState::Paren {
+            if ps_stack.contains(&ParseState::Paren) {
                 pbuf.push_str(to_push);
             } else {
                 res.push_str(to_push);
             }
-        } else {
-            // println!("no push");
         }
 
         if c == "\\" {
