@@ -10,7 +10,7 @@ use std::io::BufRead;
 
 use sym;
 use exec;
-use eval;
+use parser;
 use prompt::LineState;
 
 use exec::Arg;
@@ -88,7 +88,7 @@ impl Builtin {
                         cmd.push(' ');
                     }
 
-                    let (j, ls) = eval::eval(sh, cmd);
+                    let (j, ls) = parser::eval(sh, cmd);
                     if ls == LineState::Normal {
                         if let Some(job) = j {
                             sh.exec(job);

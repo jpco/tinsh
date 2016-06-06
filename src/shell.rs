@@ -4,7 +4,7 @@ use sym::Symtable;
 use hist::Histvec;
 
 use exec::Job;
-use eval;
+use parser;
 
 /// terrible God object to make state accessible to everyone everywhere
 pub struct Shell {
@@ -83,14 +83,14 @@ impl Shell {
 
             if let Some(new_buf) = next_buf {
                 // we have new things to deal with without prompting for more
-                let (spl_input, spl_next_buf) = eval::spl_line(&new_buf);
+                let (spl_input, spl_next_buf) = parser::spl_line(&new_buf);
                 input = spl_input;
                 next_buf = spl_next_buf;
             } else {
                 match self.get_line(&mut in_lines) {
                     Some(prompt_in) => {
                         // we needed more and we got more
-                        let (spl_input, spl_next_buf) = eval::spl_line(&prompt_in);
+                        let (spl_input, spl_next_buf) = parser::spl_line(&prompt_in);
                         input = spl_input;
                         next_buf = spl_next_buf;
                     },
@@ -113,7 +113,7 @@ impl Shell {
                 LineState::Normal | LineState::Continue => {
                     input_buf.push_str(&input);
 
-                    let (t_job, ls) = eval::eval(self, input_buf.clone());
+                    let (t_job, ls) = parser::eval(self, input_buf.clone());
                     
                     if ls == LineState::Normal {
                         if let Some(t_job) = t_job {

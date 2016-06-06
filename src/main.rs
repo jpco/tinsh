@@ -2,7 +2,8 @@
 mod prompt;
 mod sym;
 mod builtins;
-mod eval;
+mod parser;
+mod lexer;
 mod shell;
 mod hist;
 mod compl;
