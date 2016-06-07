@@ -169,3 +169,21 @@ fn _iset(key: &str, nv: Option<String>) -> Result<(), OptError> {
         None => panic!()
     }
 }
+
+
+/** Status code implementation
+ * also a read-only opt
+ */
+static mut status: i32 = 0;
+
+pub fn status_code() -> i32 {
+    unsafe {
+        status
+    }
+}
+
+pub fn set_status(st: i32) {
+    unsafe {
+        status = st;
+    }
+}

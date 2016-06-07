@@ -36,7 +36,7 @@ impl Shell {
     fn wait(&mut self) {
         if let Some(mut job) = self.jobs.pop() {
             if let Some(status) = job.wait() {
-                self.st.set("_?", status.to_string());
+                opts::set_status(status.to_int());
             }
         }
     }

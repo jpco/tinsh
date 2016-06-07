@@ -11,6 +11,7 @@ use std::io::BufRead;
 use sym;
 use exec;
 use parser;
+use opts;
 use prompt::LineState;
 
 use exec::Arg;
@@ -35,15 +36,19 @@ fn blank_builtin() -> Builtin {
         desc: "The blank builtin",
         run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                             _in: Option<BufReader<fs::File>>| -> i32 {
+            let mut c = 0;
             // do nothing
             for a in args {
-                match a {
-                    Arg::Bl(bv) => { exec::block_exec(sh, bv); }
-                    _ => { } // TODO: how to properly deal with this?
-                }
+                c = match a {
+                    Arg::Bl(bv) => {
+                        exec::block_exec(sh, bv);
+                        opts::status_code()
+                    }
+                    _ => { c } // TODO: how to properly deal with this?
+                };
             }
 
-            0
+            c
         })
     }
 }
@@ -59,49 +64,43 @@ impl Builtin {
         let mut bi_map = HashMap::new();
 
         bi_map.insert(
+            "ifx",
+            Builtin {
+                name: "ifx",
+                desc: "Execute a block depending on the status code of a given statement",
+                run: rc::Rc::new(|mut args: Vec<Arg>, sh: &mut Shell,
+                                 _in: Option<BufReader<fs::File>>| -> i32 {
+                    if args.len() == 0 {
+                        warn!("Invalid number of arguments");
+                        return 3;
+                    }
+
+                    if let Arg::Bl(lv) = args.pop().unwrap() {
+                        exec::line_exec(sh, args);
+                        let sc = opts::status_code();
+
+                        if sc == 0 {
+                            exec::block_exec(sh, lv);
+                            opts::status_code()
+                        } else {
+                            sc
+                        }
+                    } else {
+                        warn!("Must provide an executable block");
+                        3
+                    }
+                })
+            });
+
+        bi_map.insert(
             "eval",
             Builtin {
                 name: "eval",
                 desc: "Evaluate a passed-in statement",
                 run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                                     _in: Option<BufReader<fs::File>>| -> i32 {
-                    let mut cmd = String::new();
-                    for a in args {
-                        match a {
-                            Arg::Str(s) => {
-                                cmd.push_str(&s);
-                            },
-                            Arg::Bl(bv) => {
-                                cmd.push('{');
-                                for l in bv {
-                                    cmd.push_str(&l);
-                                    cmd.push(';');
-                                }
-                                cmd.push('}');
-                            },
-                            Arg::Pat(p) => {
-                                cmd.push('`');
-                                cmd.push_str(&p);
-                                cmd.push('`');
-                            }
-                        }
-                        cmd.push(' ');
-                    }
-
-                    let (j, ls) = parser::eval(sh, cmd);
-                    if ls == LineState::Normal {
-                        if let Some(job) = j {
-                            sh.exec(job);
-                        }
-                    } else {
-                        warn!("eval: Could not evaluate passed command.");
-                    }
-
-                    if let Some(sym::Sym::Var(st)) = sh.st.resolve("_?") {
-                        if let Ok(x) = st.parse::<i32>() {
-                            x
-                        } else { unreachable!() }
-                    } else { 0 }
+                    exec::line_exec(sh, args);
+                    opts::status_code()
                 })
             });
 
