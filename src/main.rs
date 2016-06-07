@@ -137,12 +137,10 @@ fn read_args() -> (bool, Option<String>) {
         c
     });
 
+    let inter = inter || (posix::is_interactive() && exec.is_none());
+
     // initialize table, set ro opts
-    opts::init(inter || posix::is_interactive(),
-               login,
-               noexec,
-               config
-              );
+    opts::init(inter, login, noexec, config);
 
     // set rw opts
     if let Some(debug) = debug {

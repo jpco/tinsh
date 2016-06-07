@@ -86,15 +86,18 @@ pub fn init(inter: bool, login: bool, noexec: bool,
             } else { false }
         })}); // oof
 
-    // TODO: set opts based on interactivity
-    // TODO: actually use these
-    t.insert("__tin_safemode", rw_opt!());
-    t.insert("__tin_eundef", rw_opt!());
-    t.insert("__tin_ecode", rw_opt!());
-    t.insert("__tin_ewarn", rw_opt!());
-    t.insert("__tin_pipefail", rw_opt!());
-    t.insert("__tin_globmode", rw_opt!());
-    t.insert("__tin_globcompl", rw_opt!());
+    // enable if non-interactive
+    t.insert("__tin_safemode", rw_opt!(bool2str!(!inter)));
+    t.insert("__tin_eundef", rw_opt!(bool2str!(!inter)));
+    t.insert("__tin_ecode", rw_opt!(bool2str!(!inter)));
+    t.insert("__tin_ewarn", rw_opt!(bool2str!(!inter)));
+    t.insert("__tin_pipefail", rw_opt!(bool2str!(!inter)));
+
+    // enable if interactive
+    t.insert("__tin_globmode", rw_opt!(bool2str!(inter)));
+    t.insert("__tin_globcompl", rw_opt!(bool2str!(inter)));
+
+    // do not enable by default
     t.insert("__tin_psplit", rw_opt!());
 }
 
