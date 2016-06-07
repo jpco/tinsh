@@ -159,11 +159,14 @@ fn main() {
     let mut sh;
 
     let (file, exec) = read_args();
+    let do_inter = exec.is_none();
     sh = setup(file, exec);
 
     // interactive
-    sh.input_loop(None);
-    if opts::is_set("__tin_inter") {
-        println!("exit");
+    if do_inter {
+        sh.input_loop(None);
+        if opts::is_set("__tin_inter") {
+            println!("exit");
+        }
     }
 }
