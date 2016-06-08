@@ -10,10 +10,13 @@ use std::process::exit;
 use parser;
 use posix;
 use opts;
+use exec::Arg;
 
 /// terrible God object to make state accessible to everyone everywhere
 pub struct Shell {
     pub jobs: Vec<Job>,
+
+    pub status_code: i32,
 
     pub pr: Box<Prompt>,
     pub ls: LineState,
@@ -36,7 +39,7 @@ impl Shell {
     fn wait(&mut self) {
         if let Some(mut job) = self.jobs.pop() {
             if let Some(status) = job.wait() {
-                opts::set_status(status.to_int());
+                self.status_code = status.to_int();
             }
         }
     }
@@ -162,5 +165,49 @@ impl Shell {
                 output
             }
         }
+    }
+
+    pub fn block_exec(&mut self, bv: Vec<String>) -> i32 {
+        self.st.new_scope(false);
+        self.input_loop(Some(bv));
+        self.st.del_scope();
+
+        self.status_code
+    }
+
+    pub fn line_exec(&mut self, av: Vec<Arg>) -> i32 {
+        let mut cmd = String::new();
+        for a in av {
+            match a {
+                Arg::Str(s) => {
+                    cmd.push_str(&s);
+                },
+                Arg::Bl(bv) => {
+                    cmd.push('{');
+                    for l in bv {
+                        cmd.push_str(&l);
+                        cmd.push(';');
+                    }
+                    cmd.push('}');
+                },
+                Arg::Pat(p) => {
+                    cmd.push('`');
+                    cmd.push_str(&p);
+                    cmd.push('`');
+                }
+            }
+            cmd.push(' ');
+        }
+
+        let (j, ls) = parser::eval(self, cmd);
+        if ls == LineState::Normal {
+            if let Some(job) = j {
+                self.exec(job);
+            }
+        } else {
+            warn!("Could not evaluate passed command.");
+        }
+
+        self.status_code
     }
 }

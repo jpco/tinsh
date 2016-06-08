@@ -26,6 +26,10 @@ use lexer::TokenException;
 use lexer::lex;
 
 fn p_resolve(sh: &mut shell::Shell, pstmt: String) -> String {
+    if pstmt == "?" {
+        return sh.status_code.to_string();
+    }
+
     match sh.st.resolve_types(&pstmt,
                               Some(vec![sym::SymType::Var,
                                         sym::SymType::Environment])) {

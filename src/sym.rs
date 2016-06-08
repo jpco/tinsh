@@ -73,23 +73,21 @@ impl Symtable {
         st
     }
    
-    pub fn set(&mut self, key: &str, val: String) -> &mut Symtable {
+    pub fn set(&mut self, key: &str, val: String)
+            -> Result<&mut Symtable, opts::OptError> {
         self.set_scope(key, val, ScopeSpec::Default)
     }
 
-    // TODO: check readonly
     pub fn set_scope(&mut self, key: &str, val: String, sc: ScopeSpec)
-            -> &mut Symtable {
+            -> Result<&mut Symtable, opts::OptError> {
         if opts::is_opt(key) {
-            if let Err(e) = opts::set(key, val) {
-                warn!("{}", e);
-            }
-            return self;
+            try!(opts::set(key, val));
+            return Ok(self);
         }
 
         if sc == ScopeSpec::Environment {
             env::set_var(key, val);
-            return self;
+            return Ok(self);
         }
 
         { // need to scope this for borrowck
@@ -121,7 +119,7 @@ impl Symtable {
             }
         }
 
-        self
+        Ok(self)
     }
 
     pub fn new_scope(&mut self, is_fn: bool) -> &mut Symtable {

@@ -29,7 +29,6 @@ use self::libc::EINVAL;
 use shell::Shell;
 use builtins::Builtin;
 use opts;
-use parser;
 use prompt::LineState;
 
 use self::ProcStruct::BuiltinProc;
@@ -51,46 +50,6 @@ pub enum Arg {
     Str(String),
     Bl(Vec<String>),
     Pat(String)
-}
-
-pub fn line_exec(sh: &mut Shell, av: Vec<Arg>) {
-    let mut cmd = String::new();
-    for a in av {
-        match a {
-            Arg::Str(s) => {
-                cmd.push_str(&s);
-            },
-            Arg::Bl(bv) => {
-                cmd.push('{');
-                for l in bv {
-                    cmd.push_str(&l);
-                    cmd.push(';');
-                }
-                cmd.push('}');
-            },
-            Arg::Pat(p) => {
-                cmd.push('`');
-                cmd.push_str(&p);
-                cmd.push('`');
-            }
-        }
-        cmd.push(' ');
-    }
-
-    let (j, ls) = parser::eval(sh, cmd);
-    if ls == LineState::Normal {
-        if let Some(job) = j {
-            sh.exec(job);
-        }
-    } else {
-        warn!("Could not evaluate passed command.");
-    }
-}
-
-pub fn block_exec(sh: &mut Shell, bv: Vec<String>) {
-    sh.st.new_scope(false);
-    sh.input_loop(Some(bv));
-    sh.st.del_scope();
 }
 
 pub fn downconvert(args: Vec<Arg>) -> Vec<String> {

@@ -10,9 +10,6 @@ use std::io::BufRead;
 
 use sym;
 use exec;
-use parser;
-use opts;
-use prompt::LineState;
 
 use exec::Arg;
 use shell::Shell;
@@ -41,8 +38,7 @@ fn blank_builtin() -> Builtin {
             for a in args {
                 c = match a {
                     Arg::Bl(bv) => {
-                        exec::block_exec(sh, bv);
-                        opts::status_code()
+                        sh.block_exec(bv)
                     }
                     _ => { c } // TODO: how to properly deal with this?
                 };
@@ -76,12 +72,10 @@ impl Builtin {
                     }
 
                     if let Arg::Bl(lv) = args.pop().unwrap() {
-                        exec::line_exec(sh, args);
-                        let sc = opts::status_code();
+                        let sc = sh.line_exec(args);
 
                         if sc == 0 {
-                            exec::block_exec(sh, lv);
-                            opts::status_code()
+                            sh.block_exec(lv)
                         } else {
                             sc
                         }
@@ -99,8 +93,7 @@ impl Builtin {
                 desc: "Evaluate a passed-in statement",
                 run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                                     _in: Option<BufReader<fs::File>>| -> i32 {
-                    exec::line_exec(sh, args);
-                    opts::status_code()
+                    sh.line_exec(args)
                 })
             });
 
@@ -165,11 +158,13 @@ impl Builtin {
 
                     if phase != 2 {
                         warn!("set: Malformed syntax (no '=')");
+                        3
                     } else {
-                        sh.st.set_scope(&key, val, spec);
+                        match sh.st.set_scope(&key, val, spec) {
+                            Ok(_) => 0,
+                            Err(_) => 2
+                        }
                     }
-
-                    0
                 })
             });
 

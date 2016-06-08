@@ -274,7 +274,7 @@ pub fn wait_pgid(_group: &Pgid)
 /// Waits for a child process to finish.
 pub fn wait_pid(child: &Pid) -> Result<Option<Status>> {
     unsafe {
-        let mut st = 0;
+        let mut st: i32 = 0;
         if libc::waitpid(child.0, &mut st, 0) < 0 {
             if Error::last_os_error().kind() == ErrorKind::Interrupted {
                 Ok(None)
@@ -282,6 +282,7 @@ pub fn wait_pid(child: &Pid) -> Result<Option<Status>> {
                 Err(Error::last_os_error())
             }
         } else {
+            let st = st >> 8;
             Ok(Some(Status(st)))
         }
     }
