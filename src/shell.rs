@@ -63,7 +63,7 @@ impl Shell {
         }
     }
 
-    pub fn input_loop(&mut self, mut in_lines: Option<Vec<String>>) {
+    pub fn input_loop(&mut self, mut in_lines: Option<Vec<String>>, hist: bool) {
         // saves previous inputs in the case of LineState::Continue
         let mut input_buf = String::new();
         // saves "future" inputs in the case of multi-line input
@@ -111,7 +111,7 @@ impl Shell {
 
                     if ls == LineState::Normal {
                         if let Some(t_job) = t_job {
-                            self.ht.hist_add (input_buf.trim());
+                            if hist { self.ht.hist_add (input_buf.trim()); }
                             if let Some(out) = self.exec(t_job) {
                                 output_buf.push_str(&out);
                             }
@@ -145,7 +145,7 @@ impl Shell {
                 }
                 opts::set_inter(false);
 
-                self.input_loop(in_lines);
+                self.input_loop(in_lines, false);
                 exit(0);
             },
             Ok(Some(ch)) => {
@@ -169,7 +169,7 @@ impl Shell {
 
     pub fn block_exec(&mut self, bv: Vec<String>) -> i32 {
         self.st.new_scope(false);
-        self.input_loop(Some(bv));
+        self.input_loop(Some(bv), false);
         self.st.del_scope();
 
         self.status_code

@@ -34,7 +34,7 @@ fn setup(file: bool, exec: Option<String>) -> Shell {
         match prompt::FilePrompt::new(&opts::get("__tinrc").unwrap()) {
             Ok(p) => {
                 sh.pr = Box::new(p);
-                sh.input_loop(None);
+                sh.input_loop(None, true);
                 posix::init();
             },
             Err(e) => {
@@ -50,9 +50,9 @@ fn setup(file: bool, exec: Option<String>) -> Shell {
         let p: prompt::FilePrompt = prompt::FilePrompt::new(&exec.unwrap())
                                     .unwrap();
         sh.pr = Box::new(p);
-        sh.input_loop(None);
+        sh.input_loop(None, true);
     } else if let Some(cmd) = exec {
-        sh.input_loop(Some(vec![cmd]));
+        sh.input_loop(Some(vec![cmd]), false);
     }
 
     if opts::is_set("__tin_inter") {
@@ -163,7 +163,7 @@ fn main() {
 
     // interactive
     if do_inter {
-        sh.input_loop(None);
+        sh.input_loop(None, true);
         if opts::is_set("__tin_inter") {
             println!("exit");
         }
