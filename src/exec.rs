@@ -273,7 +273,7 @@ impl Process for BuiltinProcess {
                 } else {
                     None
                 };
-                (*self.to_exec.run)(self.argv, sh, br);
+                sh.status_code = (*self.to_exec.run)(self.argv, sh, br);
             }
 
             None
