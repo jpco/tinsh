@@ -53,30 +53,73 @@ pub enum Arg {
     Rd(Redir)
 }
 
-pub fn downconvert(args: Vec<Arg>) -> Vec<String> {
-    let mut v = Vec::new();
-    for a in args {
-        match a {
-            Arg::Str(s) => {
-                v.push(s);
-            },
-            Arg::Bl(lines) => {
-                for l in lines {
-                    if !l.trim().is_empty() {
-                        v.push(l.trim().to_owned());
-                    }
-                }
-            },
-            Arg::Pat(p) => {
-                // TODO: properly process p
-                v.push(p);
-            },
-            Arg::Rd(_) => unreachable!() // should already have been handled in
-                                          // push_arg()
+impl Arg {
+    pub fn is_str(&self) -> bool {
+        match *self {
+            Arg::Str(_) => true,
+            _      => false
         }
     }
 
-    v
+    pub fn to_str(&self) -> &str {
+        match *self {
+            Arg::Str(ref s) => s,
+            _      => panic!()
+        }
+    }
+
+    pub fn to_string(self) -> String {
+        match self {
+            Arg::Str(s) => s,
+            _      => panic!()
+        }
+    }
+
+
+    pub fn is_bl(&self) -> bool {
+        match *self {
+            Arg::Bl(_)  => true,
+            _      => false
+        }
+    }
+
+
+    pub fn to_bl(self) -> Vec<String> {
+        match self {
+            Arg::Bl(bv)  => bv,
+            _      => panic!()
+        }
+    }
+
+
+    pub fn is_pat(&self) -> bool {
+        match *self {
+            Arg::Pat(_) => true,
+            _      => false
+        }
+    }
+
+    pub fn to_pat(self) -> String {
+        match self {
+            Arg::Pat(p) => p,
+            _      => panic!()
+        }
+    }
+
+
+    pub fn is_rd(&self) -> bool {
+        match *self {
+            Arg::Rd(_)  => true,
+            _      => false
+        }
+    }
+
+    pub fn to_rd(self) -> Redir {
+        match self {
+            Arg::Rd(rd)  => rd,
+            _      => panic!()
+        }
+    }
 }
 
 /// Struct describing a child process.  Allows the shell to wait for the process and
@@ -231,6 +274,87 @@ impl BuiltinProcess {
     }
 }
 
+pub fn arg2strv(a: Arg) -> Vec<String> {
+    let mut ret = Vec::new();
+
+    match a {
+        Arg::Str(s) => ret.push(s),
+        Arg::Bl(bl) => for l in bl { ret.push(l) },
+        Arg::Pat(p) => ret.push(p), // FIXME?
+        Arg::Rd(rd) => {
+            match rd {
+                // FIXME: should these be single quotes here?
+                Redir::RdArgOut(s) => {
+                    ret.push("~>".to_string());
+                    ret.push(s);
+                },
+                Redir::RdArgIn(s) => {
+                    ret.push("<~".to_string());
+                    ret.push(s);
+                },
+                Redir::RdFdOut(a, b) => {
+                    ret.push(if a == -2 {
+                        format!("-&>{}", b)
+                    } else {
+                        format!("-{}>{}", a, b)
+                    });
+                },
+                Redir::RdFdIn(a, b) => ret.push(format!("{}<{}-", a, b)),
+                Redir::RdFileOut(a, dest, ap) => {
+                    ret.push(format!("-{}>{}", a, if ap { "+" } else { "" }));
+                    ret.push(dest);
+                },
+                Redir::RdFileIn(a, src) => {
+                    ret.push(format!("{}<-", a));
+                    ret.push(src);
+                },
+                Redir::RdStringIn(a, src) => {
+                    ret.push(format!("{}<<-", a));
+                    ret.push(src);
+                }
+            }
+        }
+    }
+
+    ret
+}
+
+// NOTE: we assume there are no Rd args if !to_exec.rd_cap, since they *should*
+// have been taken care of with push_arg.  Thus we assume there is no need to
+// adapt Rd args.
+fn adapt_args(to_exec: &Builtin, av: Vec<Arg>) -> Vec<Arg> {
+    if to_exec.bl_cap && to_exec.pat_cap {
+        return av;
+    }
+
+    let mut ret = Vec::new();
+    for a in av {
+        match a {
+            Arg::Str(s) => ret.push(Arg::Str(s)),
+            Arg::Rd(rd) => ret.push(Arg::Rd(rd)),
+            Arg::Bl(bv)  => {
+                if to_exec.bl_cap {
+                    ret.push(Arg::Bl(bv));
+                } else {
+                    for l in bv {
+                        ret.push(Arg::Str(l));
+                    }
+                }
+            },
+            Arg::Pat(p) => {
+                if to_exec.pat_cap {
+                    ret.push(Arg::Pat(p));
+                } else {
+                    // TODO: quotes?
+                    ret.push(Arg::Str(p));
+                }
+            }
+        }
+    }
+
+    ret
+}
+
 impl Process for BuiltinProcess {
     fn exec(self, sh: &mut Shell, pgid: Option<Pgid>) -> Option<Child> {
         // TODO: fork happens iff
@@ -245,12 +369,16 @@ impl Process for BuiltinProcess {
                     None
                 },
                 Ok(None) => {
-                    // TODO: perform redirections in child
-                    if let Err(e) = self.inner.redirect() {
+                    let a = self.argv;
+                    let i = self.inner;
+                    let te = self.to_exec;
+
+                    if let Err(e) = i.redirect() {
                         warn!("Could not redirect: {}", e);
                         exit(e.raw_os_error().unwrap_or(7));
                     }
-                    let r = (*self.to_exec.run)(self.argv, sh, None);
+                    let argv = adapt_args(&te, a);
+                    let r = (*te.run)(argv, sh, None);
                     exit(r);
                 },
                 Ok(Some(ch_pid)) => {
@@ -258,17 +386,19 @@ impl Process for BuiltinProcess {
                 }
             }
         } else {
+            let i = self.inner;
+            let a = self.argv;
+            let te = self.to_exec;
+
             unsafe {
-                let br = if self.inner.ch_stdin.is_some() {
-                    Some(BufReader::new(File::from_raw_fd(self
-                                                          .inner
-                                                          .ch_stdin
-                                                          .unwrap()
+                let br = if i.ch_stdin.is_some() {
+                    Some(BufReader::new(File::from_raw_fd(i.ch_stdin.unwrap()
                                                           .into_raw())))
                 } else {
                     None
                 };
-                sh.status_code = (*self.to_exec.run)(self.argv, sh, br);
+                let argv = adapt_args(&te, a);
+                sh.status_code = (*te.run)(argv, sh, br);
             }
 
             None
@@ -280,7 +410,7 @@ impl Process for BuiltinProcess {
     }
 
     fn push_arg(&mut self, new_arg: Arg) -> &Process {
-        if self.to_exec.rd_cap {
+        if !self.to_exec.rd_cap {
             match new_arg {
                 Arg::Rd(rd) => self.inner.rds.push(rd),
                 _ => self.argv.push(new_arg)

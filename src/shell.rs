@@ -7,6 +7,7 @@ use hist::Histvec;
 use exec::Job;
 use std::process::exit;
 
+use exec;
 use parser;
 use posix;
 use opts;
@@ -179,38 +180,16 @@ impl Shell {
     pub fn line_exec(&mut self, av: Vec<Arg>) -> i32 {
         let mut cmd = String::new();
         for a in av {
-            match a {
-                Arg::Str(s) => {
-                    cmd.push_str(&s);
-                },
-                Arg::Bl(bv) => {
-                    cmd.push('{');
-                    for l in bv {
-                        cmd.push_str(&l);
-                        cmd.push(';');
-                    }
-                    cmd.push('}');
-                },
-                Arg::Pat(p) => {
-                    cmd.push('`');
-                    cmd.push_str(&p);
-                    cmd.push('`');
-                },
-                Arg::Rd(rd) => {
-                    cmd.push_str(&match rd {
-                        // FIXME: should these be single quotes here?
-                        Redir::RdArgOut(s) => format!("~> \"{}\"", s),
-                        Redir::RdArgIn(s)  => format!("<~ \"{}\"", s),
-                        Redir::RdFdOut(a, b) => format!("-{}>{}", a, b),
-                        Redir::RdFdIn(a, b) => format!("{}<{}-", a, b), // FIXME???
-                        Redir::RdFileOut(a, dest, ap) => {
-                            format!("-{}>{} \"{}\"", a, if ap { "+" } else { "" },
-                                     dest)
-                        },
-                        Redir::RdFileIn(a, src) => format!("{}<- \"{}\"", a, src),
-                        Redir::RdStringIn(a, src) => format!("{}<<- \"{}\"", a, src)
-                    });
+            // FIXME: should this be treated as a block or decomposed?
+            if let Arg::Bl(bv) = a {
+                cmd.push_str("{ ");
+                for l in bv {
+                    cmd.push_str(&l);
+                    cmd.push_str("; ");
                 }
+                cmd.push('}');
+            } else {
+                for r in exec::arg2strv(a) { cmd.push_str(&r); }
             }
             cmd.push(' ');
         }

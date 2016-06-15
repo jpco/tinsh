@@ -38,7 +38,7 @@ struct Scope {
     is_gl: bool
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum ScopeSpec {
     Local,
     Global,
