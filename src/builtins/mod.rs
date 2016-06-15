@@ -57,6 +57,22 @@ fn blank_builtin() -> Builtin {
     }
 }
 
+pub fn fn_builtin(f: sym::Fn) -> Builtin {
+    Builtin {
+        name: "__fn_exec",
+        desc: "The function execution builtin",
+        rd_cap: false,
+        bl_cap: true,
+        pat_cap: true,
+        run: rc::Rc::new(move |args: Vec<Arg>, sh: &mut Shell,
+                               _in: Option<BufReader<fs::File>>| -> i32 {
+            let _args = f.args.clone();  // TODO
+            let lines = f.lines.clone();
+            sh.block_exec(lines)
+        })
+    }
+}
+
 impl Default for Builtin {
     fn default() -> Self {
         blank_builtin()

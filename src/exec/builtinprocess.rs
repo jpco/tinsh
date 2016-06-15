@@ -6,9 +6,11 @@ use std::process::exit;
 
 use opts;
 use posix;
+use sym;
 
 use shell::Shell;
 
+use builtins;
 use builtins::Builtin;
 
 use posix::ReadPipe;
@@ -69,6 +71,14 @@ impl BuiltinProcess {
     pub fn new(b: Builtin) -> Self {
         BuiltinProcess {
             to_exec: b,
+            argv: Vec::new(),
+            inner: ProcessInner::new()
+        }
+    }
+
+    pub fn from_fn(f: sym::Fn) -> Self {
+        BuiltinProcess {
+            to_exec: builtins::fn_builtin(f),
             argv: Vec::new(),
             inner: ProcessInner::new()
         }

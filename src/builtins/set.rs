@@ -57,8 +57,21 @@ fn set_keys(av: &mut Vec<Arg>) -> Vec<String> {
     ret
 }
 
-fn fn_set(kv: Vec<String>, av: Vec<Arg>) -> i32 {
-    println!("fn set is unimplemented.");
+fn fn_set(sh: &mut Shell, kv: Vec<String>, mut av: Vec<Arg>, spec: sym::ScopeSpec) -> i32 {
+    if av.len() == 0 || !av.last().unwrap().is_bl() {
+        warn!("fn declaration must contain a block as its last arg.");
+        return 2;
+    }
+
+    let exec_bl = av.pop().unwrap().unwrap_bl();
+
+    // TODO: patterns in function args!
+    let fn_args = av.drain(..).flat_map(|x| x.into_vec()).collect::<Vec<String>>();
+  
+    for k in &kv {
+        sh.st.set_fn(k, sym::Fn { args: fn_args.clone(), lines: exec_bl.clone() }, spec);
+    }
+
     0
 }
 
@@ -88,7 +101,7 @@ pub fn set_main() ->
         if args.is_empty() { args.push(Arg::Str(String::new())); }
 
         if args[0].is_str() && args[0].as_str() == "fn" {
-            return fn_set(keyv, args);
+            return fn_set(sh, keyv, args, spec);
         }
 
         let val = args.drain(..).flat_map(|x| x.into_vec()).collect::<Vec<String>>().join(" ");

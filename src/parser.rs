@@ -289,11 +289,14 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                             // piecemeal to speed up startup
                             cproc = match sh.st.resolve_types(&tok,
                                                       Some(vec![sym::SymType::Binary,
-                                                           sym::SymType::Builtin])) {
+                                                           sym::SymType::Builtin,
+                                                           sym::SymType::Fn])) {
                                 Some(sym::Sym::Builtin(b)) =>
                                     Box::new(BuiltinProc(BuiltinProcess::new(b))),
                                 Some(sym::Sym::Binary(b))  =>
                                     Box::new(BinProc(BinProcess::new(&tok, b))),
+                                Some(sym::Sym::Fn(f))      =>
+                                    Box::new(BuiltinProc(BuiltinProcess::from_fn(f))),
                                 None =>
                                     // assume it's in the filesystem but not in PATH
                                     // FIXME: this enables '.' in PATH by default

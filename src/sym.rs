@@ -8,24 +8,32 @@ use std::path;
 
 use opts;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum SymType {
     Binary,
     Builtin,
     Var,
-    Environment
+    Environment,
+    Fn
 }
 
 pub enum Sym {
     Binary(path::PathBuf),
     Builtin(builtins::Builtin),
     Var(String),
-    Environment(String)
+    Environment(String),
+    Fn(Fn)
 }
 
-struct VarVal {
-    val: String,
-    readonly: bool
+#[derive(Clone)]
+pub struct Fn {
+    pub args: Vec<String>,
+    pub lines: Vec<String>
+}
+
+enum Val {
+    Var(String),
+    Fn(Fn)
 }
 
 // the 'is_fn' flag enables us to check
@@ -33,9 +41,9 @@ struct VarVal {
 // a function -- aside from global ops, we don't want to act
 // through the function barrier.
 struct Scope {
-    vars: HashMap<String, VarVal>,
+    vars: HashMap<String, Val>,  // contains vars and also functions
     is_fn: bool,
-    is_gl: bool
+    is_gl: bool                  // why do we need this?
 }
 
 #[derive(PartialEq, Copy, Clone)]
@@ -78,6 +86,32 @@ impl Symtable {
         self.set_scope(key, val, ScopeSpec::Default)
     }
 
+    fn scope_idx<'a>(&'a mut self, key: &str, sc: ScopeSpec) -> usize {
+        match sc {
+            ScopeSpec::Global => 0,
+            ScopeSpec::Local => self.scopes.len() - 1,
+            ScopeSpec::Environment => { unreachable!() },
+            ScopeSpec::Default => {
+                let len = self.scopes.len();
+                for (idx, scope) in self.scopes.iter_mut().rev().enumerate() {
+                    if scope.vars.get(key).is_some() {
+                        return len - idx - 1;
+                    }
+                }
+                len - 1
+            }
+        }
+    }
+
+    pub fn set_fn(&mut self, key: &str, val: Fn, sc: ScopeSpec) -> &mut Symtable {
+        {
+            let idx = self.scope_idx(key, sc);
+            let ref mut scope = self.scopes[idx];
+            scope.vars.insert(key.to_string(), Val::Fn(val));
+        }
+        self
+    }
+
     pub fn set_scope(&mut self, key: &str, val: String, sc: ScopeSpec)
             -> Result<&mut Symtable, opts::OptError> {
         if opts::is_opt(key) {
@@ -90,32 +124,15 @@ impl Symtable {
             return Ok(self);
         }
 
-        { // need to scope this for borrowck
-            let scope = match sc {
-                ScopeSpec::Global => { &mut self.scopes[0].vars },
-                ScopeSpec::Local => { &mut self.scopes.last_mut().unwrap().vars },
-                ScopeSpec::Environment => { unreachable!() },
-                ScopeSpec::Default => {
-                    let mut ret = None;
-                    let last_idx = self.scopes.len() - 1;
-                    for (idx, scope) in self.scopes.iter_mut().rev().enumerate() {
-                        if scope.vars.get(key).is_some() {
-                            ret = Some(scope);
-                            break;
-                        }
-
-                        if idx == last_idx {
-                            ret = Some(scope);
-                        }
-                    }
-                    &mut ret.unwrap().vars
-                }
-            };
+        // need to scope this for borrowck
+        {
+            let idx = self.scope_idx(key, sc);
+            let ref mut scope = self.scopes[idx];
 
             if val == "" {
-                scope.remove(key);
+                scope.vars.remove(key);
             } else {
-                scope.insert(key.to_string(), VarVal { val: val, readonly: false });
+                scope.vars.insert(key.to_string(), Val::Var(val));
             }
         }
 
@@ -175,6 +192,7 @@ impl Symtable {
     }
 
     // simply resolves a vector of matching strings.
+    // TODO: rewrite this. it's bad; also we need to add fns to this
     pub fn prefix_resolve_types(&self, sym_n: &str, types: Option<Vec<SymType>>) 
                               -> Vec<String> {
         let types = match types {
@@ -191,16 +209,10 @@ impl Symtable {
             // check for Var symbol
             for scope in self.scopes.iter().rev() {
                 for v in scope.vars.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
-                    res.push(v.1.val.clone());
+                    if let (_, &Val::Var(ref v)) = v {
+                        res.push(v.clone());
+                    }
                 }
-                if scope.is_gl || scope.is_fn {
-                    break;
-                }
-            }
-
-            // check global scope (this is done separately so we can break at is_fn)
-            for v in self.scopes.first().unwrap().vars.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
-                res.push(v.1.val.clone());
             }
         }
 
@@ -227,7 +239,6 @@ impl Symtable {
         self.resolve_types(sym_n, None)
     }
 
-    // TODO: env vars, no?
     pub fn resolve_types(&mut self, sym_n: &str, types: Option<Vec<SymType>>) 
                         -> Option<Sym> {
 
@@ -236,10 +247,11 @@ impl Symtable {
             None    => vec![SymType::Var,
                             SymType::Binary,
                             SymType::Builtin, 
-                            SymType::Environment]
+                            SymType::Environment,
+                            SymType::Fn]
         };
 
-        if types.contains(&SymType::Var) {
+        if types.contains(&SymType::Var) || types.contains(&SymType::Fn) {
             // check for opt
             if opts::is_opt(sym_n) {
                 match opts::get(sym_n) {
@@ -251,16 +263,19 @@ impl Symtable {
             // check for Var symbol
             for scope in self.scopes.iter().rev() {
                 if let Some(v) = scope.vars.get(sym_n) {
-                    return Some(Sym::Var(v.val.clone()));
+                    match *v {
+                        Val::Var(ref v) => {
+                            if types.contains(&SymType::Var) {
+                                return Some(Sym::Var(v.clone()));
+                            }
+                        },
+                        Val::Fn(ref f)  => {
+                            if types.contains(&SymType::Fn) {
+                                return Some(Sym::Fn(f.clone()));
+                            }
+                        }
+                    }
                 }
-                if scope.is_gl || scope.is_fn {
-                    break;
-                }
-            }
-
-            // check global scope (this is done separately so we can break at is_fn)
-            if let Some(v) = self.scopes[0].vars.get(sym_n) {
-                return Some(Sym::Var(v.val.clone()));
             }
         }
 
