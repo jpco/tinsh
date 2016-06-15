@@ -49,7 +49,8 @@ pub enum Redir {
 pub enum Arg {
     Str(String),
     Bl(Vec<String>),
-    Pat(String)
+    Pat(String),
+    Rd(Redir)
 }
 
 pub fn downconvert(args: Vec<Arg>) -> Vec<String> {
@@ -69,7 +70,9 @@ pub fn downconvert(args: Vec<Arg>) -> Vec<String> {
             Arg::Pat(p) => {
                 // TODO: properly process p
                 v.push(p);
-            }
+            },
+            Arg::Rd(rd) => unreachable!() // should already have been handled in
+                                          // push_arg
         }
     }
 
@@ -94,7 +97,6 @@ pub trait Process : Any {
     fn exec(self, &mut Shell, Option<Pgid>) -> Option<Child>;
     fn has_args(&self) -> bool;
     fn push_arg(&mut self, Arg) -> &Process;
-    fn push_redir(&mut self, Redir) -> &Process;
     fn stdin(&mut self, ReadPipe) -> &Process;
     fn stdout(&mut self, WritePipe) -> &Process;
 }
@@ -121,13 +123,6 @@ impl Process for Box<ProcStruct> {
         match **self {
             BuiltinProc(ref mut bp) => { bp.push_arg(arg) },
             BinProc(ref mut bp)     => { bp.push_arg(arg) }
-        };
-        self
-    }
-    fn push_redir(&mut self, redir: Redir) -> &Process {
-        match **self {
-            BuiltinProc(ref mut bp) => { bp.push_redir(redir) },
-            BinProc(ref mut bp)     => { bp.push_redir(redir) }
         };
         self
     }
@@ -285,12 +280,12 @@ impl Process for BuiltinProcess {
     }
 
     fn push_arg(&mut self, new_arg: Arg) -> &Process {
-        self.argv.push(new_arg);
-        self
-    }
-
-    fn push_redir(&mut self, new_redir: Redir) -> &Process {
-        self.inner.rds.push(new_redir);
+        if self.to_exec.rd_cap {
+            match new_arg {
+                Arg::Rd(rd) => self.inner.rds.push(rd),
+                _ => self.argv.push(new_arg)
+            };
+        } else { self.argv.push(new_arg); }
         self
     }
 
@@ -399,9 +394,11 @@ impl Process for BinProcess {
             Arg::Pat(p) => {
                 // TODO: properly process p
                 v.push(p);
-            }
+            },
+            Arg::Rd(rd) => { self.inner.rds.push(rd); }
         }
 
+        // TODO: this is not a perfect way to do this
         for new_arg in v {
             let arg = str2c(new_arg);
             self.argv[self.m_args.len()] = arg.as_ptr();
@@ -411,11 +408,6 @@ impl Process for BinProcess {
             self.m_args.push(arg);
         }
 
-        self
-    }
-
-    fn push_redir(&mut self, new_redir: Redir) -> &Process {
-        self.inner.rds.push(new_redir);
         self
     }
 

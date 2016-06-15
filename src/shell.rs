@@ -194,6 +194,9 @@ impl Shell {
                     cmd.push('`');
                     cmd.push_str(&p);
                     cmd.push('`');
+                },
+                Arg::Rd(rd) => {
+                    cmd.push_str("REEEEEEEEEEDIRECTION"); // FIXME: rip
                 }
             }
             cmd.push(' ');

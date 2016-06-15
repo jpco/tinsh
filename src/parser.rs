@@ -271,23 +271,13 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
 
                         // gotta finish the redirect!
                         if rd_buf.is_some() {
-                            match rd_buf.unwrap() {
-                                RedirBuf::RdArgOut          => {
-                                    cproc.push_redir(Redir::RdArgOut(tok));
-                                },
-                                RedirBuf::RdArgIn           => {
-                                    cproc.push_redir(Redir::RdArgIn(tok));
-                                },
-                                RedirBuf::RdFileOut(fd, ap) => {
-                                    cproc.push_redir(Redir::RdFileOut(fd, tok, ap));
-                                },
-                                RedirBuf::RdFileIn(fd)      => {
-                                    cproc.push_redir(Redir::RdFileIn(fd, tok));
-                                },
-                                RedirBuf::RdStringIn(fd)    => {
-                                    cproc.push_redir(Redir::RdStringIn(fd, tok));
-                                }
-                            }
+                            cproc.push_arg(Arg::Rd(match rd_buf.unwrap() {
+                                RedirBuf::RdArgOut => Redir::RdArgOut(tok),
+                                RedirBuf::RdArgIn => Redir::RdArgIn(tok),
+                                RedirBuf::RdFileOut(fd,ap)=>Redir::RdFileOut(fd,tok,ap),
+                                RedirBuf::RdFileIn(fd) => Redir::RdFileIn(fd, tok),
+                                RedirBuf::RdStringIn(fd) => Redir::RdStringIn(fd, tok)
+                            }));
                             rd_buf = None;
                             continue;
                         }
@@ -331,7 +321,7 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                         let (rd, rdb) = redir_parse(&tok);
                         rd_buf = rdb;
                         if let Some(rd) = rd {
-                            cproc.push_redir(rd);
+                            cproc.push_arg(Arg::Rd(rd));
                         }
                     },
                     TokenType::Block => {

@@ -18,6 +18,7 @@ use shell::Shell;
 pub struct Builtin {
     pub name: &'static str,
     pub desc: &'static str,
+    pub rd_cap: bool,
     pub run:  rc::Rc<Fn(Vec<Arg>, &mut Shell, Option<BufReader<fs::File>>) -> i32>
 }
 
@@ -31,6 +32,7 @@ fn blank_builtin() -> Builtin {
     Builtin {
         name: "__blank",
         desc: "The blank builtin",
+        rd_cap: false, // ?
         run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                             _in: Option<BufReader<fs::File>>| -> i32 {
             let mut c = 0;
@@ -64,6 +66,7 @@ impl Builtin {
             Builtin {
                 name: "ifx",
                 desc: "Execute a block depending on the status code of a given statement",
+                rd_cap: true,
                 run: rc::Rc::new(|mut args: Vec<Arg>, sh: &mut Shell,
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     if args.len() == 0 {
@@ -91,6 +94,7 @@ impl Builtin {
             Builtin {
                 name: "eval",
                 desc: "Evaluate a passed-in statement",
+                rd_cap: false,
                 run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                                     _in: Option<BufReader<fs::File>>| -> i32 {
                     sh.line_exec(args)
@@ -102,6 +106,7 @@ impl Builtin {
             Builtin {
                 name: "set",
                 desc: "Set a variable binding",
+                rd_cap: true,
                 run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell, 
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     if args.len() < 2 {
@@ -173,6 +178,7 @@ impl Builtin {
             Builtin {
                 name: "cd",
                 desc: "Change directory",
+                rd_cap: false,
                 run: rc::Rc::new(|args: Vec<Arg>, _sh: &mut Shell,
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     // TODO: more smartly handle the case HOME is nothing?
@@ -218,6 +224,7 @@ impl Builtin {
             Builtin {
                 name: "exit",
                 desc: "Exit the tin shell",
+                rd_cap: false,
                 run: rc::Rc::new(|args: Vec<Arg>, _sh: &mut Shell,
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     if args.len() == 0 {
@@ -241,17 +248,21 @@ impl Builtin {
             Builtin {
                 name: "history",
                 desc: "List/control history",
+                rd_cap: false,
                 run: rc::Rc::new(|_args: Vec<Arg>, sh: &mut Shell,
                                  _in: Option<BufReader<fs::File>>| -> i32 {
                     sh.ht.hist_print();
                     0
                 })
             });
+
+        // TODO: this shouldn't even... be a real builtin? maybe?
         bi_map.insert(
             "read",
             Builtin {
                 name: "read",
                 desc: "Read from stdin or a file and echo to stdout",
+                rd_cap: false,
                 run: rc::Rc::new(|_args: Vec<Arg>, _sh: &mut Shell,
                                  inp: Option<BufReader<fs::File>>| -> i32 {
                     let mut in_buf = String::new();
