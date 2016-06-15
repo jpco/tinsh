@@ -4,15 +4,14 @@ use prompt::Prompt;
 use prompt::LineState;
 use sym::Symtable;
 use hist::Histvec;
-use exec::Job;
 use std::process::exit;
 
-use exec;
 use parser;
 use posix;
 use opts;
 use exec::Arg;
 use exec::Redir;
+use exec::job::Job;
 
 /// terrible God object to make state accessible to everyone everywhere
 pub struct Shell {
@@ -189,7 +188,7 @@ impl Shell {
                 }
                 cmd.push('}');
             } else {
-                for r in exec::arg2strv(a) { cmd.push_str(&r); }
+                for r in a.into_vec() { cmd.push_str(&r); }
             }
             cmd.push(' ');
         }

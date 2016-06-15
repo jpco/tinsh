@@ -19,8 +19,8 @@ fn set_spec(av: &mut Vec<Arg>) -> sym::ScopeSpec {
 
     while av.len() > 0 {
         if av[0].is_str() {
-            if !av[0].to_str().starts_with("-") { break; }
-            let s = av.remove(0).to_string();
+            if !av[0].as_str().starts_with("-") { break; }
+            let s = av.remove(0).unwrap_str();
 
             // FIXME: graphemes()?
             for c in s.chars().skip(1) {
@@ -51,7 +51,7 @@ fn set_keys(av: &mut Vec<Arg>) -> Vec<String> {
             if s == "=" { break; }
         }
 
-        for k in exec::arg2strv(arg) { ret.push(k); }
+        for k in arg.into_vec() { ret.push(k); }
     }
 
     ret
@@ -68,7 +68,7 @@ pub fn set_main() ->
         // rd-set
         if args.len() == 1 {
             if args[0].is_rd() {
-                let rd = args.remove(0).to_rd();
+                let rd = args.remove(0).unwrap_rd();
                 return rd_set(rd);
             }
         }
@@ -87,11 +87,11 @@ pub fn set_main() ->
         // if we just said 'set a b c', we want to set them to empty
         if args.is_empty() { args.push(Arg::Str(String::new())); }
 
-        if args[0].is_str() && args[0].to_str() == "fn" {
+        if args[0].is_str() && args[0].as_str() == "fn" {
             return fn_set(keyv, args);
         }
 
-        let val = args.drain(..).flat_map(|x| exec::arg2strv(x)).collect::<Vec<String>>().join(" ");
+        let val = args.drain(..).flat_map(|x| x.into_vec()).collect::<Vec<String>>().join(" ");
 
         let mut r = 0;
         for k in keyv {

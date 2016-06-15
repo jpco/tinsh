@@ -11,10 +11,10 @@ use std::path::PathBuf;
 
 use prompt::LineState;
 
-use exec::Job;
+use exec::job::Job;
 use exec::Process;
-use exec::BuiltinProcess;
-use exec::BinProcess;
+use exec::builtinprocess::BuiltinProcess;
+use exec::binprocess::BinProcess;
 use exec::ProcStruct;
 use exec::ProcStruct::BinProc;
 use exec::ProcStruct::BuiltinProc;
