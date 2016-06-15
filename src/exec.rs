@@ -71,8 +71,8 @@ pub fn downconvert(args: Vec<Arg>) -> Vec<String> {
                 // TODO: properly process p
                 v.push(p);
             },
-            Arg::Rd(rd) => unreachable!() // should already have been handled in
-                                          // push_arg
+            Arg::Rd(_) => unreachable!() // should already have been handled in
+                                          // push_arg()
         }
     }
 

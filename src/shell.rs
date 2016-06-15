@@ -11,6 +11,7 @@ use parser;
 use posix;
 use opts;
 use exec::Arg;
+use exec::Redir;
 
 /// terrible God object to make state accessible to everyone everywhere
 pub struct Shell {
@@ -196,7 +197,19 @@ impl Shell {
                     cmd.push('`');
                 },
                 Arg::Rd(rd) => {
-                    cmd.push_str("REEEEEEEEEEDIRECTION"); // FIXME: rip
+                    cmd.push_str(&match rd {
+                        // FIXME: should these be single quotes here?
+                        Redir::RdArgOut(s) => format!("~> \"{}\"", s),
+                        Redir::RdArgIn(s)  => format!("<~ \"{}\"", s),
+                        Redir::RdFdOut(a, b) => format!("-{}>{}", a, b),
+                        Redir::RdFdIn(a, b) => format!("{}<{}-", a, b), // FIXME???
+                        Redir::RdFileOut(a, dest, ap) => {
+                            format!("-{}>{} \"{}\"", a, if ap { "+" } else { "" },
+                                     dest)
+                        },
+                        Redir::RdFileIn(a, src) => format!("{}<- \"{}\"", a, src),
+                        Redir::RdStringIn(a, src) => format!("{}<<- \"{}\"", a, src)
+                    });
                 }
             }
             cmd.push(' ');
