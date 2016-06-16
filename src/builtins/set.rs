@@ -91,10 +91,11 @@ fn fn_set(sh: &mut Shell, kv: Vec<String>, mut av: Vec<Arg>, spec: sym::ScopeSpe
     }
 
     // last arg
-    let last = flat_args.last().unwrap();
-    if last != "..." {
-        if let Some(ref mut x) = postargs { x.push(last.to_owned()); }
-        else { args.push(last.to_owned()); }
+    if let Some(last) = flat_args.last() {
+        if last != "..." {
+            if let Some(ref mut x) = postargs { x.push(last.to_owned()); }
+            else { args.push(last.to_owned()); }
+        }
     }
 
     for a in &args {
