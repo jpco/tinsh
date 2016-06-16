@@ -1,4 +1,5 @@
-#[macro_use] mod err;
+#[macro_use]
+mod err;
 mod prompt;
 mod sym;
 mod builtins;
@@ -11,7 +12,8 @@ mod exec;
 mod posix;
 mod opts;
 
-#[macro_use] extern crate lazy_static;
+#[macro_use(lazy_static)]
+extern crate lazy_static;
 
 use std::env;
 

@@ -226,12 +226,12 @@ fn redir_parse(tok: &str) -> (Option<Redir>, Option<RedirBuf>) {
         "<~"  => (None, Some(RedirBuf::RdArgIn)),
         "<<-" => (None, Some(RedirBuf::RdStringIn(0))),
         _ => {
-            lazy_static! {
-                static ref RD_OUT: Regex
+            // lazy_static! {
+                let RD_OUT
                     = Regex::new(r"^-(&|\d*)>(\+|\d*)$").unwrap();
-                static ref RD_IN: Regex
+                let RD_IN
                     = Regex::new(r"^(\d*)<(\d*)-$").unwrap();
-            }
+            // }
 
             if let Some(caps) = RD_OUT.captures(tok) {
                 let src_fd = match caps.at(1).unwrap() {
