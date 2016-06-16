@@ -72,9 +72,10 @@ pub enum ScopeSpec {
 
 // We can use 'static for builtins because that's what builtins are: static.
 pub struct Symtable {
-    bins:     HashMap<String, path::PathBuf>,
-    builtins: HashMap<&'static str, builtins::Builtin>,
-    scopes:   Vec<Scope>
+    bins:      HashMap<String, path::PathBuf>,
+    builtins:  HashMap<&'static str, builtins::Builtin>,
+    scopes:    Vec<Scope>,
+    pub subsh: bool
 }
 
 impl Symtable {
@@ -82,7 +83,8 @@ impl Symtable {
         let mut st = Symtable {
             bins:     HashMap::new(),
             builtins: builtins::Builtin::map(),
-            scopes:   Vec::new()
+            scopes:   Vec::new(),
+            subsh:    false
         };
 
         st.scopes.push(Scope {
@@ -304,12 +306,12 @@ impl Symtable {
         }
 
         // Re-hash bins and check again
-        // TODO: make re-hash optional, since it has a noticeable runtime.
-        /*
-        if let Some(bin_path) = self.hash_bins().bins.get(sym_n) {
-            return Some(Sym::Binary(bin_path.clone()));
-        } 
-        */
+        // TODO: __tin_rehash option
+        if !self.subsh {
+            if let Some(bin_path) = self.hash_bins().bins.get(sym_n) {
+                return Some(bin_path.clone());
+            } 
+        }
 
         None
     }

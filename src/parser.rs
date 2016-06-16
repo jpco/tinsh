@@ -7,8 +7,6 @@ use self::unicode_segmentation::UnicodeSegmentation;
 extern crate regex;
 use self::regex::Regex;
 
-use std::path::PathBuf;
-
 use prompt::LineState;
 
 use exec::job::Job;
@@ -318,6 +316,10 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                                     Some(sym::SymE::Fn(f))     =>
                                         BuiltinProc(BuiltinProcess::from_fn(f)),
                                     None => {
+                                        // TODO: here yo
+                                        if !sh.st.subsh {
+                                            warn!("Command '{}' not found.", tok);
+                                        }
                                         return (None, LineState::Normal);
                                     }
                                 });
@@ -380,7 +382,5 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
     }
 
     job.procs.push(cproc);
-
-    // (None, LineState::Normal)
     (Some(job), LineState::Normal)
 }

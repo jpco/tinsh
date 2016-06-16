@@ -22,7 +22,9 @@ use shell::Shell;
 fn setup(file: bool, exec: Option<String>) -> Shell {
     let mut sh = Shell {
         jobs: Vec::new(),
+
         status_code: 0,
+
         pr: Box::new(prompt::BasicPrompt),
         ls: LineState::Normal,
         st: sym::Symtable::new(),

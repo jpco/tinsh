@@ -139,6 +139,7 @@ impl Shell {
                 "".to_string()
             },
             Ok(None) => {
+                self.st.subsh = true;
                 re.close();
                 if let Err(e) = posix::set_stdout(wr) {
                     err!("Could not set stdout: {}", e);
