@@ -69,7 +69,11 @@ fn fn_set(sh: &mut Shell, kv: Vec<String>, mut av: Vec<Arg>, spec: sym::ScopeSpe
     let mut vararg = None;
     let mut postargs = None;
 
-    let flat_args = av.drain(..).flat_map(|x| x.into_vec()).collect::<Vec<_>>();
+    let mut flat_args = av.drain(..).flat_map(|x| x.into_vec()).collect::<Vec<_>>();
+    let inline = if flat_args.len() > 0 && flat_args[0] == "--inline" {
+        flat_args.remove(0); true
+    } else { false };
+    
     for sl in flat_args.windows(2) {
         let ref elt = sl[0];
         let ref lookahead = sl[1];
@@ -98,21 +102,11 @@ fn fn_set(sh: &mut Shell, kv: Vec<String>, mut av: Vec<Arg>, spec: sym::ScopeSpe
         }
     }
 
-    for a in &args {
-        println!("ARG: {}", a);
-    }
-    if let Some(p) = vararg.clone() { println!("VARARG: {}", p); }
-    if let Some(v) = postargs.clone() {
-        for a in &v {
-            println!("ARG: {}", a);
-        }
-    }
-
     for k in &kv {
         sh.st.set_fn(k,
             sym::Fn {
                 name: k.clone(),
-                inline: false, 
+                inline: inline, 
                 args: args.clone(),
                 vararg: vararg.clone(),
                 postargs: postargs.clone(),
