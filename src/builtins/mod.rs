@@ -75,36 +75,61 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
             // parse/figure out the args
             // TODO: [] params
             for an in &f.args {
+                let mut an = an as &str;
+                let mut opt = false;
+                if an.ends_with("?") {
+                    opt = true;
+                    an = &an[..an.len()-1];
+                }
                 if args.len() > 0 {
                     sh.st.set_scope(&an, args.remove(0).into_string(),
                                     ScopeSpec::Local);
                 } else {
-                    warn!("fn '{}': Not enough args provided", f.name);
-                    return 2;  // TODO: care about this more
+                    if !opt {
+                        warn!("fn '{}': Not enough args provided", f.name);
+                        return 2;  // TODO: care about this more
+                    }
                 }
             }
 
             if let &Some(ref va) = &f.vararg {
+                let mut va = va as &str;
                 if let &Some(ref pa) = &f.postargs {
                     for a in pa.iter().rev() {
+                        let mut a = a as &str;
+                        let mut opt = false;
+                        if a.ends_with("?") {
+                            opt = true;
+                            a = &a[..a.len()-1];
+                        }
                         match args.pop() {
                             Some(s) => {
                                 sh.st.set_scope(a, s.clone().into_string(),
                                                        ScopeSpec::Local);
                             },
                             None => {
-                                warn!("fn '{}': Not enough args provided", f.name);
-                                return 2;
+                                if !opt {
+                                    warn!("fn '{}': Not enough args provided", f.name);
+                                    return 2;
+                                }
                             }
                         }
                     }
+                }
+
+                let mut opt = false;
+                if va.ends_with("?") {
+                    opt = true;
+                    va = &va[..va.len()-1];
                 }
                 if args.len() > 0 {
                     let s = args.drain(..).map(|x| x.into_string()).collect::<Vec<String>>().join(" ");
                     sh.st.set_scope(&va, s, ScopeSpec::Local);
                 } else {
-                    warn!("fn '{}': Not enough args provided", f.name);
-                    return 2;
+                    if !opt {
+                        warn!("fn '{}': Not enough args provided", f.name);
+                        return 2;
+                    }
                 }
             }
             

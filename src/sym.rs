@@ -25,6 +25,17 @@ pub enum Sym {
     Fn(Fn)
 }
 
+pub enum SymE {
+    Binary(path::PathBuf),
+    Builtin(builtins::Builtin),
+    Fn(Fn)
+}
+
+pub enum SymV {
+    Var(String),
+    Environment(String)
+}
+
 #[derive(Clone)]
 pub struct Fn {
     pub name: String,
@@ -238,83 +249,106 @@ impl Symtable {
         res
     }
 
-
-    pub fn resolve(&mut self, sym_n: &str) -> Option<Sym> {
-        self.resolve_types(sym_n, None)
-    }
-
-    pub fn resolve_types(&mut self, sym_n: &str, types: Option<Vec<SymType>>) 
-                        -> Option<Sym> {
-
-        let types = match types {
-            Some(x) => { x },
-            None    => vec![SymType::Var,
-                            SymType::Binary,
-                            SymType::Builtin, 
-                            SymType::Environment,
-                            SymType::Fn]
-        };
-
-        if types.contains(&SymType::Var) || types.contains(&SymType::Fn) {
-            // check for opt
-            if opts::is_opt(sym_n) {
-                match opts::get(sym_n) {
-                    Some(s) => return Some(Sym::Var(s)),
-                    None    => return None
-                }
-            }
-
-            // check for Var symbol
-            for scope in self.scopes.iter().rev() {
-                if let Some(v) = scope.vars.get(sym_n) {
-                    match *v {
-                        Val::Var(ref v) => {
-                            if types.contains(&SymType::Var) {
-                                return Some(Sym::Var(v.clone()));
-                            }
-                        },
-                        Val::Fn(ref f)  => {
-                            if types.contains(&SymType::Fn) {
-                                return Some(Sym::Fn(f.clone()));
-                            }
-                        }
-                    }
-                }
+    pub fn resolve_var(&self, sym_n: &str) -> Option<String> {
+        if opts::is_opt(sym_n) {
+            match opts::get(sym_n) {
+                Some(s) => return Some(s),
+                None    => return None
             }
         }
 
-        if types.contains(&SymType::Environment) {
-            if let Ok(e) = env::var(sym_n) {
-                return Some(Sym::Environment(e));
-            }
-        }
-
-        if types.contains(&SymType::Builtin) {
-            // check for Builtin symbol
-            if let Some(bi) = self.builtins.get(sym_n) {
-                return Some(Sym::Builtin(bi.clone()));
-            }
-        }
-
-        if types.contains(&SymType::Binary) {
-            // check for Binary symbol by filename
-            if let Some(bin_path) = self.bins.get(sym_n) {
-                return Some(Sym::Binary(bin_path.clone()));
-            }
-
-            // Check for executable file by full path
-            if let Ok(_) = fs::metadata(sym_n) {
-                // FIXME: needs more sanity checking for good files
-                return Some(Sym::Binary(path::PathBuf::from(sym_n)));
-            }
-
-            // Re-hash bins and check again
-            // TODO: make re-hash optional, since it has a noticeable runtime.
-            if let Some(bin_path) = self.hash_bins().bins.get(sym_n) {
-                return Some(Sym::Binary(bin_path.clone()));
+        // check for Var symbol
+        for scope in self.scopes.iter().rev() {
+            if let Some(&Val::Var(ref v)) = scope.vars.get(sym_n) {
+               return Some(v.clone());
             }
         }
 
         None
+    }
+
+    pub fn resolve_fn(&self, sym_n: &str) -> Option<Fn> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(&Val::Fn(ref f)) = scope.vars.get(sym_n) {
+               return Some(f.clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn resolve_env(&self, sym_n: &str) -> Option<String> {
+        match env::var(sym_n) {
+            Ok(e)  => Some(e),
+            Err(_) => None
+        }
+    }
+
+    pub fn resolve_builtin(&self, sym_n: &str) -> Option<builtins::Builtin> {
+        match self.builtins.get(sym_n) {
+            Some(e) => Some(e.to_owned()),
+            None    => None
+        }
+    }
+
+    pub fn resolve_binary(&mut self, sym_n: &str) -> Option<path::PathBuf> {
+        // check for Binary symbol by filename
+        if let Some(bin_path) = self.bins.get(sym_n) {
+            return Some(bin_path.clone());
+        }
+
+        // Check for executable file by full path
+        if let Ok(_) = fs::metadata(sym_n) {
+            // FIXME: needs more sanity checking for good files
+            return Some(path::PathBuf::from(sym_n));
+        }
+
+        // Re-hash bins and check again
+        // TODO: make re-hash optional, since it has a noticeable runtime.
+        /*
+        if let Some(bin_path) = self.hash_bins().bins.get(sym_n) {
+            return Some(Sym::Binary(bin_path.clone()));
+        } 
+        */
+
+        None
+    }
+
+    pub fn resolve_varish(&self, sym_n: &str) -> Option<SymV> {
+        if let Some(res) = self.resolve_var(sym_n) {
+            Some(SymV::Var(res))
+        } else if let Some(res) = self.resolve_env(sym_n) {
+            Some(SymV::Environment(res))
+        } else {
+            None
+        }
+    }
+
+    pub fn resolve_exec(&mut self, sym_n: &str) -> Option<SymE> {
+        if let Some(res) = self.resolve_fn(sym_n) {
+            Some(SymE::Fn(res))
+        } else if let Some(res) = self.resolve_builtin(sym_n) {
+            Some(SymE::Builtin(res))
+        } else if let Some(res) = self.resolve_binary(sym_n) {
+            Some(SymE::Binary(res))
+        } else {
+            None
+        }
+    }
+
+    pub fn resolve_any(&mut self, sym_n: &str) -> Option<Sym> {
+        if let Some(res) = self.resolve_var(sym_n) {
+            Some(Sym::Var(res))
+        } else if let Some(res) = self.resolve_fn(sym_n) {
+            Some(Sym::Fn(res))
+        } else if let Some(res) = self.resolve_env(sym_n) {
+            Some(Sym::Environment(res))
+        } else if let Some(res) = self.resolve_builtin(sym_n) {
+            Some(Sym::Builtin(res))
+        } else if let Some(res) = self.resolve_binary(sym_n) {
+            Some(Sym::Binary(res))
+        } else {
+            None
+        }
     }
 }

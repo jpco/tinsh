@@ -34,17 +34,19 @@ fn p_resolve(sh: &mut shell::Shell, mut pstmt: String, ps: &ParseState) -> Vec<S
     let spl = if pstmt.ends_with("!") { pstmt.pop(); true }
               else { false };
 
-    let res = match sh.st.resolve_types(&pstmt,
-                              Some(vec![sym::SymType::Var,
-                                        sym::SymType::Environment])) {
-        Some(sym::Sym::Var(s)) | Some(sym::Sym::Environment(s)) => s,
-        None => sh.input_loop_collect(Some(vec![pstmt])),
-        _ => unreachable!()
+    let res = match sh.st.resolve_varish(&pstmt) {
+        Some(sym::SymV::Var(s)) | Some(sym::SymV::Environment(s)) => s,
+        None => sh.input_loop_collect(Some(vec![pstmt]))
     };
 
     if spl && *ps == ParseState::Normal {
         // TODO: better
-        res.split_whitespace().map(|x| x.to_owned()).collect()
+        let r = res.split_whitespace().map(|x| x.to_owned()).collect::<Vec<_>>();
+        if r.len() > 0 {
+            r
+        } else {
+            vec!["".to_string()]
+        }
     } else {
         vec![res]
     }
@@ -308,27 +310,17 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
                             }
 
                             if !cproc.has_args() {
-                                // first word -- convert process to appropriate thing
-                                // TODO: in non-interactive shells we don't need to
-                                // evaluate every binary up-front; make resolution more
-                                // piecemeal to speed up startup
-                                cproc = match sh.st.resolve_types(&tok,
-                                                          Some(vec![sym::SymType::Binary,
-                                                               sym::SymType::Builtin,
-                                                               sym::SymType::Fn])) {
-                                    Some(sym::Sym::Builtin(b)) =>
-                                        Box::new(BuiltinProc(BuiltinProcess::new(b))),
-                                    Some(sym::Sym::Binary(b))  =>
-                                        Box::new(BinProc(BinProcess::new(&tok, b))),
-                                    Some(sym::Sym::Fn(f))      =>
-                                        Box::new(BuiltinProc(BuiltinProcess::from_fn(f))),
-                                    None =>
-                                        // assume it's in the filesystem but not in PATH
-                                        // FIXME: this enables '.' in PATH by default
-                                        Box::new(BinProc(BinProcess::new(&tok,
-                                                            PathBuf::from(tok.clone())))),
-                                    _ => unreachable!()
-                                };
+                                cproc = Box::new(match sh.st.resolve_exec(&tok) {
+                                   Some(sym::SymE::Builtin(b)) =>
+                                        BuiltinProc(BuiltinProcess::new(b)),
+                                    Some(sym::SymE::Binary(b)) =>
+                                        BinProc(BinProcess::new(&tok, b)),
+                                    Some(sym::SymE::Fn(f))     =>
+                                        BuiltinProc(BuiltinProcess::from_fn(f)),
+                                    None => {
+                                        return (None, LineState::Normal);
+                                    }
+                                });
                             } else {
                                 cproc.push_arg(Arg::Str(tok));
                             }
