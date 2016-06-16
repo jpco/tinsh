@@ -12,8 +12,6 @@ use std::io::BufRead;
 
 use sym;
 
-use exec;
-
 use sym::ScopeSpec;
 use exec::Arg;
 use shell::Shell;
@@ -82,8 +80,8 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
                     an = &an[..an.len()-1];
                 }
                 if args.len() > 0 {
-                    sh.st.set_scope(&an, args.remove(0).into_string(),
-                                    ScopeSpec::Local);
+                    let _ = sh.st.set_scope(&an, args.remove(0).into_string(),
+                                            ScopeSpec::Local);
                 } else {
                     if !opt {
                         warn!("fn '{}': Not enough args provided", f.name);
@@ -104,8 +102,8 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
                         }
                         match args.pop() {
                             Some(s) => {
-                                sh.st.set_scope(a, s.clone().into_string(),
-                                                       ScopeSpec::Local);
+                                let _ = sh.st.set_scope(a, s.clone().into_string(),
+                                                        ScopeSpec::Local);
                             },
                             None => {
                                 if !opt {
@@ -124,7 +122,7 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
                 }
                 if args.len() > 0 {
                     let s = args.drain(..).map(|x| x.into_string()).collect::<Vec<String>>().join(" ");
-                    sh.st.set_scope(&va, s, ScopeSpec::Local);
+                    let _ = sh.st.set_scope(&va, s, ScopeSpec::Local);
                 } else {
                     if !opt {
                         warn!("fn '{}': Not enough args provided", f.name);
