@@ -25,17 +25,28 @@ use lexer::TokenType;
 use lexer::TokenException;
 use lexer::lex;
 
-fn p_resolve(sh: &mut shell::Shell, pstmt: String) -> String {
+fn p_resolve(sh: &mut shell::Shell, mut pstmt: String, ps: &ParseState) -> Vec<String> {
     if pstmt == "?" {
-        return sh.status_code.to_string();
+        return vec![sh.status_code.to_string()];
     }
 
-    match sh.st.resolve_types(&pstmt,
+    // TODO: this but more
+    let spl = if pstmt.ends_with("!") { pstmt.pop(); true }
+              else { false };
+
+    let res = match sh.st.resolve_types(&pstmt,
                               Some(vec![sym::SymType::Var,
                                         sym::SymType::Environment])) {
         Some(sym::Sym::Var(s)) | Some(sym::Sym::Environment(s)) => s,
         None => sh.input_loop_collect(Some(vec![pstmt])),
         _ => unreachable!()
+    };
+
+    if spl && *ps == ParseState::Normal {
+        // TODO: better
+        res.split_whitespace().map(|x| x.to_owned()).collect()
+    } else {
+        vec![res]
     }
 }
 
@@ -49,9 +60,10 @@ enum ParseState {
     Pquot
 }
 
-// resolves a word token into a more useful word token
-fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
-    let mut res = String::new();
+// resolves a word token into (a) more useful word token(s)
+fn tok_parse(sh: &mut shell::Shell, tok: &str) -> Vec<String> {
+    let mut res = Vec::new();
+    let mut c_res = String::new();
     let mut pbuf = String::new();
     let mut res_buf: String;
     let mut ps_stack = vec![ParseState::Normal];
@@ -81,7 +93,15 @@ fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
                                 let loc_buf = pbuf;
                                 pbuf = String::new();
                                 ps_stack.pop();
-                                res_buf = p_resolve(sh, loc_buf);
+                                let mut res_v = p_resolve(sh, loc_buf,
+                                                    ps_stack.last().unwrap());
+                                res_buf = res_v.pop().unwrap();
+                                if res_v.len() > 0 {
+                                    c_res.push_str(&res_v.remove(0));
+                                    res.push(c_res);
+                                    c_res = String::new();
+                                }
+                                for a in res_v { res.push(a); }
                                 Some(&res_buf as &str)
                             } else {
                                 pctr -= 1;
@@ -128,7 +148,7 @@ fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
             if ps_stack.contains(&ParseState::Paren) {
                 pbuf.push_str(to_push);
             } else {
-                res.push_str(to_push);
+                c_res.push_str(to_push);
             }
         }
 
@@ -139,6 +159,7 @@ fn tok_parse(sh: &mut shell::Shell, tok: &str) -> String {
         }
     }
 
+    res.push(c_res);
     res
 }
 
@@ -265,47 +286,52 @@ pub fn eval(sh: &mut shell::Shell, cmd: String) -> (Option<Job>, LineState) {
             Ok((tok, ttype)) => {
                 match ttype {
                     TokenType::Word  => {
-                        let tok = tok_parse(sh, &tok.unwrap());
+                        let tokv = tok_parse(sh, &tok.unwrap()).iter()
+                                     .filter_map(
+                                         |x| if !x.trim().is_empty() {
+                                                Some(x.to_owned())
+                                             } else { None })
+                                     .collect::<Vec<String>>();
                         // don't do anything with empty tokens, guh
-                        if tok.trim().is_empty() { continue; }
+                        for tok in tokv {
+                            // gotta finish the redirect!
+                            if rd_buf.is_some() {
+                                cproc.push_arg(Arg::Rd(match rd_buf.unwrap() {
+                                    RedirBuf::RdArgOut => Redir::RdArgOut(tok),
+                                    RedirBuf::RdArgIn => Redir::RdArgIn(tok),
+                                    RedirBuf::RdFileOut(fd,ap)=>Redir::RdFileOut(fd,tok,ap),
+                                    RedirBuf::RdFileIn(fd) => Redir::RdFileIn(fd, tok),
+                                    RedirBuf::RdStringIn(fd) => Redir::RdStringIn(fd, tok)
+                                }));
+                                rd_buf = None;
+                                continue;
+                            }
 
-                        // gotta finish the redirect!
-                        if rd_buf.is_some() {
-                            cproc.push_arg(Arg::Rd(match rd_buf.unwrap() {
-                                RedirBuf::RdArgOut => Redir::RdArgOut(tok),
-                                RedirBuf::RdArgIn => Redir::RdArgIn(tok),
-                                RedirBuf::RdFileOut(fd,ap)=>Redir::RdFileOut(fd,tok,ap),
-                                RedirBuf::RdFileIn(fd) => Redir::RdFileIn(fd, tok),
-                                RedirBuf::RdStringIn(fd) => Redir::RdStringIn(fd, tok)
-                            }));
-                            rd_buf = None;
-                            continue;
-                        }
-
-                        if !cproc.has_args() {
-                            // first word -- convert process to appropriate thing
-                            // TODO: in non-interactive shells we don't need to
-                            // evaluate every binary up-front; make resolution more
-                            // piecemeal to speed up startup
-                            cproc = match sh.st.resolve_types(&tok,
-                                                      Some(vec![sym::SymType::Binary,
-                                                           sym::SymType::Builtin,
-                                                           sym::SymType::Fn])) {
-                                Some(sym::Sym::Builtin(b)) =>
-                                    Box::new(BuiltinProc(BuiltinProcess::new(b))),
-                                Some(sym::Sym::Binary(b))  =>
-                                    Box::new(BinProc(BinProcess::new(&tok, b))),
-                                Some(sym::Sym::Fn(f))      =>
-                                    Box::new(BuiltinProc(BuiltinProcess::from_fn(f))),
-                                None =>
-                                    // assume it's in the filesystem but not in PATH
-                                    // FIXME: this enables '.' in PATH by default
-                                    Box::new(BinProc(BinProcess::new(&tok,
-                                                        PathBuf::from(tok.clone())))),
-                                _ => unreachable!()
-                            };
-                        } else {
-                            cproc.push_arg(Arg::Str(tok));
+                            if !cproc.has_args() {
+                                // first word -- convert process to appropriate thing
+                                // TODO: in non-interactive shells we don't need to
+                                // evaluate every binary up-front; make resolution more
+                                // piecemeal to speed up startup
+                                cproc = match sh.st.resolve_types(&tok,
+                                                          Some(vec![sym::SymType::Binary,
+                                                               sym::SymType::Builtin,
+                                                               sym::SymType::Fn])) {
+                                    Some(sym::Sym::Builtin(b)) =>
+                                        Box::new(BuiltinProc(BuiltinProcess::new(b))),
+                                    Some(sym::Sym::Binary(b))  =>
+                                        Box::new(BinProc(BinProcess::new(&tok, b))),
+                                    Some(sym::Sym::Fn(f))      =>
+                                        Box::new(BuiltinProc(BuiltinProcess::from_fn(f))),
+                                    None =>
+                                        // assume it's in the filesystem but not in PATH
+                                        // FIXME: this enables '.' in PATH by default
+                                        Box::new(BinProc(BinProcess::new(&tok,
+                                                            PathBuf::from(tok.clone())))),
+                                    _ => unreachable!()
+                                };
+                            } else {
+                                cproc.push_arg(Arg::Str(tok));
+                            }
                         }
                     },
                     TokenType::Pipe  => {
