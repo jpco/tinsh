@@ -10,7 +10,6 @@ use parser;
 use posix;
 use opts;
 use exec::Arg;
-use exec::Redir;
 use exec::job::Job;
 
 /// terrible God object to make state accessible to everyone everywhere
@@ -179,17 +178,7 @@ impl Shell {
     pub fn line_exec(&mut self, av: Vec<Arg>) -> i32 {
         let mut cmd = String::new();
         for a in av {
-            // FIXME: should this be treated as a block or decomposed?
-            if let Arg::Bl(bv) = a {
-                cmd.push_str("{ ");
-                for l in bv {
-                    cmd.push_str(&l);
-                    cmd.push_str("; ");
-                }
-                cmd.push('}');
-            } else {
-                for r in a.into_vec() { cmd.push_str(&r); }
-            }
+            cmd.push_str(&a.into_string());
             cmd.push(' ');
         }
 

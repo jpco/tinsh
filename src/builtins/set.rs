@@ -4,7 +4,6 @@ use std::rc;
 
 use sym;
 
-use exec;
 use exec::Arg;
 use exec::Redir;
 use shell::Shell;
@@ -66,10 +65,59 @@ fn fn_set(sh: &mut Shell, kv: Vec<String>, mut av: Vec<Arg>, spec: sym::ScopeSpe
     let exec_bl = av.pop().unwrap().unwrap_bl();
 
     // TODO: patterns in function args!
-    let fn_args = av.drain(..).flat_map(|x| x.into_vec()).collect::<Vec<String>>();
-  
+    let mut args = Vec::new();
+    let mut vararg = None;
+    let mut postargs = None;
+
+    let flat_args = av.drain(..).flat_map(|x| x.into_vec()).collect::<Vec<_>>();
+    for sl in flat_args.windows(2) {
+        let ref elt = sl[0];
+        let ref lookahead = sl[1];
+
+        if lookahead == "..." {
+            if vararg.is_some() {
+                warn!("set: fn can have at most one vararg");
+                return 2;
+            }
+            vararg = Some(elt.to_owned());
+            postargs = Some(Vec::new());
+        } else if elt != "..." {
+            if let Some(ref mut x) = postargs {
+                x.push(elt.to_owned());
+            } else {
+                args.push(elt.to_owned());
+            }
+        }
+    }
+
+    // last arg
+    let last = flat_args.last().unwrap();
+    if last != "..." {
+        if let Some(ref mut x) = postargs { x.push(last.to_owned()); }
+        else { args.push(last.to_owned()); }
+    }
+
+    for a in &args {
+        println!("ARG: {}", a);
+    }
+    if let Some(p) = vararg.clone() { println!("VARARG: {}", p); }
+    if let Some(v) = postargs.clone() {
+        for a in &v {
+            println!("ARG: {}", a);
+        }
+    }
+
     for k in &kv {
-        sh.st.set_fn(k, sym::Fn { args: fn_args.clone(), lines: exec_bl.clone() }, spec);
+        sh.st.set_fn(k,
+            sym::Fn {
+                name: k.clone(),
+                inline: false, 
+                args: args.clone(),
+                vararg: vararg.clone(),
+                postargs: postargs.clone(),
+                lines: exec_bl.clone()
+            },
+            spec);
     }
 
     0
@@ -101,6 +149,7 @@ pub fn set_main() ->
         if args.is_empty() { args.push(Arg::Str(String::new())); }
 
         if args[0].is_str() && args[0].as_str() == "fn" {
+            args.remove(0);
             return fn_set(sh, keyv, args, spec);
         }
 

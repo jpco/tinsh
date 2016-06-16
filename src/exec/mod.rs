@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 // TODO: make binprocess and builtinprocess *NOT* public, create a helper function
 // in this module to decide which proc to use
 pub mod binprocess;
@@ -24,8 +26,7 @@ use self::ProcStruct::BinProc;
 use exec::binprocess::BinProcess;
 use exec::builtinprocess::BuiltinProcess;
 
-// out grammar: (-|~)(fd|&)?>(fd|+)?
-// in grammar:  (fd)?<<?(fd)?(-|~)
+#[derive(Clone)]
 pub enum Redir {
     RdArgOut(String),             // command substitutions
     RdArgIn(String),              //  - out/in controls WritePipe vs ReadPipe
@@ -36,6 +37,7 @@ pub enum Redir {
     RdStringIn(i32, String)  // here-string/here-documents
 }
 
+#[derive(Clone)]
 pub enum Arg {
     Str(String),
     Bl(Vec<String>),
@@ -108,6 +110,39 @@ impl Arg {
         match self {
             Arg::Rd(rd)  => rd,
             _      => panic!()
+        }
+    }
+
+    pub fn into_string(self) -> String {
+        match self {
+            Arg::Str(s) => s,
+            Arg::Bl(bl) => {
+                let mut ret = "{ ".to_string();
+                for l in bl {
+                    ret.push_str(&format!("{}; ", l));
+                }
+                ret.push_str("}");
+                ret
+            }
+            Arg::Pat(p) => format!("`{}`", p),
+            Arg::Rd(rd) => {
+                match rd {
+                    Redir::RdArgOut(s) => format!("~> {}", s),
+                    Redir::RdArgIn(s) => format!("<~ {}", s),
+                    Redir::RdFdOut(a, b) => {
+                        if a == -2 {
+                            format!("-&>{}", b)
+                        } else {
+                            format!("-{}>{}", a, b)
+                        }
+                    },
+                    Redir::RdFdIn(a, b) => format!("{}<{}-", a, b),
+                    Redir::RdFileOut(a, dest, ap) => format!("-{}>{} {}", a,
+                                                     if ap { "+" } else { "" }, dest),
+                    Redir::RdFileIn(a, src) => format!("{}<- {}", a, src),
+                    Redir::RdStringIn(a, src) => format!("{}<<- {}", a, src)
+                }
+            }
         }
     }
 

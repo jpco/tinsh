@@ -27,7 +27,11 @@ pub enum Sym {
 
 #[derive(Clone)]
 pub struct Fn {
+    pub name: String,
+    pub inline: bool,
     pub args: Vec<String>,
+    pub vararg: Option<String>,
+    pub postargs: Option<Vec<String>>,
     pub lines: Vec<String>
 }
 

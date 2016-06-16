@@ -11,8 +11,10 @@ use std::io::BufReader;
 use std::io::BufRead;
 
 use sym;
+
 use exec;
 
+use sym::ScopeSpec;
 use exec::Arg;
 use shell::Shell;
 
@@ -64,11 +66,54 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
         rd_cap: false,
         bl_cap: true,
         pat_cap: true,
-        run: rc::Rc::new(move |args: Vec<Arg>, sh: &mut Shell,
+        run: rc::Rc::new(move |mut args: Vec<Arg>, sh: &mut Shell,
                                _in: Option<BufReader<fs::File>>| -> i32 {
-            let _args = f.args.clone();  // TODO
+
             let lines = f.lines.clone();
-            sh.block_exec(lines)
+            if !f.inline { sh.st.new_scope(true); }
+
+            // parse/figure out the args
+            // TODO: [] params
+            for an in &f.args {
+                if args.len() > 0 {
+                    sh.st.set_scope(&an, args.remove(0).into_string(),
+                                    ScopeSpec::Local);
+                } else {
+                    warn!("fn '{}': Not enough args provided", f.name);
+                    return 2;  // TODO: care about this more
+                }
+            }
+
+            if let &Some(ref va) = &f.vararg {
+                if let &Some(ref pa) = &f.postargs {
+                    for a in pa.iter().rev() {
+                        match args.pop() {
+                            Some(s) => {
+                                sh.st.set_scope(a, s.clone().into_string(),
+                                                       ScopeSpec::Local);
+                            },
+                            None => {
+                                warn!("fn '{}': Not enough args provided", f.name);
+                                return 2;
+                            }
+                        }
+                    }
+                }
+                if args.len() > 0 {
+                    let s = args.drain(..).map(|x| x.into_string()).collect::<Vec<String>>().join(" ");
+                    sh.st.set_scope(&va, s, ScopeSpec::Local);
+                } else {
+                    warn!("fn '{}': Not enough args provided", f.name);
+                    return 2;
+                }
+            }
+            
+
+            sh.input_loop(Some(lines), false);
+
+            if !f.inline { sh.st.del_scope(); }
+
+            sh.status_code
         })
     }
 }

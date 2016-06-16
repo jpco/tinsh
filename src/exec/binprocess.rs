@@ -13,7 +13,6 @@ use opts;
 use posix::ReadPipe;
 use posix::WritePipe;
 use posix::Pgid;
-use posix::Pid;
 
 use exec::Arg;
 use exec::Process;

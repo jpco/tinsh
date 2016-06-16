@@ -4,7 +4,6 @@ use opts;
 use shell::Shell;
 use posix::Status;
 use posix::ReadPipe;
-use posix::WritePipe;
 use posix::Pgid;
 
 use exec::Child;
