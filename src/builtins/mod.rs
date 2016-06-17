@@ -86,6 +86,8 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
                     if !opt {
                         warn!("fn '{}': Not enough args provided", f.name);
                         return 2;  // TODO: care about this more
+                    } else {
+                        let _ = sh.st.set_scope(&an, "".to_string(), ScopeSpec::Local);
                     }
                 }
             }
@@ -109,6 +111,8 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
                                 if !opt {
                                     warn!("fn '{}': Not enough args provided", f.name);
                                     return 2;
+                                } else {
+                                    let _ = sh.st.set_scope(&a, "".to_string(), ScopeSpec::Local);
                                 }
                             }
                         }
@@ -127,6 +131,8 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
                     if !opt {
                         warn!("fn '{}': Not enough args provided", f.name);
                         return 2;
+                    } else {
+                        let _ = sh.st.set_scope(&va, "".to_string(), ScopeSpec::Local);
                     }
                 }
             }
