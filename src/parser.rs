@@ -7,6 +7,8 @@ use self::unicode_segmentation::UnicodeSegmentation;
 extern crate regex;
 use self::regex::Regex;
 
+use std::env;
+
 use prompt::LineState;
 
 use exec::job::Job;
@@ -69,8 +71,18 @@ fn tok_parse(sh: &mut shell::Shell, tok: &str) -> Vec<String> {
     let mut ps_stack = vec![ParseState::Normal];
     let mut bs = false;
     let mut pctr: usize = 0;
-   
-    for c in tok.graphemes(true) {
+
+    let mut home_compl = false;
+
+    if tok.starts_with('~') {
+        match env::var("HOME") {
+            Ok(e)  => c_res.push_str(&e),
+            Err(_) => c_res.push('~')
+        }
+        home_compl = true;
+    }
+
+    for c in tok.graphemes(true).skip(if home_compl { 1 } else { 0 }) {
         let to_push = match *ps_stack.last().unwrap() {
             ParseState::Normal => {
                 if !bs {

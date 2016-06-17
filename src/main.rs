@@ -12,9 +12,6 @@ mod exec;
 mod posix;
 mod opts;
 
-#[macro_use(lazy_static)]
-extern crate lazy_static;
-
 use std::env;
 
 use prompt::LineState;
