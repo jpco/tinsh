@@ -137,8 +137,14 @@ impl Arg {
                         }
                     },
                     Redir::RdFdIn(a, b) => format!("{}<{}-", a, b),
-                    Redir::RdFileOut(a, dest, ap) => format!("-{}>{} {}", a,
-                                                     if ap { "+" } else { "" }, dest),
+                    Redir::RdFileOut(a, dest, ap) => {
+                        let ap_str = if ap { "+" } else { "" };
+                        if a == -2 {
+                            format!("-&>{} {}", ap_str, dest)
+                        } else {
+                            format!("-{}>{} {}", a, ap_str, dest)
+                        }
+                    },
                     Redir::RdFileIn(a, src) => format!("{}<- {}", a, src),
                     Redir::RdStringIn(a, src) => format!("{}<<- {}", a, src)
                 }
@@ -318,16 +324,22 @@ impl ProcessInner {
                     try!(posix::dup_fds(src, dest));
                 },
                 Redir::RdFileOut(src, dest, app) => {
-                    if rev {
-                        res.rds.push(Redir::RdFdOut(src, try!(posix::dup_fd(src))));
-                    }
                     let fi = try!(OpenOptions::new().write(true).create(true)
                                                     .append(app).open(dest));
                     let fd = fi.as_raw_fd();
                     if src == -2 { // '&'
+                        if rev {
+                            res.rds.push(Redir::RdFdOut(1, try!(posix::dup_fd(1))));
+                            res.rds.push(Redir::RdFdOut(2, try!(posix::dup_fd(2))));
+                        }
+
                         try!(posix::dup_fds(1, fd));
                         try!(posix::dup_fds(2, fd));
                     } else {
+                        if rev {
+                            res.rds.push(Redir::RdFdOut(src, try!(posix::dup_fd(src))));
+                        }
+
                         try!(posix::dup_fds(src, fd));
                     }
                     mem::forget(fi);

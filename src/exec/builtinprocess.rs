@@ -140,7 +140,7 @@ impl Process for BuiltinProcess {
                 let argv = adapt_args(&te, a);
                 sh.status_code = (*te.run)(argv, sh, br);
                 if let Some(rd) = ret_rd {
-                    rd.redirect(false);
+                    let _ = rd.redirect(false);
                 }
             }
 
