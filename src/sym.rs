@@ -8,14 +8,6 @@ use std::path;
 
 use opts;
 
-#[derive(PartialEq, Copy, Clone)]
-pub enum SymType {
-    Binary,
-    Builtin,
-    Var,
-    Environment,
-    Fn
-}
 
 pub enum Sym {
     Binary(path::PathBuf),
@@ -204,50 +196,37 @@ impl Symtable {
         self
     }
 
-    pub fn prefix_resolve(&self, sym_n: &str) -> Vec<String> {
+    // TODO: make this happen (requires var compl)
+    /* pub fn prefix_resolve(&self, sym_n: &str) -> Vec<String> {
         self.prefix_resolve_types(sym_n, None)
-    }
+    } */
 
     // simply resolves a vector of matching strings.
-    // TODO: rewrite this. it's bad; also we need to add fns to this
-    pub fn prefix_resolve_types(&self, sym_n: &str, types: Option<Vec<SymType>>) 
-                              -> Vec<String> {
-        let types = match types {
-            Some(x) => { x },
-            None    => vec![SymType::Var,
-                            SymType::Binary,
-                            SymType::Builtin, 
-                            SymType::Environment]
-        };
-
+    pub fn prefix_resolve_exec(&self, sym_n: &str) -> Vec<String> {
         let mut res: Vec<String> = Vec::new();
 
-        if types.contains(&SymType::Var) {
-            // check for Var symbol
-            for scope in self.scopes.iter().rev() {
-                for v in scope.vars.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
-                    if let (_, &Val::Var(ref v)) = v {
-                        res.push(v.clone());
-                    }
+        // fns
+        for scope in self.scopes.iter().rev() {
+            for v in scope.vars.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
+                if let (n, &Val::Fn(_)) = v {
+                    res.push(n.to_owned());
                 }
             }
         }
 
-        if types.contains(&SymType::Builtin) {
-            // check for Builtin symbol
-            for v in self.builtins.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
-                res.push(v.1.name.to_string());
-            }
+        // builtins
+        for v in self.builtins.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
+            res.push(v.1.name.to_string());
         }
 
-        if types.contains(&SymType::Binary) {
-            // check for Binary symbol by filename
-            for v in self.bins.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
-                res.push(v.1.clone().file_name().unwrap()
-                            .to_os_string().into_string().unwrap());
-            }
+        // binaries
+        for v in self.bins.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
+            res.push(v.1.clone().file_name().unwrap()
+                        .to_os_string().into_string().unwrap());
         }
 
+        res.sort();
+        res.dedup();
         res
     }
 

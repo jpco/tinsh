@@ -2,7 +2,6 @@ use std::env;
 use std::fs;
 
 use sym::Symtable;
-use sym::SymType;
 
 extern crate glob;
 
@@ -42,7 +41,8 @@ pub fn complete(in_str: &str, st: &Symtable, first_word: bool, print_multi: bool
 }
 
 pub fn bin_complete(in_str: &str, st: &Symtable, print_multi: bool) -> String {
-    let res_vec = st.prefix_resolve_types(in_str, Some(vec![SymType::Binary]));
+    let res_vec = st.prefix_resolve_exec(in_str);
+
     if res_vec.len() == 1 {
         let mut res = res_vec[0].clone();
         res.push(' ');
