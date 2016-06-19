@@ -112,39 +112,67 @@ impl Symtable {
 
     // NOTE: simply marks the relevant data structures, *does not* actually break/etc.
     pub fn sc_break(&mut self, mut d: i32) {
+        let mut found = false;
         for mut sc in self.scopes.iter_mut().rev() {
             sc.inter = Some(ScInter::Break);
             if sc.sc_type == ScType::Loop {
                 d -= 1;
             }
             if d == 0 {
+                found = true;
                 break;  // meta
+            }
+        }
+        if !found {
+            warn!("'break' command used without a loop (or enough loops)");
+
+            // gorrammit, gotta reset all of them
+            for mut sc in self.scopes.iter_mut() {
+                sc.inter = None;
             }
         }
     }
 
     pub fn sc_continue(&mut self, mut d: i32) {
+        let mut found = false;
         for mut sc in self.scopes.iter_mut().rev() {
             if sc.sc_type == ScType::Loop {
                 d -= 1;
             }
             if d == 0 {
+                found = true;
                 sc.inter = Some(ScInter::Continue);
                 break;  // soooo meta
             } else {
                 sc.inter = Some(ScInter::Break);
             }
         }
+        if !found {
+            warn!("'continue' command used without a loop (or enough loops)");
+
+            for mut sc in self.scopes.iter_mut() {
+                sc.inter = None;
+            }
+        }
     }
 
     pub fn sc_return(&mut self, retcode: i32) {
+        let mut found = false;
         for mut sc in self.scopes.iter_mut().rev() {
             sc.inter = Some(ScInter::Break);
             if sc.sc_type == ScType::Fn {
+                found = true;
                 sc.inter = Some(ScInter::Return(retcode));
                 break;
             } else {
                 sc.inter = Some(ScInter::Break);
+            }
+        }
+        if !found {
+            warn!("'return' command used not in a fn");
+
+            for mut sc in self.scopes.iter_mut() {
+                sc.inter = None;
             }
         }
     }

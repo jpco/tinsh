@@ -287,7 +287,7 @@ impl Builtin {
                 run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                                     _in: Option<BufReader<fs::File>>| -> i32 {
                     sh.st.sc_break(1);
-                    0
+                    12  // this return code is only used on failure
                 })
             });
 
@@ -303,7 +303,7 @@ impl Builtin {
                 run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                                     _in: Option<BufReader<fs::File>>| -> i32 {
                     sh.st.sc_continue(1);
-                    0
+                    12  // this return code is only used on failure
                 })
             });
 
@@ -331,7 +331,7 @@ impl Builtin {
                     };
                     sh.st.sc_return(ret_code);
 
-                    123  // this return code should never matter
+                    12  // this return code is only used on failure
                 })
             });
 
