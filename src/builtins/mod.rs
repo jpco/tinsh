@@ -251,6 +251,54 @@ impl Builtin {
             });
 
         bi_map.insert(
+            "_prompt",
+            Builtin {
+                name: "_prompt",
+                desc: "The default (fallback) prompt",
+                rd_cap: false,
+                bl_cap: false,
+                pat_cap: false,
+                run: rc::Rc::new(|_args: Vec<Arg>, _sh: &mut Shell,
+                                    _in: Option<BufReader<fs::File>>| -> i32 {
+                    let prompt_str = env::var("PWD").unwrap_or("".to_string());
+                    print!("{}$ ", prompt_str);
+                    0
+                })
+            });
+
+        bi_map.insert(
+            "_prompt_comment",
+            Builtin {
+                name: "_prompt_comment",
+                desc: "The default (fallback) prompt when in a comment",
+                rd_cap: false,
+                bl_cap: false,
+                pat_cap: false,
+                run: rc::Rc::new(|_args: Vec<Arg>, _sh: &mut Shell,
+                                    _in: Option<BufReader<fs::File>>| -> i32 {
+                    print!("### ");
+                    0
+                })
+            });
+
+
+        bi_map.insert(
+            "_prompt_continue",
+            Builtin {
+                name: "_prompt_continue",
+                desc: "The default (fallback) prompt when prompting for more input",
+                rd_cap: false,
+                bl_cap: false,
+                pat_cap: false,
+                run: rc::Rc::new(|_args: Vec<Arg>, _sh: &mut Shell,
+                                    _in: Option<BufReader<fs::File>>| -> i32 {
+                    print!("... ");
+                    0
+                })
+            });
+
+
+        bi_map.insert(
             "loop",
             Builtin {
                 name: "loop",

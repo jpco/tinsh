@@ -25,7 +25,8 @@ use lexer::TokenType;
 use lexer::TokenException;
 use lexer::lex;
 
-fn p_resolve(sh: &mut shell::Shell, mut pstmt: String, ps: &ParseState) -> Vec<String> {
+fn p_resolve(sh: &mut shell::Shell, mut pstmt: String, ps: &ParseState)
+        -> Vec<String> {
     if pstmt == "?" {
         return vec![sh.status_code.to_string()];
     }

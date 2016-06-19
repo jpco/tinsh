@@ -27,14 +27,13 @@ pub struct Shell {
 }
 
 impl Shell {
-    pub fn exec(&mut self, mut job: Job) -> Option<String> {
+    pub fn exec(&mut self, mut job: Job) {
         job.spawn(self);
         let fg = job.fg;
         self.jobs.push(job);
         if fg {
             self.wait();
         }
-        None
     }
 
     // still stubby while we don't have real job control yet
@@ -71,8 +70,6 @@ impl Shell {
         let mut input_buf = String::new();
         // saves "future" inputs in the case of multi-line input
         let mut next_buf: Option<String> = None;
-
-        let mut output_buf = String::new();
 
         loop {
             // get input
@@ -116,9 +113,7 @@ impl Shell {
                     if ls == LineState::Normal {
                         if let Some(t_job) = t_job {
                             if hist { self.ht.hist_add (input_buf.trim()); }
-                            if let Some(out) = self.exec(t_job) {
-                                output_buf.push_str(&out);
-                            }
+                            self.exec(t_job);
                         }
                         input_buf = String::new();
                     }

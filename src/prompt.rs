@@ -7,6 +7,7 @@ use std::str;
 use std::env;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
+use std::mem;
 
 use sym::Symtable;
 use hist::Histvec;
@@ -45,8 +46,7 @@ impl CmdPrompt {
 impl Prompt for CmdPrompt {
     fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<Result<String>> {
         if self.cmd.is_some() {
-            let cmd = self.cmd.clone();
-            self.cmd = None;
+            let cmd = mem::replace(&mut self.cmd, None);
 
             Some(Ok(cmd.unwrap()))
         } else {
@@ -159,26 +159,6 @@ impl StdPrompt {
     fn unprep_term(&mut self) {
         self.termios.c_lflag = self.out_tcflag;
         tcsetattr(self.term_fi.as_raw_fd(), TCSAFLUSH, &self.termios).unwrap();
-    }
-
-    fn print_prompt(&mut self) {
-        // TODO: prompt_l based on actual position in terminal buffer
-        match self.ls {
-            LineState::Normal => {
-                let prompt_str = env::var("PWD").unwrap_or("".to_string());
-                self.prompt_l = prompt_str.len() + 3;
-                print!("{}$ ", prompt_str);
-            },
-            LineState::Comment => {
-                self.prompt_l = 5;
-                print!("### ");
-            },
-            LineState::Continue => {
-                self.prompt_l = 5;
-                print!("... ");
-            }
-        }
-        io::stdout().flush().ok().expect("Could not flush stdout");
     }
 
     fn get_char(&self) -> Option<Result<char>> {
@@ -327,7 +307,6 @@ impl Prompt for StdPrompt {
     //  - ANSI code interpretation
     fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<Result<String>> {
         self.ls = *ls;
-        self.print_prompt();
         self.prep_term();
 
         self.buf.clear();
