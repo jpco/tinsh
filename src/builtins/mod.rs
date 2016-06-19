@@ -168,11 +168,11 @@ impl Builtin {
                 pat_cap: true,
                 run: rc::Rc::new(|mut args: Vec<Arg>, sh: &mut Shell,
                                  _in: Option<BufReader<fs::File>>| -> i32 {
-                    if args.len() == 0 {
-                        warn!("Invalid number of arguments");
-                        return 3;
-                    }
-
+                    let inv = if args.len() > 0 && 
+                                 args[0].is_str() &&
+                                 args[0].as_str() == "!" {
+                        args.remove(0); true
+                    } else { false };
                     let mut test_args = Vec::new();
                     let mut success_block = None;
                     let mut failure_args = None;
@@ -215,7 +215,7 @@ impl Builtin {
                     if let Some(Arg::Bl(sv)) = success_block {
                         let sc = sh.line_exec(test_args);
 
-                        if sc == 0 {
+                        if (sc == 0) != inv {
                             sh.block_exec(sv)
                         } else {
                             if let Some(av) = failure_args {
