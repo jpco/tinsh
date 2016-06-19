@@ -5,9 +5,25 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path;
+use std::mem;
 
 use opts;
 
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum ScType {
+    Fn,
+    Loop,
+    Global,
+    Default
+}
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum ScInter {
+    Break,
+    Continue,
+    Return(i32)
+}
 
 pub enum Sym {
     Binary(path::PathBuf),
@@ -49,8 +65,8 @@ enum Val {
 // through the function barrier.
 struct Scope {
     vars: HashMap<String, Val>,  // contains vars and also functions
-    is_fn: bool,
-    is_gl: bool                  // why do we need this?
+    sc_type: ScType,
+    inter: Option<ScInter>
 }
 
 #[derive(PartialEq, Copy, Clone)]
@@ -81,15 +97,58 @@ impl Symtable {
 
         st.scopes.push(Scope {
             vars: HashMap::new(),
-            is_fn: false,
-            is_gl: true
+            sc_type: ScType::Global,
+            inter: None
         });
 
         st.hash_bins();
 
         st
     }
-   
+
+    pub fn pull_sc_inter(&mut self) -> Option<ScInter> {
+        mem::replace(&mut self.scopes.last_mut().unwrap().inter, None)
+    }
+
+    // NOTE: simply marks the relevant data structures, *does not* actually break/etc.
+    pub fn sc_break(&mut self, mut d: i32) {
+        for mut sc in self.scopes.iter_mut().rev() {
+            sc.inter = Some(ScInter::Break);
+            if sc.sc_type == ScType::Loop {
+                d -= 1;
+            }
+            if d == 0 {
+                break;  // meta
+            }
+        }
+    }
+
+    pub fn sc_continue(&mut self, mut d: i32) {
+        for mut sc in self.scopes.iter_mut().rev() {
+            if sc.sc_type == ScType::Loop {
+                d -= 1;
+            }
+            if d == 0 {
+                sc.inter = Some(ScInter::Continue);
+                break;  // soooo meta
+            } else {
+                sc.inter = Some(ScInter::Break);
+            }
+        }
+    }
+
+    pub fn sc_return(&mut self, retcode: i32) {
+        for mut sc in self.scopes.iter_mut().rev() {
+            sc.inter = Some(ScInter::Break);
+            if sc.sc_type == ScType::Fn {
+                sc.inter = Some(ScInter::Return(retcode));
+                break;
+            } else {
+                sc.inter = Some(ScInter::Break);
+            }
+        }
+    }
+
     pub fn set(&mut self, key: &str, val: String)
             -> Result<&mut Symtable, opts::OptError> {
         self.set_scope(key, val, ScopeSpec::Default)
@@ -103,7 +162,7 @@ impl Symtable {
             ScopeSpec::Default => {
                 let len = self.scopes.len();
                 for (idx, scope) in self.scopes.iter_mut().rev().enumerate() {
-                    if scope.vars.get(key).is_some() || scope.is_fn {
+                    if scope.vars.get(key).is_some() || scope.sc_type == ScType::Fn {
                         return len - idx - 1;
                     }
                 }
@@ -148,11 +207,11 @@ impl Symtable {
         Ok(self)
     }
 
-    pub fn new_scope(&mut self, is_fn: bool) -> &mut Symtable {
+    pub fn new_scope(&mut self, sc_type: ScType) -> &mut Symtable {
         self.scopes.push(Scope {
             vars: HashMap::new(),
-            is_fn: is_fn,
-            is_gl: false
+            sc_type: sc_type,
+            inter: None
         });
 
         self
@@ -173,7 +232,7 @@ impl Symtable {
             if let Ok(path_dir) = fs::read_dir(path_dir) {
                 for path_f in path_dir {
                     if let Err(e) = path_f {
-                        println!("Error: {}", e);
+                        warn!("Binary hash: {}", e);
                         break;
                     }
                     let path_f = path_f.unwrap();

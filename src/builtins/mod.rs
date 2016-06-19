@@ -14,6 +14,8 @@ use std::io::BufRead;
 use sym;
 
 use sym::ScopeSpec;
+use sym::ScType;
+use sym::ScInter;
 use exec::Arg;
 use shell::Shell;
 
@@ -47,7 +49,7 @@ fn blank_builtin() -> Builtin {
             for a in args {
                 c = match a {
                     Arg::Bl(bv) => {
-                        sh.block_exec(bv)
+                        sh.block_exec(ScType::Default, bv).1
                     }
                     _ => { c } // TODO: how to properly deal with this?
                 };
@@ -69,7 +71,7 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
                                _in: Option<BufReader<fs::File>>| -> i32 {
 
             let lines = f.lines.clone();
-            if !f.inline { sh.st.new_scope(true); }
+            if !f.inline { sh.st.new_scope(ScType::Fn); }
 
             // parse/figure out the args
             // TODO: [] params
@@ -216,7 +218,7 @@ impl Builtin {
                         let sc = sh.line_exec(test_args);
 
                         if (sc == 0) != inv {
-                            sh.block_exec(sv)
+                            sh.block_exec(ScType::Default, sv).1
                         } else {
                             if let Some(av) = failure_args {
                                 sh.line_exec(av)
@@ -244,6 +246,65 @@ impl Builtin {
                     sh.line_exec(args)
                 })
             });
+
+        bi_map.insert(
+            "loop",
+            Builtin {
+                name: "loop",
+                desc: "Loop over a block a lot",
+                rd_cap: false,
+                bl_cap: true,
+                pat_cap: false,
+                run: rc::Rc::new(|mut args: Vec<Arg>, sh: &mut Shell,
+                                    _in: Option<BufReader<fs::File>>| -> i32 {
+                    if let Some(Arg::Bl(lv)) = args.pop() {
+                        let mut ret = 0;
+                        loop {
+                            let (c, r) = sh.block_exec(ScType::Loop, lv.clone());
+                            ret = r;
+                            if c == Some(ScInter::Break) { break; }
+                        }
+                        ret
+                    } else {
+                        warn!("No executable block provided to loop over.");
+                        3
+                    }
+                })
+            });
+
+
+        bi_map.insert(
+            "break",
+            Builtin {
+                name: "break",
+                desc: "Break out of a loop",
+                rd_cap: false,
+                bl_cap: false,
+                pat_cap: false,
+                run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
+                                    _in: Option<BufReader<fs::File>>| -> i32 {
+                    sh.st.sc_break(1);
+                    0
+                })
+            });
+
+
+        bi_map.insert(
+            "continue",
+            Builtin {
+                name: "continue",
+                desc: "Go to the next iteration of a loop",
+                rd_cap: false,
+                bl_cap: false,
+                pat_cap: false,
+                run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
+                                    _in: Option<BufReader<fs::File>>| -> i32 {
+                    sh.st.sc_continue(1);
+                    0
+                })
+            });
+
+
 
         bi_map.insert(
             "set",

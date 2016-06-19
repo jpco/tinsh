@@ -11,6 +11,8 @@ use posix;
 use opts;
 use exec::Arg;
 use exec::job::Job;
+use sym::ScInter;
+use sym::ScType;
 
 /// terrible God object to make state accessible to everyone everywhere
 pub struct Shell {
@@ -63,7 +65,8 @@ impl Shell {
         }
     }
 
-    pub fn input_loop(&mut self, mut in_lines: Option<Vec<String>>, hist: bool) {
+    pub fn input_loop(&mut self, mut in_lines: Option<Vec<String>>, hist: bool)
+            -> Option<ScInter> {
         // saves previous inputs in the case of LineState::Continue
         let mut input_buf = String::new();
         // saves "future" inputs in the case of multi-line input
@@ -123,6 +126,10 @@ impl Shell {
                     ls
                 },
             };
+
+            if let Some(sci) = self.st.pull_sc_inter() {
+                return Some(sci);
+            }
         }
 
         if self.ls != LineState::Normal {
@@ -130,6 +137,7 @@ impl Shell {
             warn!("Line state left non-normal");
             self.ls = LineState::Normal;
         }
+        None
     }
 
     pub fn input_loop_collect(&mut self, in_lines: Option<Vec<String>>) -> String {
@@ -169,12 +177,13 @@ impl Shell {
         }
     }
 
-    pub fn block_exec(&mut self, bv: Vec<String>) -> i32 {
-        self.st.new_scope(false);
-        self.input_loop(Some(bv), false);
+    pub fn block_exec(&mut self, sc_type: ScType, bv: Vec<String>)
+            -> (Option<ScInter>, i32) {
+        self.st.new_scope(sc_type);
+        let x = self.input_loop(Some(bv), false);
         self.st.del_scope();
 
-        self.status_code
+        (x, self.status_code)
     }
 
     pub fn line_exec(&mut self, av: Vec<Arg>) -> i32 {
