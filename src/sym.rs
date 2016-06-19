@@ -103,7 +103,7 @@ impl Symtable {
             ScopeSpec::Default => {
                 let len = self.scopes.len();
                 for (idx, scope) in self.scopes.iter_mut().rev().enumerate() {
-                    if scope.vars.get(key).is_some() {
+                    if scope.vars.get(key).is_some() || scope.is_fn {
                         return len - idx - 1;
                     }
                 }
