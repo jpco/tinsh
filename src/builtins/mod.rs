@@ -5,6 +5,7 @@ use std::process::exit;
 use std::rc;
 use std::fs;
 use std::env;
+use std::mem;
 
 use std::io;
 use std::io::BufReader;
@@ -172,17 +173,60 @@ impl Builtin {
                         return 3;
                     }
 
-                    if let Arg::Bl(lv) = args.pop().unwrap() {
-                        let sc = sh.line_exec(args);
+                    let mut test_args = Vec::new();
+                    let mut success_block = None;
+                    let mut failure_args = None;
+                    let mut c_block = None;
+
+                    for a in args.drain(..) {
+                        if success_block.is_some() {
+                            let mut x: Vec<Arg> = failure_args.unwrap();
+                            x.push(a);
+                            failure_args = Some(x);
+                        } else {
+                            // decide what to do with c_block depending on if
+                            // a is "else"
+                            if c_block.is_some() {
+                                let lb = mem::replace(&mut c_block, None);
+                                if a.is_str() && a.as_str() == "else" {
+                                    success_block = lb;
+                                    failure_args = Some(Vec::new());
+                                    continue;  // throw away the "else"
+                                } else {
+                                    test_args.push(lb.unwrap());
+                                }
+                            }
+
+                            // put a either in c_block or test_args
+                            if a.is_bl() { c_block = Some(a); }
+                            else { test_args.push(a); }
+                        }
+                    }
+
+                    if let Some(cb) = c_block {
+                        if success_block.is_some() {
+                            let mut x: Vec<Arg> = failure_args.unwrap();
+                            x.push(cb);
+                            failure_args = Some(x);
+                        }
+                        else { success_block = Some(cb); }
+                    }
+
+                    if let Some(Arg::Bl(sv)) = success_block {
+                        let sc = sh.line_exec(test_args);
 
                         if sc == 0 {
-                            sh.block_exec(lv)
+                            sh.block_exec(sv)
                         } else {
-                            sc
+                            if let Some(av) = failure_args {
+                                sh.line_exec(av)
+                            } else {
+                                sc
+                            }
                         }
                     } else {
-                        warn!("Must provide an executable block");
-                        3
+                        warn!("No proper executable block could be found.");
+                        127
                     }
                 })
             });
