@@ -4,16 +4,14 @@ use std::io::prelude::*;
 use std::io;
 use std::io::Result;
 use std::str;
-use std::env;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
 
-use sym::Symtable;
-use hist::Histvec;
 use compl::complete;
 
 extern crate termios;
 use self::termios::*;
+
 use shell::Shell;
 use sym;
 
@@ -26,11 +24,11 @@ pub enum LineState {
 
 // None = EOF
 // Err(e) = obvious
-//
 pub trait Prompt {
     fn prompt(&mut self, sh: &mut Shell) -> Option<Result<String>>;
 }
 
+// This may have been obviated by input_loop
 /// CmdPrompt: basic prompt which supplies a single command specified at creation.
 pub struct CmdPrompt {
     cmd: Option<String>
@@ -162,6 +160,50 @@ impl StdPrompt {
         tcsetattr(self.term_fi.as_raw_fd(), TCSAFLUSH, &self.termios).unwrap();
     }
 
+    fn cpos(&mut self) -> (u8, u8) {
+        // get terminal settings correct
+        let cf = self.termios.c_lflag;
+        self.termios.c_lflag = cf & !(ECHO | CREAD | ICANON);
+        tcsetattr(self.term_fi.as_raw_fd(), TCSAFLUSH, &self.termios).unwrap();
+
+        // write terminal request
+        // FIXME: BETTER ERRORS
+        if let Err(e) = io::stdout().write("[6n".as_bytes()) {
+            println!("{}", e);
+            panic!();
+        }
+        if io::stdout().flush().is_err() { panic!(); }
+        // read
+        let mut r = [0; 10];
+        if io::stdin().read(&mut r).is_err() { panic!(); }
+        if r.len() < 6 || r[0] != 27 || r[1] != 91 { panic!(); }
+
+        let mut sc = false;
+        let mut x = 0;
+        let mut y = 0;
+        for &c in r.iter().skip(2) {
+            if 0x30 <= c && c < 0x3A { // a digit
+                if sc {
+                    y = y * 10 + (c - 0x30);
+                } else {
+                    x = x * 10 + (c - 0x30);
+                }
+            } else if c == 0x3B {  // ;
+                if !sc { sc = true; }
+                else { panic!(); }
+            } else if c == 0x52 {  // R
+                if sc { break; }
+                else { panic!(); }
+            } else { println!("ack! {}", c); panic!(); }
+        } 
+
+        // return settings to normal
+        self.termios.c_lflag = cf;
+        tcsetattr(self.term_fi.as_raw_fd(), TCSAFLUSH, &self.termios).unwrap();
+
+        (x, y)
+    }
+
     fn print_prompt(&mut self, sh: &mut Shell) {
         // TODO: prompt_l based on actual position in terminal buffer
         let pr_name = match self.ls {
@@ -177,7 +219,8 @@ impl StdPrompt {
         }
 
         io::stdout().flush().ok().expect("Could not flush stdout");
-        self.prompt_l = 0 /* ??? */
+        let (_, y) = self.cpos();
+        self.prompt_l = y as usize;
     }
 
     fn get_char(&self) -> Option<Result<char>> {
