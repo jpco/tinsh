@@ -106,6 +106,7 @@ impl Shell {
                     }
                 },
                 LineState::Normal | LineState::Continue => {
+                    if !input_buf.is_empty() { input_buf.push('\n'); }
                     input_buf.push_str(&input);
                     let (t_job, ls) = parser::eval(self, input_buf.clone());
 
