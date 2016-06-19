@@ -206,6 +206,7 @@ impl StdPrompt {
 
     fn print_prompt(&mut self, sh: &mut Shell) {
         // TODO: prompt_l based on actual position in terminal buffer
+        print!("[G");
         let pr_name = match self.ls {
             LineState::Normal => "_prompt",
             LineState::Comment => "_prompt_comment",
@@ -231,8 +232,6 @@ impl StdPrompt {
         for chres in io::stdin().bytes() {
             match chres {
                 Ok(ch) => {
-                    // println!("[31m{}[0m", ch as u8);
-
                     if ch as u8 == 4 { // EOF
                         return None;
                     }
