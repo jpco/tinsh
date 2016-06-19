@@ -141,7 +141,10 @@ pub fn fn_builtin(f: sym::Fn) -> Builtin {
             }
             
 
-            sh.input_loop(Some(lines), false);
+            let c = sh.input_loop(Some(lines), false);
+            if let Some(ScInter::Return(x)) = c {
+                sh.status_code = x;
+            }
 
             if !f.inline { sh.st.del_scope(); }
 
@@ -301,6 +304,34 @@ impl Builtin {
                                     _in: Option<BufReader<fs::File>>| -> i32 {
                     sh.st.sc_continue(1);
                     0
+                })
+            });
+
+
+        bi_map.insert(
+            "return",
+            Builtin {
+                name: "return",
+                desc: "return from a function ",
+                rd_cap: false,
+                bl_cap: false,
+                pat_cap: false,
+                run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
+                                    _in: Option<BufReader<fs::File>>| -> i32 {
+                    let ret_code = if args.len() == 0 { 0 }
+                    else {
+                        if let Arg::Str(ref s) = args[0] {
+                            match s.parse::<i32>() {
+                                Ok(i)  => i,
+                                Err(_) => 2
+                            }
+                        } else {
+                            123  // should never happen?
+                        }
+                    };
+                    sh.st.sc_return(ret_code);
+
+                    123  // this return code should never matter
                 })
             });
 
