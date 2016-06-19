@@ -1,6 +1,8 @@
 use std::io::Read;
+use std::mem;
 
 use prompt::Prompt;
+use prompt::BasicPrompt;
 use prompt::LineState;
 use sym::Symtable;
 use hist::Histvec;
@@ -53,14 +55,19 @@ impl Shell {
                 None
             }
         } else {
-            match self.pr.prompt(&self.ls, &self.st, &mut self.ht) {
+            // TODO: lazy_static! on the Box<BasicPrompt> here
+            let mut pr = mem::replace(&mut self.pr, Box::new(BasicPrompt));
+            let ret = match pr.prompt(self) {
                 Some(Ok(pr_in)) => Some(pr_in),
                 Some(Err(e))    => {
                     err!("Couldn't get input: {}", e);
                     panic!("");
                 },
                 None => None
-            }
+            };
+            self.pr = pr;
+
+            ret
         }
     }
 

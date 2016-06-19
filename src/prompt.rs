@@ -7,7 +7,6 @@ use std::str;
 use std::env;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
-use std::mem;
 
 use sym::Symtable;
 use hist::Histvec;
@@ -15,7 +14,8 @@ use compl::complete;
 
 extern crate termios;
 use self::termios::*;
-
+use shell::Shell;
+use sym;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum LineState {
@@ -28,7 +28,7 @@ pub enum LineState {
 // Err(e) = obvious
 //
 pub trait Prompt {
-    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<Result<String>>;
+    fn prompt(&mut self, sh: &mut Shell) -> Option<Result<String>>;
 }
 
 /// CmdPrompt: basic prompt which supplies a single command specified at creation.
@@ -44,9 +44,10 @@ impl CmdPrompt {
 }
 
 impl Prompt for CmdPrompt {
-    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<Result<String>> {
+    fn prompt(&mut self, _sh: &mut Shell) -> Option<Result<String>> {
         if self.cmd.is_some() {
-            let cmd = mem::replace(&mut self.cmd, None);
+            let cmd = self.cmd.clone();
+            self.cmd = None;
 
             Some(Ok(cmd.unwrap()))
         } else {
@@ -59,7 +60,7 @@ impl Prompt for CmdPrompt {
 pub struct BasicPrompt;
 
 impl Prompt for BasicPrompt {
-    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<Result<String>> {
+    fn prompt(&mut self, _sh: &mut Shell) -> Option<Result<String>> {
         let mut buf = String::new();
         let res = io::stdin().read_line(&mut buf);
         if let Err(e) = res {
@@ -91,7 +92,7 @@ impl FilePrompt {
 }
 
 impl Prompt for FilePrompt {
-    fn prompt(&mut self, _ls: &LineState, _st: &Symtable, _ht: &mut Histvec) -> Option<Result<String>> {
+    fn prompt(&mut self, _sh: &mut Shell) -> Option<Result<String>> {
         let mut line = String::new();
         match self.br.read_line(&mut line) {
             Ok(n) => { 
@@ -161,6 +162,24 @@ impl StdPrompt {
         tcsetattr(self.term_fi.as_raw_fd(), TCSAFLUSH, &self.termios).unwrap();
     }
 
+    fn print_prompt(&mut self, sh: &mut Shell) {
+        // TODO: prompt_l based on actual position in terminal buffer
+        let pr_name = match self.ls {
+            LineState::Normal => "_prompt",
+            LineState::Comment => "_prompt_comment",
+            LineState::Continue => "_prompt_continue"
+        };
+        match sh.st.resolve_varish(pr_name) {
+            Some(sym::SymV::Var(s)) | Some(sym::SymV::Environment(s)) => {
+                print!("{}", s)
+            },
+            None => { sh.input_loop(Some(vec![pr_name.to_owned()]), false); }
+        }
+
+        io::stdout().flush().ok().expect("Could not flush stdout");
+        self.prompt_l = 0 /* ??? */
+    }
+
     fn get_char(&self) -> Option<Result<char>> {
         let mut chrbuf: Vec<u8> = Vec::new();
 
@@ -222,7 +241,7 @@ impl StdPrompt {
         self.reprint_cursor();
     }
 
-    fn interp(&mut self, input: &str, st: &Symtable, ht: &mut Histvec) -> bool {
+    fn interp(&mut self, input: &str, sh: &mut Shell) -> bool {
         if input != "\t" { self.print_multi = false; }
         match input {
             "\n" => return true,
@@ -233,20 +252,20 @@ impl StdPrompt {
                         Some(n) => n + 1,
                         None    => 0
                     });
-                let new_pre = complete(&wd_pre, st, pre.is_empty(), self.print_multi);
+                let new_pre = complete(&wd_pre, &sh.st, pre.is_empty(), self.print_multi);
                 self.buf = pre.to_string();
                 self.buf.push_str(&new_pre);
                 self.buf.push_str(post);
                 self.idx = pre.len() + new_pre.len();
                 self.print_multi = true;
-                self.print_prompt(); // in case complete() printed options
+                self.print_prompt(sh); // in case complete() printed options
                 self.reprint();
             },
             "[3~" => if self.buf.len() > 0 && self.idx < self.buf.len() {
                 self.buf.remove(self.idx);
                 self.reprint();              
             },
-            "[A" => if let Some(nl) = ht.hist_up() {
+            "[A" => if let Some(nl) = sh.ht.hist_up() {
                 let at_end = self.idx == self.buf.len();
                 self.buf = nl.to_string();
                 if at_end || self.buf.len() < self.idx {
@@ -254,7 +273,7 @@ impl StdPrompt {
                 }
                 self.reprint();
             },
-            "[B" => if let Some(nl) = ht.hist_down() {
+            "[B" => if let Some(nl) = sh.ht.hist_down() {
                 let at_end = self.idx == self.buf.len();
                 self.buf = nl.to_string();
                 if at_end || self.buf.len() < self.idx {
@@ -305,8 +324,9 @@ impl Prompt for StdPrompt {
     //  - proper POSIX terminal control
     //  - coloration (?)
     //  - ANSI code interpretation
-    fn prompt(&mut self, ls: &LineState, st: &Symtable, ht: &mut Histvec) -> Option<Result<String>> {
-        self.ls = *ls;
+    fn prompt(&mut self, sh: &mut Shell) -> Option<Result<String>> {
+        self.ls = sh.ls;
+        self.print_prompt(sh);
         self.prep_term();
 
         self.buf.clear();
@@ -316,7 +336,7 @@ impl Prompt for StdPrompt {
             match self.get_char() {
                 Some(Ok(ch)) => {
                     if let Some(res) = self.ansi(ch) {
-                        if self.interp(&res, st, ht) { break; }
+                        if self.interp(&res, sh) { break; }
                     }
                 },
                 Some(Err(e)) => {
