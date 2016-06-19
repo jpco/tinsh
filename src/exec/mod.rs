@@ -270,7 +270,14 @@ impl ProcessInner {
         }
     }
 
-    fn redirect(mut self) -> Result<()> {
+    // returns a ProcessInner which will perform reverse redirections (if rev == true),
+    // essentially undoing this call
+    // FIXME: I am certain this/the reversal process leaves files dangling
+    fn redirect(mut self, rev: bool) -> Result<ProcessInner> {
+        let mut res = ProcessInner::new();
+       
+        // we don't want to un-redirect pipes, so don't add
+        // a reverse to res
         if let Some(read) = self.ch_stdin {
             try!(posix::set_stdin(read));
         }
@@ -281,37 +288,54 @@ impl ProcessInner {
         while let Some(rd) = self.rds.pop() {
             match rd {
                 Redir::RdArgOut(dest) => {
-                    // unimplemented
+                    // unimplemented - does not need reversed
                     println!(" ~> '{}'", dest);
                 },
                 Redir::RdArgIn(src) => {
-                    // unimplemented
+                    // unimplemented - does not need reversed
                     println!(" <~ '{}'", src);
                 },
                 Redir::RdFdOut(src, dest) => {
-                    try!(posix::dup_fds(src, dest));
                     if src == -2 { // '&'
+                        if rev {
+                            res.rds.push(Redir::RdFdOut(1, try!(posix::dup_fd(1))));
+                            res.rds.push(Redir::RdFdOut(2, try!(posix::dup_fd(2))));
+                        }
                         try!(posix::dup_fds(1, dest));
                         try!(posix::dup_fds(2, dest));
                     } else {
+                        if rev {
+                            res.rds.push(Redir::RdFdOut(src,
+                                                        try!(posix::dup_fd(src))));
+                        }
                         try!(posix::dup_fds(src, dest));
                     }
                 },
                 Redir::RdFdIn(src, dest) => {
+                    if rev {
+                        res.rds.push(Redir::RdFdOut(src, try!(posix::dup_fd(src))));
+                    }
                     try!(posix::dup_fds(src, dest));
                 },
                 Redir::RdFileOut(src, dest, app) => {
+                    if rev {
+                        res.rds.push(Redir::RdFdOut(src, try!(posix::dup_fd(src))));
+                    }
                     let fi = try!(OpenOptions::new().write(true).create(true)
                                                     .append(app).open(dest));
+                    let fd = fi.as_raw_fd();
                     if src == -2 { // '&'
-                        try!(posix::dup_fds(1, fi.as_raw_fd()));
-                        try!(posix::dup_fds(2, fi.as_raw_fd()));
+                        try!(posix::dup_fds(1, fd));
+                        try!(posix::dup_fds(2, fd));
                     } else {
-                        try!(posix::dup_fds(src, fi.as_raw_fd()));
+                        try!(posix::dup_fds(src, fd));
                     }
                     mem::forget(fi);
                 },
                 Redir::RdFileIn(dest, src) => {
+                    if rev {
+                        res.rds.push(Redir::RdFdOut(dest, try!(posix::dup_fd(dest))));
+                    }
                     let fi = try!(OpenOptions::new().read(true).open(src));
                     try!(posix::dup_fds(dest, fi.as_raw_fd()));
                     mem::forget(fi);
@@ -322,6 +346,7 @@ impl ProcessInner {
                 }
             }
         }
-        Ok(())
+
+        Ok(res)
     }
 }

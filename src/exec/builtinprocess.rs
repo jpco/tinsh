@@ -3,6 +3,7 @@ use std::os::unix::io::FromRawFd;
 use std::io::BufReader;
 
 use std::process::exit;
+use std::mem;
 
 use opts;
 use posix;
@@ -103,7 +104,7 @@ impl Process for BuiltinProcess {
                     let i = self.inner;
                     let te = self.to_exec;
 
-                    if let Err(e) = i.redirect() {
+                    if let Err(e) = i.redirect(false) {
                         warn!("Could not redirect: {}", e);
                         exit(e.raw_os_error().unwrap_or(7));
                     }
@@ -116,19 +117,31 @@ impl Process for BuiltinProcess {
                 }
             }
         } else {
-            let i = self.inner;
+            let mut i = self.inner;
             let a = self.argv;
             let te = self.to_exec;
 
             unsafe {
                 let br = if i.ch_stdin.is_some() {
-                    Some(BufReader::new(File::from_raw_fd(i.ch_stdin.unwrap()
+                    let rd_stdin = mem::replace(&mut i.ch_stdin, None);
+                    Some(BufReader::new(File::from_raw_fd(rd_stdin.unwrap()
                                                           .into_raw())))
                 } else {
                     None
                 };
+
+                let ret_rd = match i.redirect(true) {
+                    Ok(x)  => Some(x),
+                    Err(e) => {
+                        warn!("Could not redirect: {}", e);
+                        None
+                    }
+                };
                 let argv = adapt_args(&te, a);
                 sh.status_code = (*te.run)(argv, sh, br);
+                if let Some(rd) = ret_rd {
+                    rd.redirect(false);
+                }
             }
 
             None

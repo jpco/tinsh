@@ -64,7 +64,7 @@ impl Process for BinProcess {
                 None
             },
             Ok(None) => {
-                if let Err(e) = self.inner.redirect() {
+                if let Err(e) = self.inner.redirect(false) {
                     warn!("Could not redirect: {}", e);
                     exit(e.raw_os_error().unwrap_or(7));
                 }

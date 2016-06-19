@@ -238,14 +238,10 @@ fn redir_parse(tok: &str) -> (Option<Redir>, Option<RedirBuf>) {
         "<~"  => (None, Some(RedirBuf::RdArgIn)),
         "<<-" => (None, Some(RedirBuf::RdStringIn(0))),
         _ => {
-            // lazy_static! {
-                let RD_OUT
-                    = Regex::new(r"^-(&|\d*)>(\+|\d*)$").unwrap();
-                let RD_IN
-                    = Regex::new(r"^(\d*)<(\d*)-$").unwrap();
-            // }
+            let rd_out = Regex::new(r"^-(&|\d*)>(\+|\d*)$").unwrap();
+            let rd_in = Regex::new(r"^(\d*)<(\d*)-$").unwrap();
 
-            if let Some(caps) = RD_OUT.captures(tok) {
+            if let Some(caps) = rd_out.captures(tok) {
                 let src_fd = match caps.at(1).unwrap() {
                     "" => 1,
                     "&" => -2,
@@ -259,7 +255,7 @@ fn redir_parse(tok: &str) -> (Option<Redir>, Option<RedirBuf>) {
                         (Some(Redir::RdFdOut(src_fd, dest_fd)), None)
                     }
                 }
-            } else if let Some(caps) = RD_IN.captures(tok) {
+            } else if let Some(caps) = rd_in.captures(tok) {
                 let dest_fd = match caps.at(1).unwrap() {
                     "" => 0,
                     e  => e.parse::<i32>().unwrap()

@@ -306,6 +306,21 @@ pub fn set_stdout(pipe: WritePipe) -> Result<()> {
     Ok(())
 }
 
+pub fn dup_fd(src: i32) -> Result<i32> {
+    let res = unsafe { etry!(libc::dup(src)) };
+    Ok(res)
+}
+
+pub fn dup_stdin() -> Result<ReadPipe> {
+    let n_fd = try!(dup_fd(0));
+    Ok(ReadPipe(FileDesc(n_fd)))
+}
+
+pub fn dup_stdout() -> Result<WritePipe> {
+    let n_fd = try!(dup_fd(1));
+    Ok(WritePipe(FileDesc(n_fd)))
+}
+
 pub fn dup_fds(src: i32, dest: i32) -> Result<()> {
     unsafe {
         etry!(libc::dup2(dest, src));

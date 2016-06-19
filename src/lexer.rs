@@ -49,12 +49,10 @@ pub fn lex(s: String) -> Lexer {
 }
 
 fn build_word(tok: String) -> (Option<String>, TokenType) {
-    // lazy_static! {
-        let R_SYNTAX: Regex = Regex::new(r"^(~>|-(\d+|&)?>(\d+|\+)?)$").unwrap();
-        let L_SYNTAX: Regex = Regex::new(r"^((\d+)?<(<|\d+)?-|<~)$").unwrap();
-    // }
+    let r_syntax = Regex::new(r"^(~>|-(\d+|&)?>(\d+|\+)?)$").unwrap();
+    let l_syntax = Regex::new(r"^((\d+)?<(<|\d+)?-|<~)$").unwrap();
 
-    let ttype = if R_SYNTAX.is_match(&tok) || L_SYNTAX.is_match(&tok) {
+    let ttype = if r_syntax.is_match(&tok) || l_syntax.is_match(&tok) {
         TokenType::Redir
     } else {
         TokenType::Word
