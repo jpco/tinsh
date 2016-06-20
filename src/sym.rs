@@ -111,7 +111,7 @@ impl Symtable {
     }
 
     // NOTE: simply marks the relevant data structures, *does not* actually break/etc.
-    pub fn sc_break(&mut self, mut d: i32) {
+    pub fn sc_break(&mut self, mut d: u16) {
         let mut found = false;
         for mut sc in self.scopes.iter_mut().rev() {
             sc.inter = Some(ScInter::Break);
@@ -133,7 +133,7 @@ impl Symtable {
         }
     }
 
-    pub fn sc_continue(&mut self, mut d: i32) {
+    pub fn sc_continue(&mut self, mut d: u16) {
         let mut found = false;
         for mut sc in self.scopes.iter_mut().rev() {
             if sc.sc_type == ScType::Loop {

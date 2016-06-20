@@ -309,7 +309,7 @@ impl Builtin {
                 run: rc::Rc::new(|mut args: Vec<Arg>, sh: &mut Shell,
                                     _in: Option<BufReader<fs::File>>| -> i32 {
                     if let Some(Arg::Bl(lv)) = args.pop() {
-                        let mut ret = 0;
+                        let mut ret;
                         loop {
                             let (c, r) = sh.block_exec(ScType::Loop, lv.clone());
                             ret = r;
@@ -334,7 +334,18 @@ impl Builtin {
                 pat_cap: false,
                 run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                                     _in: Option<BufReader<fs::File>>| -> i32 {
-                    sh.st.sc_break(1);
+                    let brk_depth = if args.len() == 0 { 1 }
+                    else {
+                        if let Arg::Str(ref s) = args[0] {
+                            match s.parse::<u16>() {
+                                Ok(i)  => i,
+                                Err(_) => 2
+                            }
+                        } else {
+                            123  // should never happen?
+                        }
+                    };
+                    sh.st.sc_break(brk_depth);
                     12  // this return code is only used on failure
                 })
             });
@@ -350,7 +361,18 @@ impl Builtin {
                 pat_cap: false,
                 run: rc::Rc::new(|args: Vec<Arg>, sh: &mut Shell,
                                     _in: Option<BufReader<fs::File>>| -> i32 {
-                    sh.st.sc_continue(1);
+                    let cont_depth = if args.len() == 0 { 1 }
+                    else {
+                        if let Arg::Str(ref s) = args[0] {
+                            match s.parse::<u16>() {
+                                Ok(i)  => i,
+                                Err(_) => 2
+                            }
+                        } else {
+                            123  // should never happen?
+                        }
+                    };
+                    sh.st.sc_continue(cont_depth);
                     12  // this return code is only used on failure
                 })
             });
