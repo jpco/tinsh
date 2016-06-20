@@ -205,8 +205,9 @@ impl StdPrompt {
     }
 
     fn print_prompt(&mut self, sh: &mut Shell) {
-        // TODO: prompt_l based on actual position in terminal buffer
         print!("[G");
+        io::stdout().flush().ok().expect("Could not flush stdout");
+
         let pr_name = match self.ls {
             LineState::Normal => "_prompt",
             LineState::Comment => "_prompt_comment",
@@ -300,6 +301,7 @@ impl StdPrompt {
                 self.buf.push_str(post);
                 self.idx = pre.len() + new_pre.len();
                 self.print_multi = true;
+                // TODO: get rid of this when we improve interactive printing
                 self.print_prompt(sh); // in case complete() printed options
                 self.reprint();
             },
