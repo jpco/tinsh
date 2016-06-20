@@ -217,7 +217,11 @@ impl StdPrompt {
             Some(sym::SymV::Var(s)) | Some(sym::SymV::Environment(s)) => {
                 print!("{}", s)
             },
-            None => { sh.input_loop(Some(vec![pr_name.to_owned()]), false); }
+            None => {
+                let os = sh.status_code;
+                sh.input_loop(Some(vec![pr_name.to_owned()]), false);
+                sh.status_code = os;
+            }
         }
 
         io::stdout().flush().ok().expect("Could not flush stdout");
