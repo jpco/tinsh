@@ -16,6 +16,8 @@ use exec::job::Job;
 use sym::ScInter;
 use sym::ScType;
 
+use parser::Parser;
+
 /// terrible God object to make state accessible to everyone everywhere
 pub struct Shell {
     pub jobs: Vec<Job>,
@@ -78,6 +80,8 @@ impl Shell {
         // saves "future" inputs in the case of multi-line input
         let mut next_buf: Option<String> = None;
 
+        let mut ps = Parser::new();
+
         loop {
             // get input
             // "input" is the new input we are adding in this loop
@@ -89,6 +93,7 @@ impl Shell {
                 input = spl_input;
                 next_buf = spl_next_buf;
             } else {
+                let saved_ls = self.ls;
                 match self.get_line(&mut in_lines) {
                     Some(prompt_in) => {
                         // we needed more and we got more
@@ -100,13 +105,14 @@ impl Shell {
                         break;
                     }
                 }
+                self.ls = saved_ls;
             }
 
             // do stuff with input
             self.ls = match self.ls {
                 LineState::Comment => {
                     if input.trim() == "###" {
-                        input_buf = String::new();
+                        // // input_buf = String::new();
                         LineState::Normal
                     } else {
                         LineState::Comment
@@ -115,11 +121,13 @@ impl Shell {
                 LineState::Normal | LineState::Continue => {
                     if !input_buf.is_empty() { input_buf.push('\n'); }
                     input_buf.push_str(&input);
-                    let (t_job, ls) = parser::eval(self, input_buf.clone());
+                    if self.ls == LineState::Normal { ps.reset(); }
+
+                    let (t_job, ls) = ps.eval(self, input);
 
                     if ls == LineState::Normal {
-                        if let Some(t_job) = t_job {
-                            if hist { self.ht.hist_add (input_buf.trim()); }
+                            if let Some(t_job) = t_job {
+                            if hist { self.ht.hist_add(input_buf.trim()); }
                             self.exec(t_job);
                         }
                         input_buf = String::new();
@@ -136,7 +144,7 @@ impl Shell {
 
         if self.ls != LineState::Normal {
             // warn or info?
-            warn!("Line state left non-normal");
+            warn!("Line state left non-normal ({:?})", self.ls);
             self.ls = LineState::Normal;
         }
         None
@@ -195,7 +203,7 @@ impl Shell {
             cmd.push(' ');
         }
 
-        let (j, ls) = parser::eval(self, cmd);
+        let (j, ls) = Parser::new().eval(self, cmd);
         if ls == LineState::Normal {
             if let Some(job) = j {
                 self.exec(job);

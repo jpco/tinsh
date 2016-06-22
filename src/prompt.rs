@@ -15,7 +15,7 @@ use self::termios::*;
 use shell::Shell;
 use sym;
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum LineState {
     Normal,
     Comment,

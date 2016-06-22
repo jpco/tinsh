@@ -6,8 +6,6 @@ authors = [ "jpco <mail@jpco.io>" ]
 description = "Non-POSIX shell language."
 readme = "README.md"
 
-# no dependencies which make hidden threads.
-# not allowed under any circumstances.
 # TODO: once we stabilise, specify versions of these
 [dependencies]
 termios = "*"
