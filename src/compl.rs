@@ -7,14 +7,22 @@ extern crate glob;
 
 fn common_prefix(mut strs: Vec<String>) -> String {
     let mut c_prefix = String::new();
-    if strs.len() == 0 { return c_prefix; }
+    if strs.len() == 0 {
+        return c_prefix;
+    }
 
     let delegate = strs.pop().unwrap().clone();
     for (di, dc) in delegate.chars().enumerate() {
         for ostr in &strs {
             match ostr.chars().nth(di) {
-                Some(oc) => if dc != oc { return c_prefix; },
-                None     => { return c_prefix; }
+                Some(oc) => {
+                    if dc != oc {
+                        return c_prefix;
+                    }
+                }
+                None => {
+                    return c_prefix;
+                }
             }
         }
         c_prefix.push(dc);
@@ -31,8 +39,7 @@ fn print_completions(res_vec: &Vec<String>) {
     }
 }
 
-pub fn complete(in_str: &str, st: &Symtable, first_word: bool, print_multi: bool)
-        -> String {
+pub fn complete(in_str: &str, st: &Symtable, first_word: bool, print_multi: bool) -> String {
     if first_word && !in_str.contains('/') {
         bin_complete(in_str, st, print_multi)
     } else {
@@ -73,22 +80,34 @@ pub fn fs_complete(in_str: &str, print_multi: bool) -> String {
         }
         input = in_str.to_string();
     }
-    
-    if !input.ends_with('*') { input.push('*'); }
+
+    if !input.ends_with('*') {
+        input.push('*');
+    }
 
     let mut postfix = "";
     let res_vec = match glob::glob(&input) {
-        Ok(x) => x,
-        Err(_) => { return in_str.to_string(); }
-    }.filter_map(Result::ok).map(|x| format!("{}", x.display()))
-                            .collect::<Vec<String>>();
+            Ok(x) => x,
+            Err(_) => {
+                return in_str.to_string();
+            }
+        }
+        .filter_map(Result::ok)
+        .map(|x| format!("{}", x.display()))
+        .collect::<Vec<String>>();
 
     let mut ret = if res_vec.len() == 1 {
         let ref res = res_vec[0];
 
         postfix = match fs::metadata(res) {
-            Ok(x) => if x.is_dir() { "/" } else { " " },
-            Err(_) => ""
+            Ok(x) => {
+                if x.is_dir() {
+                    "/"
+                } else {
+                    " "
+                }
+            }
+            Err(_) => "",
         };
 
         res.clone()
@@ -96,7 +115,7 @@ pub fn fs_complete(in_str: &str, print_multi: bool) -> String {
         if print_multi {
             print_completions(&res_vec);
         }
-        
+
         // find common prefix
         common_prefix(res_vec)
     } else {

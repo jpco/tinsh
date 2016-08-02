@@ -15,14 +15,14 @@ pub enum ScType {
     Fn,
     Loop,
     Global,
-    Default
+    Default,
 }
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum ScInter {
     Break,
     Continue,
-    Return(i32)
+    Return(i32),
 }
 
 pub enum Sym {
@@ -30,18 +30,18 @@ pub enum Sym {
     Builtin(builtins::Builtin),
     Var(String),
     Environment(String),
-    Fn(Fn)
+    Fn(Fn),
 }
 
 pub enum SymE {
     Binary(path::PathBuf),
     Builtin(builtins::Builtin),
-    Fn(Fn)
+    Fn(Fn),
 }
 
 pub enum SymV {
     Var(String),
-    Environment(String)
+    Environment(String),
 }
 
 #[derive(Clone)]
@@ -51,12 +51,12 @@ pub struct Fn {
     pub args: Vec<String>,
     pub vararg: Option<String>,
     pub postargs: Option<Vec<String>>,
-    pub lines: Vec<String>
+    pub lines: Vec<String>,
 }
 
 enum Val {
     Var(String),
-    Fn(Fn)
+    Fn(Fn),
 }
 
 // the 'is_fn' flag enables us to check
@@ -64,9 +64,9 @@ enum Val {
 // a function -- aside from global ops, we don't want to act
 // through the function barrier.
 struct Scope {
-    vars: HashMap<String, Val>,  // contains vars and also functions
+    vars: HashMap<String, Val>, // contains vars and also functions
     sc_type: ScType,
-    inter: Option<ScInter>
+    inter: Option<ScInter>,
 }
 
 #[derive(PartialEq, Copy, Clone)]
@@ -74,31 +74,31 @@ pub enum ScopeSpec {
     Local,
     Global,
     Environment,
-    Default
+    Default,
 }
 
 
 // We can use 'static for builtins because that's what builtins are: static.
 pub struct Symtable {
-    bins:      HashMap<String, path::PathBuf>,
-    builtins:  HashMap<&'static str, builtins::Builtin>,
-    scopes:    Vec<Scope>,
-    pub subsh: bool
+    bins: HashMap<String, path::PathBuf>,
+    builtins: HashMap<&'static str, builtins::Builtin>,
+    scopes: Vec<Scope>,
+    pub subsh: bool,
 }
 
 impl Symtable {
     pub fn new() -> Symtable {
         let mut st = Symtable {
-            bins:     HashMap::new(),
+            bins: HashMap::new(),
             builtins: builtins::Builtin::map(),
-            scopes:   Vec::new(),
-            subsh:    false
+            scopes: Vec::new(),
+            subsh: false,
         };
 
         st.scopes.push(Scope {
             vars: HashMap::new(),
             sc_type: ScType::Global,
-            inter: None
+            inter: None,
         });
 
         st.hash_bins();
@@ -177,8 +177,7 @@ impl Symtable {
         }
     }
 
-    pub fn set(&mut self, key: &str, val: String)
-            -> Result<&mut Symtable, opts::OptError> {
+    pub fn set(&mut self, key: &str, val: String) -> Result<&mut Symtable, opts::OptError> {
         self.set_scope(key, val, ScopeSpec::Default)
     }
 
@@ -186,7 +185,7 @@ impl Symtable {
         match sc {
             ScopeSpec::Global => 0,
             ScopeSpec::Local => self.scopes.len() - 1,
-            ScopeSpec::Environment => { unreachable!() },
+            ScopeSpec::Environment => unreachable!(),
             ScopeSpec::Default => {
                 let len = self.scopes.len();
                 for (idx, scope) in self.scopes.iter_mut().rev().enumerate() {
@@ -208,8 +207,11 @@ impl Symtable {
         self
     }
 
-    pub fn set_scope(&mut self, key: &str, val: String, sc: ScopeSpec)
-            -> Result<&mut Symtable, opts::OptError> {
+    pub fn set_scope(&mut self,
+                     key: &str,
+                     val: String,
+                     sc: ScopeSpec)
+                     -> Result<&mut Symtable, opts::OptError> {
         if opts::is_opt(key) {
             try!(opts::set(key, val));
             return Ok(self);
@@ -239,7 +241,7 @@ impl Symtable {
         self.scopes.push(Scope {
             vars: HashMap::new(),
             sc_type: sc_type,
-            inter: None
+            inter: None,
         });
 
         self
@@ -266,7 +268,7 @@ impl Symtable {
                     let path_f = path_f.unwrap();
                     let is_ok_f = match path_f.metadata() {
                         Ok(ent) => !ent.is_dir(),   // FIXME: should only be executable files
-                        Err(_) => false
+                        Err(_) => false,
                     };
 
                     if is_ok_f {
@@ -284,9 +286,10 @@ impl Symtable {
     }
 
     // TODO: make this happen (requires var compl)
-    /* pub fn prefix_resolve(&self, sym_n: &str) -> Vec<String> {
-        self.prefix_resolve_types(sym_n, None)
-    } */
+    // pub fn prefix_resolve(&self, sym_n: &str) -> Vec<String> {
+    // self.prefix_resolve_types(sym_n, None)
+    // }
+
 
     // simply resolves a vector of matching strings.
     pub fn prefix_resolve_exec(&self, sym_n: &str) -> Vec<String> {
@@ -308,8 +311,13 @@ impl Symtable {
 
         // binaries
         for v in self.bins.iter().filter(|&(x, _)| x.starts_with(sym_n)) {
-            res.push(v.1.clone().file_name().unwrap()
-                        .to_os_string().into_string().unwrap());
+            res.push(v.1
+                .clone()
+                .file_name()
+                .unwrap()
+                .to_os_string()
+                .into_string()
+                .unwrap());
         }
 
         res.sort();
@@ -321,14 +329,14 @@ impl Symtable {
         if opts::is_opt(sym_n) {
             match opts::get(sym_n) {
                 Some(s) => return Some(s),
-                None    => return None
+                None => return None,
             }
         }
 
         // check for Var symbol
         for scope in self.scopes.iter().rev() {
             if let Some(&Val::Var(ref v)) = scope.vars.get(sym_n) {
-               return Some(v.clone());
+                return Some(v.clone());
             }
         }
 
@@ -338,7 +346,7 @@ impl Symtable {
     pub fn resolve_fn(&self, sym_n: &str) -> Option<Fn> {
         for scope in self.scopes.iter().rev() {
             if let Some(&Val::Fn(ref f)) = scope.vars.get(sym_n) {
-               return Some(f.clone());
+                return Some(f.clone());
             }
         }
 
@@ -347,15 +355,15 @@ impl Symtable {
 
     pub fn resolve_env(&self, sym_n: &str) -> Option<String> {
         match env::var(sym_n) {
-            Ok(e)  => Some(e),
-            Err(_) => None
+            Ok(e) => Some(e),
+            Err(_) => None,
         }
     }
 
     pub fn resolve_builtin(&self, sym_n: &str) -> Option<builtins::Builtin> {
         match self.builtins.get(sym_n) {
             Some(e) => Some(e.to_owned()),
-            None    => None
+            None => None,
         }
     }
 
@@ -376,7 +384,7 @@ impl Symtable {
         if !self.subsh {
             if let Some(bin_path) = self.hash_bins().bins.get(sym_n) {
                 return Some(bin_path.clone());
-            } 
+            }
         }
 
         None

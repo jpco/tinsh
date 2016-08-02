@@ -23,7 +23,7 @@ pub struct Job {
     pub fg: bool,
 
     pub do_pipe_out: bool,
-    pipe_out: Option<ReadPipe>
+    pipe_out: Option<ReadPipe>,
 }
 
 impl Job {
@@ -45,7 +45,7 @@ impl Job {
                     Ok((nread, write)) => {
                         cproc.stdout(write);
                         read = Some(nread);
-                    },
+                    }
                     Err(e) => {
                         warn!("Could not create pipe: {}", e);
                     }
@@ -76,8 +76,10 @@ impl Job {
     pub fn wait(&mut self) -> Option<Status> {
         assert!(self.spawned && !self.do_pipe_out);
         let ch_len = match self.children.len() {
-            0 => { return None; },
-            x => x - 1
+            0 => {
+                return None;
+            }
+            x => x - 1,
         };
 
         for ch in self.children.drain(..ch_len) {
@@ -87,15 +89,15 @@ impl Job {
         // **should** always succeed
         let r = if let Some(ch) = self.children.pop() {
             match posix::wait_pid(&ch.pid) {
-                Ok(st) => {
-                    st
-                },
+                Ok(st) => st,
                 Err(e) => {
                     warn!("Error waiting for child: {}", e);
                     None
                 }
             }
-        } else { None };
+        } else {
+            None
+        };
 
         if opts::is_set("__tin_inter") {
             // do this before taking the terminal to prevent indefinite hang
@@ -122,7 +124,7 @@ impl Job {
             fg: true,
 
             do_pipe_out: false,
-            pipe_out: None
+            pipe_out: None,
         }
     }
 }

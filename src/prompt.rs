@@ -19,7 +19,7 @@ use sym;
 pub enum LineState {
     Normal,
     Comment,
-    Continue
+    Continue,
 }
 
 // None = EOF
@@ -31,13 +31,11 @@ pub trait Prompt {
 // This may have been obviated by input_loop
 /// CmdPrompt: basic prompt which supplies a single command specified at creation.
 pub struct CmdPrompt {
-    cmd: Option<String>
+    cmd: Option<String>,
 }
 impl CmdPrompt {
     pub fn new(cmd: String) -> Self {
-        CmdPrompt {
-            cmd: Some(cmd)
-        }
+        CmdPrompt { cmd: Some(cmd) }
     }
 }
 
@@ -76,16 +74,14 @@ impl Prompt for BasicPrompt {
 
 /// FilePrompt: read the lines from a file, woohoo.
 pub struct FilePrompt {
-    br: io::BufReader<File>
+    br: io::BufReader<File>,
 }
 
 impl FilePrompt {
     pub fn new(file: &str) -> Result<Self> {
         let f = try!(File::open(file));
 
-        Ok(FilePrompt {
-            br: io::BufReader::new(f)
-        })
+        Ok(FilePrompt { br: io::BufReader::new(f) })
     }
 }
 
@@ -93,9 +89,11 @@ impl Prompt for FilePrompt {
     fn prompt(&mut self, _sh: &mut Shell) -> Option<Result<String>> {
         let mut line = String::new();
         match self.br.read_line(&mut line) {
-            Ok(n) => { 
-                if n == 0 { return None; }
-            },
+            Ok(n) => {
+                if n == 0 {
+                    return None;
+                }
+            }
             Err(e) => {
                 return Some(Err(e));
             }
@@ -120,26 +118,28 @@ pub struct StdPrompt {
     ansi: String,
     buf: String,
     prompt_l: usize,
-    idx: usize
+    idx: usize,
 }
 
 impl StdPrompt {
     pub fn new() -> Self {
         // create prompt && termios
         let mut pr = match File::open("/dev/tty") {
-            Ok(fi) => StdPrompt {
-                termios: Termios::from_fd(fi.as_raw_fd()).unwrap(),
-                term_fi: fi,
-                in_tcflag: 0,
-                out_tcflag: 0,
-                ls: LineState::Normal,
-                print_multi: false,
-                ansi: String::new(),
-                buf: String::new(),
-                prompt_l: 0,
-                idx: 0
-            },
-            Err(_) => panic!("Could not open tty.")
+            Ok(fi) => {
+                StdPrompt {
+                    termios: Termios::from_fd(fi.as_raw_fd()).unwrap(),
+                    term_fi: fi,
+                    in_tcflag: 0,
+                    out_tcflag: 0,
+                    ls: LineState::Normal,
+                    print_multi: false,
+                    ansi: String::new(),
+                    buf: String::new(),
+                    prompt_l: 0,
+                    idx: 0,
+                }
+            }
+            Err(_) => panic!("Could not open tty."),
         };
 
         // initialize termios settings
@@ -172,30 +172,48 @@ impl StdPrompt {
             println!("{}", e);
             panic!();
         }
-        if io::stdout().flush().is_err() { panic!(); }
+        if io::stdout().flush().is_err() {
+            panic!();
+        }
         // read
         let mut r = [0; 10];
-        if io::stdin().read(&mut r).is_err() { panic!(); }
-        if r.len() < 6 || r[0] != 27 || r[1] != 91 { panic!(); }
+        if io::stdin().read(&mut r).is_err() {
+            panic!();
+        }
+        if r.len() < 6 || r[0] != 27 || r[1] != 91 {
+            panic!();
+        }
 
         let mut sc = false;
         let mut x = 0;
         let mut y = 0;
         for &c in r.iter().skip(2) {
-            if 0x30 <= c && c < 0x3A { // a digit
+            if 0x30 <= c && c < 0x3A {
+                // a digit
                 if sc {
                     y = y * 10 + (c - 0x30);
                 } else {
                     x = x * 10 + (c - 0x30);
                 }
-            } else if c == 0x3B {  // ;
-                if !sc { sc = true; }
-                else { panic!(); }
-            } else if c == 0x52 {  // R
-                if sc { break; }
-                else { panic!(); }
-            } else { println!("ack! {}", c); panic!(); }
-        } 
+            } else if c == 0x3B {
+                // ;
+                if !sc {
+                    sc = true;
+                } else {
+                    panic!();
+                }
+            } else if c == 0x52 {
+                // R
+                if sc {
+                    break;
+                } else {
+                    panic!();
+                }
+            } else {
+                println!("ack! {}", c);
+                panic!();
+            }
+        }
 
         // return settings to normal
         self.termios.c_lflag = cf;
@@ -211,12 +229,11 @@ impl StdPrompt {
         let pr_name = match self.ls {
             LineState::Normal => "_prompt",
             LineState::Comment => "_prompt_comment",
-            LineState::Continue => "_prompt_continue"
+            LineState::Continue => "_prompt_continue",
         };
         match sh.st.resolve_varish(pr_name) {
-            Some(sym::SymV::Var(s)) | Some(sym::SymV::Environment(s)) => {
-                print!("{}", s)
-            },
+            Some(sym::SymV::Var(s)) |
+            Some(sym::SymV::Environment(s)) => print!("{}", s),
             None => {
                 let os = sh.status_code;
                 sh.input_loop(Some(vec![pr_name.to_owned()]), false);
@@ -232,12 +249,13 @@ impl StdPrompt {
     fn get_char(&self) -> Option<Result<char>> {
         let mut chrbuf: Vec<u8> = Vec::new();
 
-        // this whole thing is a nightmare, but there's no 
+        // this whole thing is a nightmare, but there's no
         // reliable io::stdin().chars() so here we are
         for chres in io::stdin().bytes() {
             match chres {
                 Ok(ch) => {
-                    if ch as u8 == 4 { // EOF
+                    if ch as u8 == 4 {
+                        // EOF
                         return None;
                     }
                     // TODO: this is broken!! we need to see if the next
@@ -247,7 +265,7 @@ impl StdPrompt {
                     if let Ok(chr) = str::from_utf8(&chrbuf) {
                         return Some(Ok(chr.chars().next().unwrap()));
                     }
-                },
+                }
                 Err(e) => {
                     return Some(Err(e));
                 }
@@ -289,16 +307,18 @@ impl StdPrompt {
     }
 
     fn interp(&mut self, input: &str, sh: &mut Shell) -> bool {
-        if input != "\t" { self.print_multi = false; }
+        if input != "\t" {
+            self.print_multi = false;
+        }
         match input {
             "\n" => return true,
             "\t" => {
                 let bufclone = self.buf.clone();
                 let (pre, post) = bufclone.split_at(self.idx);
                 let (pre, wd_pre) = pre.split_at(match pre.rfind(char::is_whitespace) {
-                        Some(n) => n + 1,
-                        None    => 0
-                    });
+                    Some(n) => n + 1,
+                    None => 0,
+                });
                 let new_pre = complete(&wd_pre, &sh.st, pre.is_empty(), self.print_multi);
                 self.buf = pre.to_string();
                 self.buf.push_str(&new_pre);
@@ -308,48 +328,60 @@ impl StdPrompt {
                 // TODO: get rid of this when we improve interactive printing
                 self.print_prompt(sh); // in case complete() printed options
                 self.reprint();
-            },
-            "[3~" => if self.buf.len() > 0 && self.idx < self.buf.len() {
-                self.buf.remove(self.idx);
-                self.reprint();              
-            },
-            "[A" => if let Some(nl) = sh.ht.hist_up() {
-                let at_end = self.idx == self.buf.len();
-                self.buf = nl.to_string();
-                if at_end || self.buf.len() < self.idx {
-                    self.idx = self.buf.len();
+            }
+            "[3~" => {
+                if self.buf.len() > 0 && self.idx < self.buf.len() {
+                    self.buf.remove(self.idx);
+                    self.reprint();
                 }
-                self.reprint();
-            },
-            "[B" => if let Some(nl) = sh.ht.hist_down() {
-                let at_end = self.idx == self.buf.len();
-                self.buf = nl.to_string();
-                if at_end || self.buf.len() < self.idx {
-                    self.idx = self.buf.len();
+            }
+            "[A" => {
+                if let Some(nl) = sh.ht.hist_up() {
+                    let at_end = self.idx == self.buf.len();
+                    self.buf = nl.to_string();
+                    if at_end || self.buf.len() < self.idx {
+                        self.idx = self.buf.len();
+                    }
+                    self.reprint();
                 }
-                self.reprint();
-            },
-            "[C" => if self.idx < self.buf.len() {
-                self.idx += 1;
-                self.reprint_cursor();
-            },
-            "[D" => if self.idx > 0 {
-                self.idx -= 1;
-                self.reprint_cursor();
-            },
-            "\x7F" => if self.buf.len() > 0 && self.idx > 0 {
-                self.buf.remove(self.idx - 1);
-                self.idx -= 1;
-                self.reprint();
-            },
-            "\u{0001}" => { 
+            }
+            "[B" => {
+                if let Some(nl) = sh.ht.hist_down() {
+                    let at_end = self.idx == self.buf.len();
+                    self.buf = nl.to_string();
+                    if at_end || self.buf.len() < self.idx {
+                        self.idx = self.buf.len();
+                    }
+                    self.reprint();
+                }
+            }
+            "[C" => {
+                if self.idx < self.buf.len() {
+                    self.idx += 1;
+                    self.reprint_cursor();
+                }
+            }
+            "[D" => {
+                if self.idx > 0 {
+                    self.idx -= 1;
+                    self.reprint_cursor();
+                }
+            }
+            "\x7F" => {
+                if self.buf.len() > 0 && self.idx > 0 {
+                    self.buf.remove(self.idx - 1);
+                    self.idx -= 1;
+                    self.reprint();
+                }
+            }
+            "\u{0001}" => {
                 self.idx = 0;
                 self.reprint_cursor();
-            },
+            }
             "\u{0005}" => {
                 self.idx = self.buf.len();
                 self.reprint_cursor();
-            },
+            }
             _ => {
                 // this is bad but the case where it is bad would also be bad
                 // on the part of the user... so we'll call it a draw for now.
@@ -384,13 +416,15 @@ impl Prompt for StdPrompt {
             match self.get_char() {
                 Some(Ok(ch)) => {
                     if let Some(res) = self.ansi(ch) {
-                        if self.interp(&res, sh) { break; }
+                        if self.interp(&res, sh) {
+                            break;
+                        }
                     }
-                },
+                }
                 Some(Err(e)) => {
                     return Some(Err(e));
-                },
-                None         => {
+                }
+                None => {
                     return None;
                 }
             }

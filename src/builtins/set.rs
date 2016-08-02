@@ -18,7 +18,9 @@ fn set_spec(av: &mut Vec<Arg>) -> sym::ScopeSpec {
 
     while av.len() > 0 {
         if av[0].is_str() {
-            if !av[0].as_str().starts_with("-") { break; }
+            if !av[0].as_str().starts_with("-") {
+                break;
+            }
             let s = av.remove(0).unwrap_str();
 
             // FIXME: graphemes()?
@@ -33,9 +35,11 @@ fn set_spec(av: &mut Vec<Arg>) -> sym::ScopeSpec {
                     }
                 }
             }
-        } else { break; }
+        } else {
+            break;
+        }
     }
-    
+
     ret
 }
 
@@ -44,13 +48,17 @@ fn set_keys(av: &mut Vec<Arg>) -> Vec<String> {
 
     while av.len() > 0 {
         let arg = av.remove(0);
-        
+
         // check for '='
         if let Arg::Str(ref s) = arg {
-            if s == "=" { break; }
+            if s == "=" {
+                break;
+            }
         }
 
-        for k in arg.into_vec() { ret.push(k); }
+        for k in arg.into_vec() {
+            ret.push(k);
+        }
     }
 
     ret
@@ -71,9 +79,12 @@ fn fn_set(sh: &mut Shell, kv: Vec<String>, mut av: Vec<Arg>, spec: sym::ScopeSpe
 
     let mut flat_args = av.drain(..).flat_map(|x| x.into_vec()).collect::<Vec<_>>();
     let inline = if flat_args.len() > 0 && flat_args[0] == "--inline" {
-        flat_args.remove(0); true
-    } else { false };
-    
+        flat_args.remove(0);
+        true
+    } else {
+        false
+    };
+
     for sl in flat_args.windows(2) {
         let ref elt = sl[0];
         let ref lookahead = sl[1];
@@ -97,29 +108,31 @@ fn fn_set(sh: &mut Shell, kv: Vec<String>, mut av: Vec<Arg>, spec: sym::ScopeSpe
     // last arg
     if let Some(last) = flat_args.last() {
         if last != "..." {
-            if let Some(ref mut x) = postargs { x.push(last.to_owned()); }
-            else { args.push(last.to_owned()); }
+            if let Some(ref mut x) = postargs {
+                x.push(last.to_owned());
+            } else {
+                args.push(last.to_owned());
+            }
         }
     }
 
     for k in &kv {
         sh.st.set_fn(k,
-            sym::Fn {
-                name: k.clone(),
-                inline: inline, 
-                args: args.clone(),
-                vararg: vararg.clone(),
-                postargs: postargs.clone(),
-                lines: exec_bl.clone()
-            },
-            spec);
+                     sym::Fn {
+                         name: k.clone(),
+                         inline: inline,
+                         args: args.clone(),
+                         vararg: vararg.clone(),
+                         postargs: postargs.clone(),
+                         lines: exec_bl.clone(),
+                     },
+                     spec);
     }
 
     0
 }
 
-pub fn set_main() -> 
-    rc::Rc<Fn(Vec<Arg>, &mut Shell, Option<BufReader<fs::File>>) -> i32> {
+pub fn set_main() -> rc::Rc<Fn(Vec<Arg>, &mut Shell, Option<BufReader<fs::File>>) -> i32> {
     rc::Rc::new(|mut args: Vec<Arg>, sh: &mut Shell, _in: Option<BufReader<fs::File>>| -> i32 {
         // rd-set
         if args.len() == 1 {
@@ -134,14 +147,25 @@ pub fn set_main() ->
         let mut keyv = set_keys(&mut args);
 
         // filter out invalid keys
-        let keyv = keyv.drain(..).filter(|a| a.find(|x| {
-            if "?! {}()".contains(x) {  // TODO: more invalid chars
-                warn!("set: Key '{}' contains invalid characters", a); true
-            } else { false }
-        }).is_none()).collect::<Vec<String>>();
+        let keyv = keyv.drain(..)
+            .filter(|a| {
+                a.find(|x| {
+                        if "?! {}()".contains(x) {
+                            // TODO: more invalid chars
+                            warn!("set: Key '{}' contains invalid characters", a);
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                    .is_none()
+            })
+            .collect::<Vec<String>>();
 
         // if we just said 'set a b c', we want to set them to empty
-        if args.is_empty() { args.push(Arg::Str(String::new())); }
+        if args.is_empty() {
+            args.push(Arg::Str(String::new()));
+        }
 
         if args[0].is_str() && args[0].as_str() == "fn" {
             args.remove(0);
@@ -152,7 +176,9 @@ pub fn set_main() ->
 
         let mut r = 0;
         for k in keyv {
-            if sh.st.set_scope(&k, val.clone(), spec).is_err() { r = 2; }
+            if sh.st.set_scope(&k, val.clone(), spec).is_err() {
+                r = 2;
+            }
         }
         r
     })

@@ -27,7 +27,7 @@ fn setup(file: bool, exec: Option<String>) -> Shell {
         pr: Box::new(prompt::BasicPrompt),
         ls: LineState::Normal,
         st: sym::Symtable::new(),
-        ht: hist::Histvec::new()
+        ht: hist::Histvec::new(),
     };
 
     // interactive init (read rc file, posix::init)
@@ -37,7 +37,7 @@ fn setup(file: bool, exec: Option<String>) -> Shell {
                 sh.pr = Box::new(p);
                 sh.input_loop(None, true);
                 posix::init();
-            },
+            }
             Err(e) => {
                 info!("Error loading .tinrc file: {}; skipping", e);
             }
@@ -48,8 +48,7 @@ fn setup(file: bool, exec: Option<String>) -> Shell {
 
     // if file/exec, do that
     if file {
-        let p: prompt::FilePrompt = prompt::FilePrompt::new(&exec.unwrap())
-                                    .unwrap();
+        let p: prompt::FilePrompt = prompt::FilePrompt::new(&exec.unwrap()).unwrap();
         sh.pr = Box::new(p);
         sh.input_loop(None, true);
     } else if let Some(cmd) = exec {
@@ -99,26 +98,25 @@ fn read_args() -> (bool, Option<String>) {
                 match ch {
                     'i' => {
                         inter = true;
-                    },
+                    }
                     'l' => {
                         login = true;
-                    },
+                    }
                     'n' => {
                         noexec = true;
-                    },
+                    }
                     'd' => {
                         debug_arg = true;
-                    },
+                    }
                     'e' => {
                         command_arg = true;
-                    },
+                    }
                     'c' => {
                         config_arg = true;
-                    },
-                    _ => { }
+                    }
+                    _ => {}
                 }
-                if debug_arg && (command_arg || config_arg) ||
-                        command_arg && config_arg {
+                if debug_arg && (command_arg || config_arg) || command_arg && config_arg {
                     err!("args: ambiguous arguments given");
                     std::process::exit(2);
                 }

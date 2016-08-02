@@ -36,21 +36,13 @@ fn adapt_args(to_exec: &Builtin, av: Vec<Arg>) -> Vec<Arg> {
         match a {
             Arg::Str(s) => ret.push(Arg::Str(s)),
             Arg::Rd(rd) => ret.push(Arg::Rd(rd)),
-            Arg::Bl(bv)  => {
+            Arg::Bl(bv) => {
                 if to_exec.bl_cap {
                     ret.push(Arg::Bl(bv));
                 } else {
                     for l in bv {
                         ret.push(Arg::Str(l));
                     }
-                }
-            },
-            Arg::Pat(p) => {
-                if to_exec.pat_cap {
-                    ret.push(Arg::Pat(p));
-                } else {
-                    // TODO: quotes?
-                    ret.push(Arg::Str(p));
                 }
             }
         }
@@ -65,7 +57,7 @@ fn adapt_args(to_exec: &Builtin, av: Vec<Arg>) -> Vec<Arg> {
 pub struct BuiltinProcess {
     to_exec: Builtin,
     argv: Vec<Arg>,
-    inner: ProcessInner
+    inner: ProcessInner,
 }
 
 impl BuiltinProcess {
@@ -73,7 +65,7 @@ impl BuiltinProcess {
         BuiltinProcess {
             to_exec: b,
             argv: Vec::new(),
-            inner: ProcessInner::new()
+            inner: ProcessInner::new(),
         }
     }
 
@@ -81,7 +73,7 @@ impl BuiltinProcess {
         BuiltinProcess {
             to_exec: builtins::fn_builtin(f),
             argv: Vec::new(),
-            inner: ProcessInner::new()
+            inner: ProcessInner::new(),
         }
     }
 }
@@ -98,7 +90,7 @@ impl Process for BuiltinProcess {
                     // oops. gotta bail.
                     warn!("Could not fork child: {}", e);
                     None
-                },
+                }
                 Ok(None) => {
                     let a = self.argv;
                     let i = self.inner;
@@ -111,10 +103,8 @@ impl Process for BuiltinProcess {
                     let argv = adapt_args(&te, a);
                     let r = (*te.run)(argv, sh, None);
                     exit(r);
-                },
-                Ok(Some(ch_pid)) => {
-                    Some(Child::new(ch_pid))
                 }
+                Ok(Some(ch_pid)) => Some(Child::new(ch_pid)),
             }
         } else {
             let mut i = self.inner;
@@ -125,13 +115,13 @@ impl Process for BuiltinProcess {
                 let br = if i.ch_stdin.is_some() {
                     let rd_stdin = mem::replace(&mut i.ch_stdin, None);
                     Some(BufReader::new(File::from_raw_fd(rd_stdin.unwrap()
-                                                          .into_raw())))
+                        .into_raw())))
                 } else {
                     None
                 };
 
                 let ret_rd = match i.redirect(true) {
-                    Ok(x)  => Some(x),
+                    Ok(x) => Some(x),
                     Err(e) => {
                         warn!("Could not redirect: {}", e);
                         None
@@ -156,9 +146,11 @@ impl Process for BuiltinProcess {
         if !self.to_exec.rd_cap {
             match new_arg {
                 Arg::Rd(rd) => self.inner.rds.push(rd),
-                _ => self.argv.push(new_arg)
+                _ => self.argv.push(new_arg),
             };
-        } else { self.argv.push(new_arg); }
+        } else {
+            self.argv.push(new_arg);
+        }
         self
     }
 
@@ -166,7 +158,7 @@ impl Process for BuiltinProcess {
         self.inner.ch_stdin = Some(read);
         self
     }
-    
+
     fn stdout(&mut self, write: WritePipe) -> &Process {
         self.inner.ch_stdout = Some(write);
         self
@@ -176,9 +168,9 @@ impl Process for BuiltinProcess {
 impl Default for BuiltinProcess {
     fn default() -> Self {
         BuiltinProcess {
-            to_exec:   Builtin::default(),
-            argv:      Vec::new(),
-            inner:     ProcessInner::new()
+            to_exec: Builtin::default(),
+            argv: Vec::new(),
+            inner: ProcessInner::new(),
         }
     }
 }

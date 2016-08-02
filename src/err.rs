@@ -4,12 +4,15 @@ use opts;
 
 pub fn debug_print(msg: &str, level: u8) {
     if level >= opts::get("__tin_debug").unwrap().parse::<u8>().unwrap() {
-        let _ = writeln!(&mut io::stderr(), "{}: {}", match level {
-            3 => "Error",
-            2 => "Warning",
-            1 => "Info",
-            _ => "Debug"
-        }, msg);
+        let _ = writeln!(&mut io::stderr(),
+                         "{}: {}",
+                         match level {
+                             3 => "Error",
+                             2 => "Warning",
+                             1 => "Info",
+                             _ => "Debug",
+                         },
+                         msg);
     }
 
     if level == 3 {

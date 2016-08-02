@@ -27,7 +27,7 @@ pub struct Shell {
     pub pr: Box<Prompt>,
     pub ls: LineState,
     pub st: Symtable,
-    pub ht: Histvec
+    pub ht: Histvec,
 }
 
 impl Shell {
@@ -61,11 +61,11 @@ impl Shell {
             let mut pr = mem::replace(&mut self.pr, Box::new(BasicPrompt));
             let ret = match pr.prompt(self) {
                 Some(Ok(pr_in)) => Some(pr_in),
-                Some(Err(e))    => {
+                Some(Err(e)) => {
                     err!("Couldn't get input: {}", e);
                     panic!("");
-                },
-                None => None
+                }
+                None => None,
             };
             self.pr = pr;
 
@@ -73,8 +73,7 @@ impl Shell {
         }
     }
 
-    pub fn input_loop(&mut self, mut in_lines: Option<Vec<String>>, hist: bool)
-            -> Option<ScInter> {
+    pub fn input_loop(&mut self, mut in_lines: Option<Vec<String>>, hist: bool) -> Option<ScInter> {
         // saves previous inputs in the case of LineState::Continue
         let mut input_buf = String::new();
         // saves "future" inputs in the case of multi-line input
@@ -100,7 +99,7 @@ impl Shell {
                         let (spl_input, spl_next_buf) = parser::spl_line(&prompt_in);
                         input = spl_input;
                         next_buf = spl_next_buf;
-                    },
+                    }
                     None => {
                         break;
                     }
@@ -117,24 +116,30 @@ impl Shell {
                     } else {
                         LineState::Comment
                     }
-                },
+                }
                 LineState::Normal | LineState::Continue => {
-                    if !input_buf.is_empty() { input_buf.push('\n'); }
+                    if !input_buf.is_empty() {
+                        input_buf.push('\n');
+                    }
                     input_buf.push_str(&input);
-                    if self.ls == LineState::Normal { ps.reset(); }
+                    if self.ls == LineState::Normal {
+                        ps.reset();
+                    }
 
                     let (t_job, ls) = ps.eval(self, input);
 
                     if ls == LineState::Normal {
-                            if let Some(t_job) = t_job {
-                            if hist { self.ht.hist_add(input_buf.trim()); }
+                        if let Some(t_job) = t_job {
+                            if hist {
+                                self.ht.hist_add(input_buf.trim());
+                            }
                             self.exec(t_job);
                         }
                         input_buf = String::new();
                     }
 
                     ls
-                },
+                }
             };
 
             if let Some(sci) = self.st.pull_sc_inter() {
@@ -156,7 +161,7 @@ impl Shell {
             Err(e) => {
                 err!("Could not fork: {}", e);
                 "".to_string()
-            },
+            }
             Ok(None) => {
                 self.st.subsh = true;
                 re.close();
@@ -167,16 +172,18 @@ impl Shell {
 
                 self.input_loop(in_lines, false);
                 exit(0);
-            },
+            }
             Ok(Some(ch)) => {
                 wr.close();
                 let mut output = String::new();
                 match re.read_to_string(&mut output) {
                     Ok(_len) => {
-                        while output.ends_with('\n') { output.pop(); }
+                        while output.ends_with('\n') {
+                            output.pop();
+                        }
                         output = output.replace('\n', " ");
-                    },
-                    Err(e) => { warn!("Error reading from child: {}", e) }
+                    }
+                    Err(e) => warn!("Error reading from child: {}", e),
                 }
                 if let Err(e) = posix::wait_pid(&ch) {
                     warn!("Could not wait for child: {}", e);
@@ -187,8 +194,7 @@ impl Shell {
         }
     }
 
-    pub fn block_exec(&mut self, sc_type: ScType, bv: Vec<String>)
-            -> (Option<ScInter>, i32) {
+    pub fn block_exec(&mut self, sc_type: ScType, bv: Vec<String>) -> (Option<ScInter>, i32) {
         self.st.new_scope(sc_type);
         let x = self.input_loop(Some(bv), false);
         self.st.del_scope();

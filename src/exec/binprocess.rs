@@ -23,13 +23,11 @@ pub struct BinProcess {
     to_exec: PathBuf,
     argv: Vec<*const i8>,
     m_args: Vec<CString>,
-    inner: ProcessInner
+    inner: ProcessInner,
 }
 
 fn os2c(s: &OsStr) -> CString {
-    CString::new(s.as_bytes()).unwrap_or_else(|_e| {
-        CString::new("<string-with-nul>").unwrap()
-    })
+    CString::new(s.as_bytes()).unwrap_or_else(|_e| CString::new("<string-with-nul>").unwrap())
 }
 
 fn pb2c(pb: PathBuf) -> CString {
@@ -37,9 +35,7 @@ fn pb2c(pb: PathBuf) -> CString {
 }
 
 fn str2c(s: String) -> CString {
-    CString::new(s.as_bytes()).unwrap_or_else(|_e| {
-        CString::new("<string-with-nul>").unwrap()
-    })
+    CString::new(s.as_bytes()).unwrap_or_else(|_e| CString::new("<string-with-nul>").unwrap())
 }
 
 
@@ -50,7 +46,7 @@ impl BinProcess {
             argv: vec![cb.as_ptr(), 0 as *const _],
             to_exec: b,
             m_args: vec![cb],
-            inner: ProcessInner::new()
+            inner: ProcessInner::new(),
         }
     }
 }
@@ -62,7 +58,7 @@ impl Process for BinProcess {
                 // oops. gotta bail.
                 warn!("Could not fork child: {}", e);
                 None
-            },
+            }
             Ok(None) => {
                 if let Err(e) = self.inner.redirect(false) {
                     warn!("Could not redirect: {}", e);
@@ -77,16 +73,16 @@ impl Process for BinProcess {
                     warn!("Could not exec: {}", e);
                 }
                 exit(e.raw_os_error().unwrap_or(22));  // EINVAL
-            },
-            Ok(Some(ch_pid)) => {
-                Some(Child::new(ch_pid))
             }
+            Ok(Some(ch_pid)) => Some(Child::new(ch_pid)),
         }
     }
 
     // A BinProcess always has at least its first argument -- the executable
     // to be run.
-    fn has_args(&self) -> bool { true }
+    fn has_args(&self) -> bool {
+        true
+    }
 
     fn push_arg(&mut self, new_arg: Arg) -> &Process {
         // downconvert args to Strings as we add them
@@ -94,17 +90,15 @@ impl Process for BinProcess {
         match new_arg {
             Arg::Str(s) => {
                 v.push(s);
-            },
+            }
             Arg::Bl(lines) => {
                 for l in lines {
                     v.push(l);
                 }
-            },
-            Arg::Pat(p) => {
-                // TODO: properly process p
-                v.push(p);
-            },
-            Arg::Rd(rd) => { self.inner.rds.push(rd); }
+            }
+            Arg::Rd(rd) => {
+                self.inner.rds.push(rd);
+            }
         }
 
         // TODO: this is not a perfect way to do this
@@ -124,11 +118,9 @@ impl Process for BinProcess {
         self.inner.ch_stdin = Some(read);
         self
     }
-    
+
     fn stdout(&mut self, write: WritePipe) -> &Process {
         self.inner.ch_stdout = Some(write);
         self
     }
 }
-
-

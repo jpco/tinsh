@@ -1,13 +1,13 @@
 pub struct Histvec {
     hist: Vec<String>,
-    hpos: usize
+    hpos: usize,
 }
 
 impl Histvec {
     pub fn new() -> Self {
         Histvec {
             hist: Vec::new(),
-            hpos: 0
+            hpos: 0,
         }
     }
 

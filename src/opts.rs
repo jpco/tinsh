@@ -8,7 +8,7 @@ use std::string;
 #[derive(Clone)]
 struct Opt {
     val: Option<String>,
-    wr_cond: Arc<Fn(Option<&string::String>) -> bool>
+    wr_cond: Arc<Fn(Option<&string::String>) -> bool>,
 }
 
 // EEP! Mutable globals are not pretty!
@@ -17,8 +17,7 @@ struct Opt {
 //
 // TODO: use Mutexes to get better thread-safety on the Opts.
 fn table() -> &'static mut HashMap<&'static str, Opt> {
-    static mut OPT_TABLE: *mut HashMap<&'static str, Opt> = 
-                        0 as *mut HashMap<&'static str, Opt>;
+    static mut OPT_TABLE: *mut HashMap<&'static str, Opt> = 0 as *mut HashMap<&'static str, Opt>;
     static ONCE: Once = ONCE_INIT;
 
     // initialize table
@@ -41,8 +40,7 @@ macro_rules! bool2str {
     });
 }
 
-pub fn init(inter: bool, login: bool, noexec: bool, 
-            tinrc: String) {
+pub fn init(inter: bool, login: bool, noexec: bool, tinrc: String) {
     // fill table
     macro_rules! ro_opt {
         () => (Opt {
@@ -72,19 +70,25 @@ pub fn init(inter: bool, login: bool, noexec: bool,
     t.insert("__tin_login", ro_opt!(bool2str!(login)));
     t.insert("__tin_noexec", ro_opt!(bool2str!(noexec)));
     t.insert("__tinrc", ro_opt!(Some(tinrc)));
-    t.insert("__tin_debug", Opt {
-        val: Some("1".to_string()),
-        wr_cond: Arc::new(|x| {
+    t.insert("__tin_debug",
+             Opt {
+                 val: Some("1".to_string()),
+                 wr_cond: Arc::new(|x| {
             if let Some(x) = x {
                 match x as &str {
                     "debug" | "info" | "warn" | "err" => true,
-                    _ => match x.parse::<u8>() {
-                        Ok(i) => i <= 3,
-                        Err(_) => false
+                    _ => {
+                        match x.parse::<u8>() {
+                            Ok(i) => i <= 3,
+                            Err(_) => false,
+                        }
                     }
                 }
-            } else { false }
-        })}); // oof
+            } else {
+                false
+            }
+        }),
+             }); // oof
 
     // enable if non-interactive
     t.insert("__tin_safemode", rw_opt!(bool2str!(!inter)));
@@ -121,14 +125,14 @@ pub fn is_set(key: &str) -> bool {
 
 pub fn get(key: &str) -> Option<String> {
     match table().get(key) {
-        Some(&Opt {val: ref os, .. }) => os.clone(),
-        None => panic!() // Don't do this.
+        Some(&Opt { val: ref os, .. }) => os.clone(),
+        None => panic!(), // Don't do this.
     }
 }
 
 #[derive(Debug)]
 pub struct OptError {
-    msg: String
+    msg: String,
 }
 
 impl fmt::Display for OptError {
@@ -161,11 +165,9 @@ fn _iset(key: &str, nv: Option<String>) -> Result<(), OptError> {
                 o.val = nv;
                 Ok(())
             } else {
-                Err(OptError {
-                    msg: format!("Could not write value to key '{}'", key)
-                })
+                Err(OptError { msg: format!("Could not write value to key '{}'", key) })
             }
-        },
-        None => panic!()
+        }
+        None => panic!(),
     }
 }

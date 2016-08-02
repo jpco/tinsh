@@ -22,7 +22,7 @@ use std::os::unix::io::AsRawFd;
 
 use std::fs::File;
 
-extern {
+extern "C" {
     fn tcsetpgrp(fd: libc::c_int, prgp: libc::pid_t) -> libc::c_int;
 }
 
@@ -30,7 +30,7 @@ extern {
 #[repr(C)]
 struct Repr<T> {
     data: *const T,
-    len: usize
+    len: usize,
 }
 
 macro_rules! etry {
@@ -78,9 +78,7 @@ impl Status {
 
 impl Pid {
     pub fn current() -> i32 {
-        unsafe {
-            libc::getpid()
-        }
+        unsafe { libc::getpid() }
     }
 
     pub fn to_pgid(&self) -> Pgid {
@@ -103,7 +101,7 @@ impl Read for FileDesc {
         });
         Ok(ret as usize)
     }
-    
+
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
         // this is essentially a copy of read_to_end_uninitialized from std::io
         let start_len = buf.len();
@@ -117,14 +115,21 @@ impl Read for FileDesc {
             unsafe {
                 let buf_slice = mem::transmute(Repr {
                     data: buf.as_mut_ptr().offset(buf.len() as isize),
-                    len: buf.capacity() - buf.len()
+                    len: buf.capacity() - buf.len(),
                 });
 
                 match self.read(buf_slice) {
-                    Ok(0) => { return Ok(buf.len() - start_len); },
-                    Ok(n) => { let len = buf.len() + n; buf.set_len(len); },
-                    Err(ref e) if e.kind() == ErrorKind::Interrupted => { },
-                    Err(e) => { return Err(e); }
+                    Ok(0) => {
+                        return Ok(buf.len() - start_len);
+                    }
+                    Ok(n) => {
+                        let len = buf.len() + n;
+                        buf.set_len(len);
+                    }
+                    Err(ref e) if e.kind() == ErrorKind::Interrupted => {}
+                    Err(e) => {
+                        return Err(e);
+                    }
                 }
             }
         }
@@ -230,7 +235,8 @@ pub fn init() {
         let pgid = libc::getpid();
         if pgid != libc::getpgrp() {
             if libc::setpgid(pgid, pgid) < 0 {
-                err!("Couldn't put shell in its own process group: {}", Error::last_os_error());
+                err!("Couldn't put shell in its own process group: {}",
+                     Error::last_os_error());
             }
         }
     }
@@ -265,8 +271,7 @@ pub fn wait_any() -> Result<(Pid, Option<Status>)> {
 }
 
 /// Waits for any child from the given process group to finish.
-pub fn wait_pgid(_group: &Pgid)
-        -> Result<(Pid, Option<Status>)> {
+pub fn wait_pgid(_group: &Pgid) -> Result<(Pid, Option<Status>)> {
     unimplemented!();
 }
 
@@ -288,7 +293,7 @@ pub fn wait_pid(child: &Pid) -> Result<Option<Status>> {
     }
 }
 
-/// Set stdin to be the current pipe.  
+/// Set stdin to be the current pipe.
 pub fn set_stdin(pipe: ReadPipe) -> Result<()> {
     unsafe {
         let fd = pipe.into_raw();
@@ -339,9 +344,13 @@ pub fn set_signal_ignore(ignore: bool) -> Result<()> {
         }}
     }
 
-    let action = if ignore { libc::SIG_IGN } else { libc::SIG_DFL };
+    let action = if ignore {
+        libc::SIG_IGN
+    } else {
+        libc::SIG_DFL
+    };
     unsafe {
-        stry!(libc::signal(libc::SIGINT,  action));
+        stry!(libc::signal(libc::SIGINT, action));
         stry!(libc::signal(libc::SIGQUIT, action));
         stry!(libc::signal(libc::SIGTSTP, action));
         stry!(libc::signal(libc::SIGTTIN, action));
@@ -381,7 +390,13 @@ pub fn fork(inter: bool, pgid: Option<Pgid>) -> Result<Option<Pid>> {
 /// (Even if both pid and pgid is None, returns a nonzero Pgid value which
 /// can be used to put other processes into the same process group.)
 pub fn put_into_pgrp(pid: Option<Pid>, pgid: Option<Pgid>) -> Result<Pgid> {
-    let pid = unsafe { if let Some(pid) = pid { pid.0 } else { libc::getpid() } };
+    let pid = unsafe {
+        if let Some(pid) = pid {
+            pid.0
+        } else {
+            libc::getpid()
+        }
+    };
     if let Some(pgid) = pgid {
         unsafe {
             etry!(libc::setpgid(pid, pgid.0));

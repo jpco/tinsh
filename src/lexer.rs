@@ -9,7 +9,7 @@ pub enum TokenType {
     Word(String),
     Redir(String),
     Pipe,
-    Block(String)
+    Block(String),
 }
 
 // TODO: lazy_static! these
@@ -28,14 +28,14 @@ fn build_word(tok: String) -> TokenType {
 pub enum TokenException {
     ExtraRightParen,
     ExtraRightBrace,
-    Incomplete(LexerState, String)  // the string is the incomplete token
+    Incomplete(LexerState, String), // the string is the incomplete token
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum Qu {
     None,
     Single,
-    Double
+    Double,
 }
 
 #[derive(Clone, Debug)]
@@ -43,7 +43,7 @@ pub struct LexerState {
     pub pdepth: usize,
     pub bdepth: usize,
     pub quot: Qu,
-    pub bs: bool
+    pub bs: bool,
 }
 
 impl LexerState {
@@ -52,7 +52,7 @@ impl LexerState {
             pdepth: 0,
             bdepth: 0,
             quot: Qu::None,
-            bs: false
+            bs: false,
         }
     }
 }
@@ -60,7 +60,7 @@ impl LexerState {
 pub struct Lexer {
     cmd: String,
     off: usize,
-    lx: LexerState
+    lx: LexerState,
 }
 
 impl Lexer {
@@ -68,7 +68,7 @@ impl Lexer {
         Lexer {
             cmd: line,
             off: 0,
-            lx: LexerState::new()
+            lx: LexerState::new(),
         }
     }
 
@@ -76,7 +76,7 @@ impl Lexer {
         Lexer {
             cmd: line,
             off: 0,
-            lx: lx
+            lx: lx,
         }
     }
 
@@ -105,13 +105,14 @@ impl Iterator for Lexer {
                 continue;
             }
 
-            if c.trim().is_empty() { // whitespace
+            if c.trim().is_empty() {
+                // whitespace
                 if self.off == i {
                     self.off += c.len();
                     continue;
                 } else if self.is_normal() {
                     let res = self.cmd[self.off..i].to_string();
-                    self.off = i+1;
+                    self.off = i + 1;
                     return Some(Ok(build_word(res)));
                 }
             }
@@ -133,39 +134,45 @@ impl Iterator for Lexer {
                 // pipe
                 "|" => {
                     if self.is_normal() {
-                        if self.off < i { // return word before pipe
+                        if self.off < i {
+                            // return word before pipe
                             let res = self.cmd[self.off..i].to_string();
                             self.off = i;
                             return Some(Ok(build_word(res)));
-                        } else {          // return the pipe itself
+                        } else {
+                            // return the pipe itself
                             self.off = i + c.len();
                             return Some(Ok(TokenType::Pipe));
                         }
                     }
-                },
+                }
 
                 // quotes & backslash
                 "\"" => {
                     self.lx.quot = match self.lx.quot {
-                        Qu::None   => Qu::Double,
+                        Qu::None => Qu::Double,
                         Qu::Single => Qu::Single,
-                        Qu::Double => Qu::None
+                        Qu::Double => Qu::None,
                     };
-                },
-                "'"  => {
+                }
+                "'" => {
                     self.lx.quot = match self.lx.quot {
-                        Qu::None   => Qu::Single,
+                        Qu::None => Qu::Single,
                         Qu::Single => Qu::None,
-                        Qu::Double => Qu::Double
+                        Qu::Double => Qu::Double,
                     };
-                },
-                "\\" => { self.lx.bs = true; },
+                }
+                "\\" => {
+                    self.lx.bs = true;
+                }
 
                 // parens
-                "("  => {
-                    if self.lx.quot != Qu::Single { self.lx.pdepth += 1; }
-                },
-                ")"  => {
+                "(" => {
+                    if self.lx.quot != Qu::Single {
+                        self.lx.pdepth += 1;
+                    }
+                }
+                ")" => {
                     if self.lx.quot != Qu::Single {
                         if self.lx.pdepth > 0 {
                             self.lx.pdepth -= 1;
@@ -173,11 +180,11 @@ impl Iterator for Lexer {
                             return Some(Err(TokenException::ExtraRightParen));
                         }
                     }
-                },
+                }
 
                 // blocks
                 // TODO: line blocks
-                "{"  => {
+                "{" => {
                     if self.lx.quot == Qu::None && self.lx.pdepth == 0 {
                         if self.lx.bdepth == 0 && self.off < i {
                             // need to return last word first
@@ -185,13 +192,15 @@ impl Iterator for Lexer {
                             self.off = i;
                             return Some(Ok(build_word(res)));
                         } else {
-                            if self.lx.bdepth == 0 { self.off += 1; }
+                            if self.lx.bdepth == 0 {
+                                self.off += 1;
+                            }
                             self.lx.bdepth += 1;
                             // self.off += 1;
                         }
                     }
-                },
-                "}"  => {
+                }
+                "}" => {
                     if self.lx.quot == Qu::None && self.lx.pdepth == 0 {
                         if self.lx.bdepth > 1 {
                             self.lx.bdepth -= 1;
@@ -204,10 +213,10 @@ impl Iterator for Lexer {
                             return Some(Err(TokenException::ExtraRightBrace));
                         }
                     }
-                },
+                }
 
                 // nothing else matters
-                _    => { }
+                _ => {}
             }
         }
 
@@ -216,8 +225,7 @@ impl Iterator for Lexer {
             Some(Ok(build_word(res)))
         } else {
             // if we've gotten this far...
-            Some(Err(TokenException::Incomplete(self.lx.clone(),
-                                                self.cmd[self.off..].to_string())))
+            Some(Err(TokenException::Incomplete(self.lx.clone(), self.cmd[self.off..].to_string())))
         };
 
         // enforce that we cannot use this lexer again
